@@ -447,3 +447,116 @@
  .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{margin-top:57px}
  .mobility-page .mobility-hero .mobility-choices .mobility-choice-image .mobility-choice-fallback svg{width:52px;height:52px}
 }
+
+
+/* V1.1143 — editorial craft instead of redundant slogans or imaginary imagery.
+   Real service listings, restrained brand palette and honest, high-contrast actions. */
+.mobility-page{max-width:1200px;padding-block:24px 74px}
+.mobility-page .mobility-hero{display:block;min-height:0;margin:0;border-radius:26px;border:1px solid #dce5d9;overflow:hidden;background:#fbfbf6;box-shadow:0 19px 50px rgba(15,44,29,.075)}
+.mobility-page .mobility-hero .mobility-hero-top{display:grid;grid-template-columns:minmax(0,1.13fr) minmax(0,.87fr);min-height:352px;background:#fcfcf8}
+.mobility-page .mobility-hero .mobility-hero-copy{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;padding:clamp(32px,4vw,55px);background:linear-gradient(115deg,#fffefa,#f6f8f0)}
+.mobility-page .mobility-hero .mobility-eyebrow{display:inline-flex;align-items:center;gap:11px;color:#416f54;letter-spacing:.16em;font-size:11px;font-weight:850}
+.mobility-page .mobility-hero .mobility-eyebrow-mark{width:8px;height:8px;background:#1b7b56;box-shadow:0 0 0 4px #e4f0e8}
+.mobility-page .mobility-hero h1{max-width:17ch;margin:22px 0 15px;color:#143b2b;font-weight:840;font-size:clamp(36px,4.25vw,56px);line-height:1.06;letter-spacing:-.054em;text-wrap:balance}
+.mobility-page .mobility-hero h1 em{display:block;color:#24764f;font-family:Georgia,'Times New Roman',serif;font-weight:500;font-size:.96em;font-style:italic;letter-spacing:-.053em;line-height:1.1}
+.mobility-page .mobility-hero p{max-width:53ch;margin:0;color:#4c6656;font-size:clamp(13px,1.2vw,15px);line-height:1.78}
+.mobility-page .mobility-hero .mobility-hero-quicklink{display:inline-flex;align-items:center;gap:16px;margin-top:23px;min-height:43px;padding:0 0 3px;border-bottom:1px solid #2d7051;color:#12543b;font-size:13px;font-weight:850;text-decoration:none}
+.mobility-page .mobility-hero .mobility-hero-quicklink span{font-size:19px;line-height:1;font-weight:500}
+.mobility-page .mobility-hero .mobility-hero-quicklink:hover{color:#08764e;border-color:#08764e}
+.mobility-page .mobility-hero .mobility-hero-quicklink:focus-visible{outline:3px solid #c29e55;outline-offset:4px}
+.mobility-page .mobility-hero .mobility-hero-art{display:flex;align-items:stretch;min-height:352px;height:auto;background:#12372c}
+.mobility-page .mobility-hero .mobility-hero-art:after{display:none}
+.mobility-page .mobility-hero .mobility-editorial-process{display:flex;flex-direction:column;justify-content:center;align-items:stretch;width:100%;min-width:0;padding:clamp(30px,3.6vw,49px);box-sizing:border-box;background:radial-gradient(circle at 90% 8%,rgba(70,139,95,.24),transparent 56%),linear-gradient(144deg,#163f2e,#0a2f25)}
+.mobility-page .mobility-hero .mobility-editorial-process .mobility-graphic-kicker{display:block;color:#dcc78f;font-size:10px;font-weight:900;letter-spacing:.2em}
+.mobility-page .mobility-hero .mobility-editorial-process h2{margin:13px 0 22px;max-width:24ch;color:#fffdf6;font-size:clamp(21px,2vw,28px);letter-spacing:-.035em;font-weight:750;line-height:1.24}
+.mobility-page .mobility-hero .mobility-editorial-steps{display:grid;gap:0;list-style:none;margin:0;padding:0}
+.mobility-page .mobility-hero .mobility-editorial-steps li{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:start;gap:12px;padding:13px 0;border-top:1px solid rgba(221,237,222,.16)}
+.mobility-page .mobility-hero .mobility-editorial-steps li>span{font-size:12px;letter-spacing:.09em;font-weight:800;color:#d6bb7a;padding-top:3px}
+.mobility-page .mobility-hero .mobility-editorial-steps li>div{display:grid;gap:4px}
+.mobility-page .mobility-hero .mobility-editorial-steps strong{color:#fffdf6;font-size:15px;font-weight:780;letter-spacing:-.02em}
+.mobility-page .mobility-hero .mobility-editorial-steps small{font-size:12px;line-height:1.5;color:#c7ded0;font-weight:500}
+.mobility-page .mobility-hero .mobility-editorial-foot{display:inline-flex;align-items:center;gap:10px;margin-top:15px;color:#bfd5c6;font-size:10px;font-weight:900;letter-spacing:.18em}
+.mobility-page .mobility-hero .mobility-editorial-foot i{width:20px;height:1px;background:#bb9c65}
+.mobility-page .mobility-hero .mobility-provider-links.mobility-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:15px;margin:0;border-top:1px solid #dae7dc;background:#edf3ec;scroll-margin-top:90px}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card{position:relative;display:block;overflow:hidden;isolation:isolate;min-height:205px;margin:0;padding:0;background:#fffefa;border:1px solid #d5e1d8;border-radius:18px;box-shadow:0 7px 22px rgba(16,60,38,.044);text-decoration:none!important;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro{background:#f6faf6}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover{transform:translateY(-2px);border-color:#8bb79e;box-shadow:0 18px 39px rgba(16,60,38,.11)}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:focus-visible{outline:3px solid #c6a365;outline-offset:3px}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;box-sizing:border-box;max-width:70%;min-height:205px;padding:28px 0 26px 29px}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-overline{display:block;margin:0 0 13px;color:#63836b;font-size:10px;font-weight:850;letter-spacing:.115em}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-overline span{padding-inline:3px;color:#b09365}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{display:block;max-width:13ch;color:#163e2d;font-size:clamp(23px,2.4vw,31px);line-height:1.13;letter-spacing:-.04em;font-weight:800;text-wrap:balance}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{display:block;margin:11px 0 0;max-width:30ch;color:#597160;font-size:12px;line-height:1.5}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{display:inline-flex;align-items:center;gap:9px;min-height:0;margin:17px 0 0;padding:0 0 4px;border-bottom:1px solid #2a7854;border-radius:0;background:transparent;color:#126440;font-size:12px;font-weight:850;white-space:normal}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-cta span{font-size:16px;font-weight:500;line-height:1.1}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image{display:flex;align-items:center;justify-content:center;position:absolute;z-index:1;inset:0 0 0 auto;width:38%;height:100%;overflow:hidden;color:#265c46;background:#eaf3ec}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-image{color:#436957;background:#e9f0ea}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image .mobility-choice-fallback{position:absolute;display:grid;place-items:center;inset:0;background:radial-gradient(circle at 75% 46%,#d0e6d5,#eaf3ec 65%);color:inherit}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-fallback{background:radial-gradient(circle at 75% 46%,#d6e4d9,#e9f0ea 65%)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image .mobility-choice-fallback svg{display:block;width:clamp(85px,10vw,136px);height:auto;stroke:currentColor}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{content:"";z-index:2;position:absolute;inset:0;background:linear-gradient(90deg,#fffefa 0%,rgba(255,254,250,.63) 23%,transparent 78%);pointer-events:none}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-image:after{background:linear-gradient(90deg,#f6faf6 0%,rgba(246,250,246,.65) 23%,transparent 78%)}
+.mobility-page .mobility-clarity{display:flex;align-items:center;justify-content:space-between;gap:10px 20px;margin:13px 0 19px;padding:15px 18px;border:1px solid #e1e9e1;border-radius:15px;background:#fff}
+.mobility-page .mobility-clarity-title{font-size:12px;letter-spacing:-.01em;font-weight:850;color:#214a34}
+.mobility-page .mobility-clarity ul{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:9px 21px;list-style:none;padding:0;margin:0}
+.mobility-page .mobility-clarity li{display:inline-flex;align-items:center;gap:8px;color:#56715d;font-size:11px;font-weight:700}
+.mobility-page .mobility-clarity li span{display:grid;place-items:center;flex:none;width:17px;height:17px;border-radius:50%;background:#e7f1e8;color:#087446;font-size:11px;font-weight:800}
+.mobility-page .mobility-access-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.mobility-page .mobility-access-panel,.mobility-page .mobility-driver-panel{padding:clamp(25px,3vw,39px);border-radius:22px}
+.mobility-page .mobility-access-panel{background:#fff;box-shadow:0 12px 35px rgba(13,50,28,.04)}
+.mobility-page .mobility-driver-panel{background:linear-gradient(133deg,#123c2b,#0e3227);border:1px solid #1e5138}
+.mobility-page .mobility-driver-links a{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2)}
+.mobility-page .mobility-driver-links a:hover{background:rgba(255,255,255,.17)}
+.mobility-page .mobility-support{text-align:center;margin:19px 0 0}
+.mobility-page .mobility-hero-intent .mobility-hero-top,.mobility-page .mobility-hero-account .mobility-hero-top{min-height:260px}
+.mobility-page .mobility-hero-intent .mobility-hero-art,.mobility-page .mobility-hero-account .mobility-hero-art{min-height:260px}
+@media(max-width:950px){
+ .mobility-page .mobility-hero .mobility-hero-top{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:31px}
+ .mobility-page .mobility-hero h1{font-size:clamp(33px,4.3vw,45px)}
+ .mobility-page .mobility-hero .mobility-editorial-process{padding:27px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{padding-left:23px}
+ .mobility-page .mobility-clarity{flex-direction:column;align-items:flex-start;gap:12px}
+ .mobility-page .mobility-clarity ul{justify-content:flex-start}
+}
+@media(max-width:760px){
+ .mobility-page{padding:14px 11px 70px}
+ .mobility-page .mobility-hero{border-radius:21px}
+ .mobility-page .mobility-hero .mobility-hero-top{display:block;min-height:0}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:30px 27px 26px}
+ .mobility-page .mobility-hero h1{font-size:clamp(34px,6.4vw,44px);margin:17px 0 13px;max-width:17ch}
+ .mobility-page .mobility-hero .mobility-hero-art{display:none}
+ .mobility-page .mobility-hero .mobility-provider-links.mobility-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:10px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{min-height:219px;border-radius:15px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image{inset:0 0 auto 0;width:100%;height:48%}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{background:linear-gradient(0deg,#fffefa,transparent 65%)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-image:after{background:linear-gradient(0deg,#f6faf6,transparent 65%)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image .mobility-choice-fallback svg{width:clamp(96px,17vw,130px)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{justify-content:flex-end;max-width:100%;min-height:219px;padding:17px 17px 16px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-overline{display:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{font-size:clamp(17px,3.25vw,24px);margin-top:88px;max-width:16ch}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{font-size:11px;margin-top:6px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{margin-top:8px;font-size:11px}
+ .mobility-page .mobility-clarity{margin:11px 0 15px}
+ .mobility-page .mobility-access-layout{grid-template-columns:1fr;gap:13px}
+}
+@media(max-width:490px){
+ .mobility-page{padding-inline:9px}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:27px 20px 22px}
+ .mobility-page .mobility-hero h1{font-size:clamp(31px,8.4vw,40px);margin:15px 0 10px;max-width:15ch}
+ .mobility-page .mobility-hero p{font-size:12px;line-height:1.65}
+ .mobility-page .mobility-hero .mobility-hero-quicklink{margin-top:14px;min-height:37px;font-size:12px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{min-height:194px;border-radius:13px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image{height:48%}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image .mobility-choice-fallback svg{width:clamp(79px,23vw,99px)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{min-height:194px;padding:11px 10px 12px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{font-size:clamp(16px,4.5vw,20px);line-height:1.14;margin-top:83px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{display:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{margin-top:8px;font-size:10px}
+ .mobility-page .mobility-clarity{padding:13px 14px}
+ .mobility-page .mobility-clarity li{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{transition:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover{transform:none}
+}
