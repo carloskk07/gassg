@@ -1,0 +1,195 @@
+
+/* REDE TAMÃO — signature editorial experience, isolated from other portals. */
+.earn-signature{--earn-ink:#153a2d;--earn-muted:#526c60;--earn-gold:#f5d39a;--earn-line:#d6e5da;--earn-deep:#082c25;width:min(100%,1190px);margin:0 auto;padding:16px 0 66px;color:var(--earn-ink)}
+.earn-signature,.earn-signature *{box-sizing:border-box}
+.earn-signature button{font:inherit;cursor:pointer}
+.earn-signature button:focus-visible,.earn-signature summary:focus-visible{outline:3px solid #e4a834;outline-offset:4px}
+.earn-signature :is(.earn-process,.earn-value,.earn-clarity){scroll-margin-top:100px}
+.earn-signature .earn-hero{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(335px,.92fr);gap:clamp(24px,4vw,60px);align-items:center;overflow:hidden;min-height:535px;padding:clamp(29px,4.4vw,62px);background:radial-gradient(ellipse at 88% -20%,rgba(72,147,112,.37),transparent 44%),linear-gradient(125deg,#082c25 5%,#0c4433 77%,#10523c);border:1px solid #235b48;border-radius:30px;color:#fff;box-shadow:0 28px 60px rgba(13,64,43,.14)}
+.earn-signature .earn-hero-grid{pointer-events:none;position:absolute;z-index:-1;inset:0;opacity:.23;background-image:linear-gradient(90deg,transparent calc(100% - 1px),#fff3 calc(100% - 1px)),linear-gradient(0deg,transparent calc(100% - 1px),#fff3 calc(100% - 1px));background-size:86px 86px;mask-image:linear-gradient(90deg,transparent 11%,#000 100%)}
+.earn-signature .earn-hero-copy{position:relative;z-index:1;min-width:0}
+.earn-signature .earn-kicker{display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;color:#e9f3ea;font-size:10px;font-weight:850;letter-spacing:.16em;line-height:1.7}
+.earn-signature .earn-kicker-dot{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;background:#e9bc67;box-shadow:0 0 0 5px #edc87c22}
+.earn-signature .earn-kicker-divider{color:#9ccead;margin-inline:2px}
+.earn-signature .earn-hero h1{max-width:12.8ch;margin:27px 0 19px;font-size:clamp(39px,4.65vw,66px);line-height:1.075;letter-spacing:-.063em;font-weight:850;color:#fff;text-wrap:balance}
+.earn-signature .earn-hero h1 em{font-style:normal;color:#f6d59b}
+.earn-signature .earn-hero-lead{max-width:48ch;margin:0;color:#e2f0e8;font-size:clamp(14px,1.46vw,17px);line-height:1.76}
+.earn-signature .earn-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+.earn-signature .earn-action{display:inline-flex;justify-content:center;align-items:center;gap:18px;min-height:53px;border-radius:11px;padding:13px 20px;text-align:center;font-size:13px;font-weight:850;transition:background .2s,border-color .2s,transform .2s}
+.earn-signature .earn-action-primary{background:#f4d299;border:1px solid #f4d299;color:#133b2e;box-shadow:0 9px 22px rgba(0,0,0,.13)}
+.earn-signature .earn-action-primary:hover{background:#ffe5b7;transform:translateY(-2px)}
+.earn-signature .earn-action-secondary{background:#fff1;border:1px solid #c9dfcf66;color:#fff}
+.earn-signature .earn-action-secondary:hover{background:#fff2;border-color:#e6f1e7}
+.earn-signature .earn-action span,.earn-signature .earn-process-action button span,.earn-signature .earn-finale-actions span{font-size:17px}
+.earn-signature .earn-hero-trust{display:flex;flex-wrap:wrap;gap:8px 19px;margin-top:26px;color:#cfebda}
+.earn-signature .earn-hero-trust span{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;line-height:1.55}
+.earn-signature .earn-hero-trust i{display:inline-block;width:6px;height:6px;background:#a3d7bb;border-radius:50%;flex:none}
+.earn-signature .earn-stage{position:relative;z-index:1;min-width:0;padding:24px;border:1px solid #dbe9df;border-radius:23px;background:linear-gradient(155deg,#fffefb,#eff8f0);color:var(--earn-ink);box-shadow:0 26px 48px #001b1459;transform:rotate(1deg)}
+.earn-signature .earn-stage-head{display:flex;align-items:center;justify-content:space-between;gap:13px;padding-bottom:18px;border-bottom:1px solid #dce7de}
+.earn-signature .earn-stage-head>span:first-child{color:#51705e;letter-spacing:.13em;font-size:9px;font-weight:900}
+.earn-signature .earn-stage-mark,.earn-signature .earn-art-core{display:grid;place-items:center;width:33px;height:33px;border-radius:10px;background:#075a3f;color:#fff;font-weight:950;font-size:21px;letter-spacing:-.12em}
+.earn-signature .earn-stage-mark span,.earn-signature .earn-art-core span{color:#f2c26c}
+.earn-signature .earn-stage-label{margin:19px 0 12px;font-size:18px;line-height:1.3;font-weight:850;letter-spacing:-.04em}
+.earn-signature .earn-stage-progress{list-style:none;display:grid;gap:0;padding:0;margin:0}
+.earn-signature .earn-stage-progress li{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr) 20px;align-items:start;gap:11px;min-height:68px}
+.earn-signature .earn-stage-progress li:not(:last-child):before{position:absolute;content:'';left:16px;top:36px;bottom:0;border-left:1px dashed #88bda0}
+.earn-signature .earn-stage-index{position:relative;z-index:1;display:grid;place-items:center;width:34px;height:34px;background:#e4f1e7;border:1px solid #b7d9c0;border-radius:50%;color:#0c6040;font-size:10px;font-weight:900}
+.earn-signature .earn-stage-progress strong{display:block;margin:2px 0 3px;font-size:12px;line-height:1.35}
+.earn-signature .earn-stage-progress small{color:#5b7565;font-size:10px;line-height:1.5}
+.earn-signature .earn-stage-progress b{font-size:13px;color:#0d7650;font-weight:800}
+.earn-signature .earn-stage-example{padding:17px 17px 15px;background:#e5f2e8;border:1px solid #c7dfd1;border-radius:15px}
+.earn-signature .earn-stage-example>span{display:block;font-size:9px;font-weight:900;letter-spacing:.105em;color:#3a7755}
+.earn-signature .earn-stage-math{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px;margin:11px 0 4px}
+.earn-signature .earn-stage-math strong{font-size:clamp(14px,1.4vw,18px);color:#285242;letter-spacing:-.02em}
+.earn-signature .earn-stage-math small{font-size:12px;font-weight:650}
+.earn-signature .earn-stage-math b{font-size:clamp(22px,2.5vw,30px);color:#0b6646;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.earn-signature .earn-stage-example p{margin:5px 0 0;color:#53715c;font-size:10px;line-height:1.5}
+.earn-signature .earn-assurance{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:15px 0 64px;background:#fffefa;border:1px solid #d9e8dc;border-radius:17px;box-shadow:0 12px 30px rgba(9,62,37,.055)}
+.earn-signature .earn-assurance>div{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:18px 19px;min-width:0}
+.earn-signature .earn-assurance>div+div{border-left:1px solid #e0eae2}
+.earn-signature .earn-assurance-number{font-size:10px;font-weight:900;letter-spacing:.08em;color:#2b9061;margin-bottom:4px}
+.earn-signature .earn-assurance strong{font-size:13px;line-height:1.3;color:#1e4833}
+.earn-signature .earn-assurance small{font-size:11px;line-height:1.5;color:#60776a}
+.earn-signature .earn-section{margin:0 0 79px}
+.earn-signature .earn-eyebrow{display:block;font-size:10px;font-weight:900;color:#147450;letter-spacing:.15em;line-height:1.5}
+.earn-signature .earn-section-heading,.earn-signature .earn-value-top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(220px,.75fr);align-items:end;gap:28px;margin-bottom:27px}
+.earn-signature .earn-section-heading h2,.earn-signature .earn-value-top h2,.earn-signature .earn-clarity h2{margin:12px 0 0;color:#123d2c;max-width:24ch;font-size:clamp(31px,3.7vw,47px);font-weight:850;line-height:1.12;letter-spacing:-.055em;text-wrap:balance}
+.earn-signature .earn-section-heading h2 em,.earn-signature .earn-value-top h2 em,.earn-signature .earn-clarity h2 em{font-style:normal;color:#267452}
+.earn-signature .earn-section-heading>p,.earn-signature .earn-value-top>p{max-width:42ch;margin:0 0 4px;font-size:14px;line-height:1.7;color:#60786a}
+.earn-signature .earn-step-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.earn-signature .earn-step-grid article{position:relative;overflow:hidden;min-width:0;min-height:279px;padding:25px 24px 24px;background:#fff;border:1px solid #d7e4db;border-radius:20px;box-shadow:0 7px 22px #0e453110}
+.earn-signature .earn-step-grid article:before{content:'';position:absolute;top:0;left:24px;width:53px;height:3px;border-radius:0 0 4px 4px;background:#27865f}
+.earn-signature .earn-step-num{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#297655;font-size:12px;font-weight:850;letter-spacing:.12em}
+.earn-signature .earn-step-num span{color:#adcbb7;font-size:17px}
+.earn-signature .earn-step-glyph{width:57px;height:57px;margin:22px 0 20px;border:1px solid #d0e5d6;border-radius:16px;background:#edf6ef;color:#14714b}
+.earn-signature .earn-glyph-link{display:flex;align-items:center;justify-content:center;gap:1px;transform:none}
+.earn-signature .earn-glyph-link span{display:block;width:22px;height:13px;border:3px solid #1e8158;border-radius:20px;transform:rotate(-40deg);margin-inline:-5px}
+.earn-signature .earn-glyph-check{display:grid;place-items:center;font-size:29px;font-weight:800}
+.earn-signature .earn-glyph-ledger{display:flex;flex-direction:column;justify-content:center;gap:7px;padding:0 13px}
+.earn-signature .earn-glyph-ledger span{height:3px;background:#2b9264;border-radius:2px}
+.earn-signature .earn-glyph-ledger span:nth-child(2){width:66%}
+.earn-signature .earn-step-grid h3{margin:0 0 11px;font-size:19px;line-height:1.25;color:#1a4734;letter-spacing:-.035em}
+.earn-signature .earn-step-grid p{margin:0;color:#5b7366;font-size:13px;line-height:1.69}
+.earn-signature .earn-process-action{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:19px}
+.earn-signature .earn-process-action>span{font-size:12px;color:#667a6c}
+.earn-signature .earn-process-action button{display:flex;align-items:center;gap:13px;background:none;border:0;color:#0b6a46;font-size:13px;font-weight:850;padding:9px 0}
+.earn-signature .earn-process-action button:hover{text-decoration:underline;text-underline-offset:4px}
+.earn-signature .earn-value-grid{display:grid;grid-template-columns:minmax(0,1.18fr) repeat(2,minmax(0,.91fr));gap:13px}
+.earn-signature .earn-value-grid>article{position:relative;display:flex;flex-direction:column;min-width:0;min-height:358px;border-radius:22px;overflow:hidden}
+.earn-signature .earn-value-feature{background:linear-gradient(145deg,#e6f1e7,#f5f9f2);border:1px solid #bad9c6}
+.earn-signature .earn-value-tag,.earn-signature .earn-value-mini{font-size:10px;letter-spacing:.14em;font-weight:900;color:#227651}
+.earn-signature .earn-value-tag{position:absolute;top:22px;left:23px;z-index:2}
+.earn-signature .earn-value-art{position:relative;display:grid;place-items:center;height:145px;margin:23px 0 0;overflow:hidden}
+.earn-signature .earn-art-ring{position:absolute;width:210px;height:210px;border:1px solid #72aa8a5c;border-radius:50%;box-shadow:0 0 0 32px #b2d7bc26,0 0 0 60px #b2d7bc15}
+.earn-signature .earn-art-core{width:66px;height:66px;border-radius:21px;font-size:38px;box-shadow:0 13px 28px #0a644037}
+.earn-signature .earn-art-orbit{position:absolute;width:25px;height:25px;border:5px solid #fff;border-radius:50%;background:#e5b96a;box-shadow:0 4px 13px #14513922}
+.earn-signature .earn-art-orbit-one{top:16px;left:26%}
+.earn-signature .earn-art-orbit-two{bottom:12px;right:27%;background:#54a57a}
+.earn-signature .earn-value-content{padding:9px 24px 25px;display:flex;flex:1;flex-direction:column}
+.earn-signature .earn-value-content h3,.earn-signature .earn-value-simple h3{font-size:clamp(19px,2.1vw,24px);letter-spacing:-.04em;line-height:1.18;color:#16442f;margin:0 0 11px}
+.earn-signature .earn-value-content p,.earn-signature .earn-value-simple p{margin:0 0 19px;font-size:13px;line-height:1.68;color:#557263}
+.earn-signature .earn-value-content p strong{color:#174832;font-weight:850}
+.earn-signature .earn-value-grid button{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding:14px 0 0;width:100%;border:0;border-top:1px solid #cee0d2;background:transparent;text-align:left;font-size:12px;font-weight:900;color:#146f49}
+.earn-signature .earn-value-grid button span{font-size:17px}
+.earn-signature .earn-value-grid button:hover{color:#0a432d}
+.earn-signature .earn-value-simple{background:#fffdf9;border:1px solid #d9e5dc;padding:26px 22px 24px}
+.earn-signature .earn-value-simple h3{margin-top:63px}
+.earn-signature .earn-value-simple .earn-corner-symbol{position:absolute;top:75px;right:22px;font-size:64px;font-weight:300;line-height:1;color:#dcece1;pointer-events:none}
+.earn-signature .earn-fund-note{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:14px;align-items:center;padding:20px 24px;margin-top:15px;border-radius:17px;border:1px solid #dce9de;background:#f5f8f2}
+.earn-signature .earn-fund-icon{display:grid;place-items:center;width:34px;height:34px;background:#dfefe4;border-radius:10px;color:#15714c;font-size:25px;font-weight:350}
+.earn-signature .earn-fund-note strong{font-size:13px;color:#224b38}
+.earn-signature .earn-fund-note p{font-size:12px;line-height:1.6;color:#61776a;margin:4px 0 0}
+.earn-signature .earn-fund-note button{display:flex;gap:8px;align-items:center;min-height:40px;padding:9px 12px;border:1px solid #a9cfb8;border-radius:11px;background:#fff;color:#126b47;font-size:12px;font-weight:850;white-space:nowrap}
+.earn-signature .earn-fund-note button:hover{background:#e9f4eb}
+.earn-signature .earn-clarity{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(30px,5vw,77px);align-items:start}
+.earn-signature .earn-clarity-intro{position:sticky;top:110px}
+.earn-signature .earn-clarity-intro>p{max-width:37ch;color:#607568;font-size:14px;line-height:1.78;margin:20px 0}
+.earn-signature .earn-outline{padding:13px 18px;border:1px solid #abcdb7;border-radius:11px;background:#f1f8f2;color:#126b47;font-size:13px;font-weight:850}
+.earn-signature .earn-outline:hover{background:#e7f2e9}
+.earn-signature .earn-faq{border-top:1px solid #cbded1}
+.earn-signature .earn-faq details{border-bottom:1px solid #d6e4da}
+.earn-signature .earn-faq summary{list-style:none;display:flex;align-items:center;gap:13px;padding:21px 0;cursor:pointer;color:#224a36;font-size:14px;line-height:1.4;font-weight:800}
+.earn-signature .earn-faq summary::-webkit-details-marker{display:none}
+.earn-signature .earn-faq summary span{font-size:10px;color:#43916c;letter-spacing:.08em;font-weight:900;flex:none}
+.earn-signature .earn-faq summary b{margin-left:auto;font-size:20px;color:#1e7653;transition:transform .2s;font-weight:400}
+.earn-signature .earn-faq details[open] summary b{transform:rotate(45deg)}
+.earn-signature .earn-faq details p{margin:0 14px 23px 33px;color:#5b7465;font-size:13px;line-height:1.8}
+.earn-signature .earn-finale{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(245px,.7fr);align-items:center;gap:25px;padding:clamp(25px,4vw,50px);background:radial-gradient(ellipse at 91% 10%,#1e76534a,transparent 47%),linear-gradient(130deg,#0b3027,#104c36);border:1px solid #28644a;border-radius:24px;color:#fff}
+.earn-signature .earn-finale h2{font-size:clamp(29px,3.6vw,44px);letter-spacing:-.055em;line-height:1.12;margin:17px 0 13px;color:#fff}
+.earn-signature .earn-finale h2 em{font-style:normal;color:#f5d49d}
+.earn-signature .earn-finale p{font-size:13px;line-height:1.75;color:#d6ecdf;max-width:54ch;margin:0}
+.earn-signature .earn-finale-actions{display:grid;gap:10px}
+.earn-signature .earn-finale-actions button{display:flex;align-items:center;justify-content:center;gap:16px;min-height:52px;border-radius:11px;border:1px solid #f1d095;background:#f1d095;color:#173c2b;font-size:13px;font-weight:850;padding:12px 16px}
+.earn-signature .earn-finale-actions button:hover{background:#ffe1a7}
+.earn-signature .earn-finale-actions button+button{border-color:#b8d8c777;background:#fff1;color:#fff}
+.earn-signature .earn-finale-actions button+button:hover{background:#fff2}
+@media(max-width:990px){
+ .earn-signature .earn-hero{grid-template-columns:minmax(0,1fr) minmax(290px,.9fr);gap:21px;padding:30px}
+ .earn-signature .earn-hero h1{font-size:clamp(33px,4.4vw,50px)}
+ .earn-signature .earn-stage{padding:19px;transform:none}
+ .earn-signature .earn-assurance{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .earn-signature .earn-assurance>div:nth-child(3){border-left:0;border-top:1px solid #e0eae2}
+ .earn-signature .earn-assurance>div:nth-child(4){border-top:1px solid #e0eae2}
+ .earn-signature .earn-value-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .earn-signature .earn-value-feature{grid-row:span 2}
+ .earn-signature .earn-value-simple{min-height:230px}
+ .earn-signature .earn-value-simple h3{margin-top:39px}
+}
+@media(max-width:740px){
+ .earn-signature{padding:8px 0 42px}
+ .earn-signature .earn-hero{display:flex;flex-direction:column;align-items:stretch;min-height:0;gap:25px;padding:28px 23px;border-radius:23px}
+ .earn-signature .earn-hero h1{max-width:16ch;font-size:clamp(37px,8vw,54px);margin:19px 0 15px}
+ .earn-signature .earn-hero-lead{max-width:60ch}
+ .earn-signature .earn-hero-trust{margin-top:20px}
+ .earn-signature .earn-stage{width:100%;max-width:590px;align-self:center}
+ .earn-signature .earn-assurance{margin-bottom:48px}
+ .earn-signature .earn-section{margin-bottom:52px}
+ .earn-signature .earn-section-heading,.earn-signature .earn-value-top{grid-template-columns:minmax(0,1fr);gap:13px}
+ .earn-signature .earn-section-heading>p,.earn-signature .earn-value-top>p{max-width:64ch}
+ .earn-signature .earn-step-grid{grid-template-columns:minmax(0,1fr)}
+ .earn-signature .earn-step-grid article{min-height:0;padding:20px;display:grid;grid-template-columns:64px minmax(0,1fr);gap:0 13px}
+ .earn-signature .earn-step-num{grid-column:1/-1;margin-bottom:13px}
+ .earn-signature .earn-step-glyph{grid-row:span 2;margin:0;width:52px;height:52px}
+ .earn-signature .earn-step-grid h3{margin:1px 0 7px}
+ .earn-signature .earn-step-grid p{grid-column:2}
+ .earn-signature .earn-clarity{grid-template-columns:minmax(0,1fr);gap:27px}
+ .earn-signature .earn-clarity-intro{position:static}
+ .earn-signature .earn-finale{grid-template-columns:minmax(0,1fr)}
+ .earn-signature .earn-finale-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:540px){
+ .earn-signature .earn-hero{padding:23px 17px;gap:22px}
+ .earn-signature .earn-kicker{font-size:9px;gap:7px}
+ .earn-signature .earn-hero h1{font-size:clamp(34px,9.1vw,43px);letter-spacing:-.055em}
+ .earn-signature .earn-hero-lead{font-size:13px;line-height:1.75}
+ .earn-signature .earn-hero-actions{display:grid;margin-top:23px;grid-template-columns:minmax(0,1fr)}
+ .earn-signature .earn-action{width:100%;justify-content:space-between;min-height:51px}
+ .earn-signature .earn-stage{padding:15px;border-radius:17px}
+ .earn-signature .earn-stage-progress li{gap:9px}
+ .earn-signature .earn-assurance>div{padding:15px 12px}
+ .earn-signature .earn-assurance strong{font-size:12px}
+ .earn-signature .earn-assurance small{font-size:10px}
+ .earn-signature .earn-section-heading h2,.earn-signature .earn-value-top h2,.earn-signature .earn-clarity h2{font-size:clamp(29px,7.9vw,38px)}
+ .earn-signature .earn-value-grid{grid-template-columns:minmax(0,1fr)}
+ .earn-signature .earn-value-feature{grid-row:auto}
+ .earn-signature .earn-value-grid>article{min-height:0}
+ .earn-signature .earn-value-simple{padding:22px;min-height:225px}
+ .earn-signature .earn-fund-note{grid-template-columns:35px minmax(0,1fr);padding:17px;align-items:start}
+ .earn-signature .earn-fund-note button{grid-column:1/-1;justify-content:center;width:100%}
+ .earn-signature .earn-process-action{justify-content:flex-start;flex-wrap:wrap}
+ .earn-signature .earn-faq summary{font-size:13px;padding:18px 0}
+ .earn-signature .earn-faq details p{margin-left:22px}
+ .earn-signature .earn-finale{padding:26px 20px}
+ .earn-signature .earn-finale-actions{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:350px){
+ .earn-signature .earn-hero h1{font-size:33px}
+ .earn-signature .earn-assurance{grid-template-columns:minmax(0,1fr)}
+ .earn-signature .earn-assurance>div{border-left:0!important;border-top:1px solid #e0eae2}
+ .earn-signature .earn-assurance>div:first-child{border-top:0}
+ .earn-signature .earn-stage-math b{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){
+ .earn-signature .earn-action,.earn-signature .earn-faq summary b{transition:none}
+ .earn-signature .earn-action-primary:hover{transform:none}
+}

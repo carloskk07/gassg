@@ -93,6 +93,8 @@ jobs:
         run: node tests/cloudflare-native-participant-routes-v1-1073.mjs
       - name: V1.1074 Cloudflare Pages Functions exact dynamic routes and static asset bypass
         run: node tests/cloudflare-pages-functions-v1-1074.mjs
+      - name: V1.1145 trust-first Rede TAMÃO landing, accurate commission policies and routes
+        run: node tests/earn-premium-trust-v1-1145.mjs
       - name: V1.1041 verified cross-module benefit accounting and RLS contract
         run: node tests/network-cross-module-benefits-v1-1041.mjs
       - name: V1.1044 direct 5-percent NET rewards with owner-only policy, separate from shared pool
@@ -1395,7 +1397,16 @@ jobs:
           if grep -Fq 'class="learn-hero"' /tmp/learn.html; then
             grep -Fq 'learn-step-grid' /tmp/learn.html
           fi
-          grep -Fq 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.' /tmp/earn.html
+          # Rede premium loads progressively; old shell and premium landing both
+          # support real invitation access. Detailed mobile/desktop experience is
+          # checked in earn-premium-browser-v1-1145.mjs.
+          if grep -Fq 'tamao-earn-page earn-signature' /tmp/earn.html; then
+            grep -Fq 'Indique pessoas.' /tmp/earn.html
+            grep -Fq 'Acessar minha Rede' /tmp/earn.html
+            grep -Fq 'earn-action-primary' /tmp/earn.html
+          else
+            grep -Fq 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.' /tmp/earn.html
+          fi
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html

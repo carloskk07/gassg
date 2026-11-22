@@ -264,14 +264,17 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Compartilhe o TAMÃO. Veja sua Rede ganhar vida.')","earn route");
+await waitFor("document.querySelector('.earn-signature') && document.body.innerText.includes('Indique pessoas.')","earn premium route");
 body=await text();
-assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
-assert.match(await evaluate("document.querySelector('details.tamao-network-clarity')?.textContent||''"),/Um compartilhamento ou cadastro isolado não gera pagamento/,
- 'Condições financeiras continuam disponíveis na explicação da Rede');
-assert.match(body,/Sua empresa pode vender por mais um canal/);
-assert.match(body,/2%/);
-assert.match(body,/Taxa TAMÃO: 9% por pedido concluído/);
+assert.match(body,/Seu link\. Sua indicação\./);
+assert.match(await evaluate("document.querySelector('.earn-faq')?.textContent||''"),/Apenas cadastrar alguém gera comissão/,
+ 'Condições financeiras e qualificação devem permanecer acessíveis na Rede');
+assert.match(body,/Sua empresa em uma Rede local/);
+assert.match(body,/primeira compra qualificada/);
+assert.match(body,/não gera comissão/i);
+assert.equal(await evaluate("document.querySelectorAll('.earn-step-grid article').length"),3);
+assert.equal(await evaluate("document.querySelectorAll('.earn-faq details').length"),5);
+assert.equal(await evaluate("document.querySelector('.earn-action-primary')?.getAttribute('onclick')"),"go('refer')");
 await auditDom('earn');
 
 await evaluate("go('merchants')");
