@@ -666,3 +666,12 @@
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover,
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover .mobility-choice-cta{transform:none}
 }
+
+
+/* V1.1144 visual QA: explicitly reset legacy 17px status-chip dimensions.
+   Prevent copy truncation / overlap in the three trust steps at every breakpoint. */
+.mobility-page .mobility-clarity-title{min-width:0;white-space:normal;overflow-wrap:normal;text-wrap:balance}
+.mobility-page .mobility-clarity li{min-width:0;max-width:100%;align-items:flex-start}
+.mobility-page .mobility-clarity li>span:last-child{display:flex;flex:1 1 auto;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:6px;min-width:0;width:auto;height:auto;max-height:none;border:0;border-radius:0;background:none;white-space:normal;text-align:left;place-items:initial}
+.mobility-page .mobility-clarity li strong,.mobility-page .mobility-clarity li small{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word}
+@media(max-width:490px){.mobility-page .mobility-clarity li>span:last-child{gap:3px}}
