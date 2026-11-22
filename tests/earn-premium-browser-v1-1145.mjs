@@ -35,7 +35,7 @@ const send=(method,params={})=>new Promise((resolve,reject)=>{
  pending.set(id,{resolve,reject,timeout});
  ws.send(JSON.stringify({id,method,params}));
 });
-const inspect='JSON.stringify((()=>{const host=document.querySelector(".earn-signature");const hero=document.querySelector(".earn-hero");const action=document.querySelector(".earn-action-primary");const title=document.querySelector("#earn-signature-title");const rect=action?.getBoundingClientRect();const heading=title?.getBoundingClientRect();return {ready:!!host,style:!!document.querySelector("link[data-tamao-earn-premium]")?.sheet,href:location.hash,width:innerWidth,documentWidth:document.documentElement.scrollWidth,heroBackground:getComputedStyle(hero||document.body).backgroundImage,heading:title?.innerText||"",headingLeft:heading?.left||0,headingRight:heading?.right||0,ctaText:action?.innerText||"",ctaTop:Math.round(rect?.top||0),ctaBottom:Math.round(rect?.bottom||0),ctaLeft:Math.round(rect?.left||0),ctaRight:Math.round(rect?.right||0),steps:document.querySelectorAll(".earn-step-grid article").length,proof:document.querySelectorAll(".earn-assurance>div").length,faqs:document.querySelectorAll(".earn-faq details").length,example:document.querySelector(".earn-try")?.innerText||"",error:window.__lastRenderError||null};})())';
+const inspect='JSON.stringify((()=>{const host=document.querySelector(".earn-signature");const hero=document.querySelector(".earn-hero");const action=document.querySelector(".earn-action-primary");const title=document.querySelector("#earn-signature-title");const rect=action?.getBoundingClientRect();const heading=title?.getBoundingClientRect();return {ready:!!host,style:!!document.querySelector("link[data-tamao-earn-premium]")?.sheet,href:location.hash,width:innerWidth,documentWidth:document.documentElement.scrollWidth,heroBackground:getComputedStyle(hero||document.body).backgroundImage,heading:title?.innerText||"",headingLeft:heading?.left||0,headingRight:heading?.right||0,ctaText:action?.innerText||"",ctaTop:Math.round(rect?.top||0),ctaBottom:Math.round(rect?.bottom||0),ctaLeft:Math.round(rect?.left||0),ctaRight:Math.round(rect?.right||0),steps:document.querySelectorAll(".earn-step-grid article").length,proof:document.querySelectorAll(".earn-assurance>div").length,faqs:document.querySelectorAll(".earn-faq details").length,example:document.querySelector(".earn-try")?.innerText||"",editorialScene:!!document.querySelector(".earn-hero .earn-editorial-scene .earn-scene-art"),financialSeparate:!!document.querySelector(".earn-economics .earn-try")&&!document.querySelector(".earn-hero .earn-try"),error:window.__lastRenderError||null};})())';
 const results=[];
 try{
  await send('Page.enable');await send('Runtime.enable');
@@ -56,7 +56,8 @@ try{
   assert.ok(item.ctaLeft>=-1&&item.ctaRight<=size+2,'Primary CTA clipped at '+size);
   assert.ok(item.ctaTop>=0&&item.ctaBottom<=900,'Primary CTA outside first screen at '+size);
   assert.equal(item.steps,3);assert.equal(item.proof,4);assert.equal(item.faqs,6);
-  assert.match(item.heading,/Indique pessoas/i);
+  assert.ok(item.editorialScene&&item.financialSeparate,'Editorial hero must not impersonate a financial balance panel at '+size);
+  assert.match(item.heading,/Indique com confiança/i);
   assert.match(item.ctaText,/Acessar minha Rede/i);
   assert.match(item.heroBackground,/gradient/i);
   assert.match(item.example,/primeiras compras elegíveis|FAÇA AS CONTAS/i);

@@ -10,7 +10,7 @@ vm.runInContext(pageJs+'\nthis.page=earnPremiumPage;',ctx);
 const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 2,40'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
-for(const label of ['Acessar minha Rede','Código individual','Resultados verificáveis','Extrato por origem',
+for(const label of ['Acessar minha Rede','Convite identificado','Resultados verificáveis','Extrato por origem',
  'primeira compra elegível','Não representa saldo','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
@@ -19,9 +19,13 @@ assert.match(page,/R\$ 2,40/);
 assert.equal((page.match(/<details>/g)||[]).length,6);
 assert.equal((page.match(/data-earn-scenario="/g)||[]).length,3);
 assert.match(page,/Quanto representam primeiras compras elegíveis/);
-assert.match(page,/Uma página para chamar de sua/);
-assert.match(page,/Sete frentes com registros próprios/);
+assert.match(page,/SEU ESPAÇO NA REDE TAMÃO/);
+assert.match(page,/Uma indicação sua/);
+assert.match(page,/Sete frentes com registros de conquistas/);
 assert.match(page,/Não representa saldo ou renda garantida/);
+assert.match(page,/Indique com confiança/);
+assert.match(page,/CONEXÕES QUE FAZEM SENTIDO/);
+assert.match(page,/data-earn-scenario-total/);
 assert.match(pageJs,/function earnPremiumScenarioChoose\(quantity\)/);
 assert.match(pageJs,/BRL\.format\(referralExample\(120,n\)\)/);
 assert.doesNotMatch(page,/R\$ 24,00 de ganhos garantidos/i);

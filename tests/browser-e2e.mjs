@@ -264,7 +264,7 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.querySelector('.earn-signature') && document.body.innerText.includes('Indique pessoas.')","earn premium route");
+await waitFor("document.querySelector('.earn-signature') && document.body.innerText.includes('Indique com confiança.')","earn premium route");
 body=await text();
 assert.match(body,/Seu link\. Sua indicação\./);
 assert.match(await evaluate("document.querySelector('.earn-faq')?.textContent||''"),/Apenas cadastrar alguém gera comissão/,
