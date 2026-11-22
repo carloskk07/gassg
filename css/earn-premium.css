@@ -193,3 +193,87 @@
  .earn-signature .earn-action,.earn-signature .earn-faq summary b{transition:none}
  .earn-signature .earn-action-primary:hover{transform:none}
 }
+
+
+/* V1.1146 — distinctive participant preview, transparent interactive example and seven modes. */
+.earn-signature .earn-hero{background:radial-gradient(circle at 86% 1%,#23755355 0,transparent 36%),linear-gradient(125deg,#062a23 2%,#0a4532 80%,#114f3b);border-color:#245c49}
+.earn-signature .earn-hero:after{content:"";position:absolute;z-index:-1;right:-155px;bottom:-265px;width:620px;height:620px;border:1px solid #d9efdc1b;border-radius:50%;box-shadow:0 0 0 84px #d9efdc08,0 0 0 166px #d9efdc07;pointer-events:none}
+.earn-signature .earn-hero-copy:before{content:"";display:block;width:49px;height:3px;margin-bottom:27px;background:#f5d398;border-radius:3px}
+.earn-signature .earn-hero h1{font-size:clamp(37px,4.25vw,62px);line-height:1.075;letter-spacing:-.061em}
+.earn-signature .earn-hero-lead strong{color:#fff;font-weight:800}
+.earn-signature .earn-v1146-preview{padding:13px;overflow:hidden;background:linear-gradient(165deg,#fdfefb,#eef5ed);border:1px solid #dbe6d8;border-radius:24px;box-shadow:0 28px 68px #001b144d;transform:rotate(-.6deg)}
+.earn-signature .earn-v1146-preview .earn-stage-head{padding:10px 12px 15px;border-color:#e0e8dd}
+.earn-signature .earn-profile{position:relative;overflow:hidden;margin-top:12px;padding:21px 20px 16px;border:1px solid #1e644c;border-radius:17px;background:radial-gradient(circle at 92% 9%,#3989615c 0,transparent 33%),linear-gradient(140deg,#103d2f,#086243);color:#fff}
+.earn-signature .earn-profile:after{content:"";position:absolute;right:-52px;bottom:-140px;width:250px;height:250px;border:1px solid #ffdc9740;border-radius:50%;box-shadow:0 0 0 30px #ffdc9710,0 0 0 65px #ffdc9708;pointer-events:none}
+.earn-signature .earn-profile-eyebrow{display:flex;align-items:center;gap:8px;color:#cde7d3;font-size:9px;font-weight:900;letter-spacing:.145em}
+.earn-signature .earn-profile-online{display:block;width:6px;height:6px;border-radius:50%;background:#f5ce86;box-shadow:0 0 0 4px #f5ce8620}
+.earn-signature .earn-profile-header{display:grid;grid-template-columns:49px minmax(0,1fr);align-items:center;gap:13px;margin-top:25px}
+.earn-signature .earn-profile-avatar{position:relative;display:grid;place-items:center;width:49px;height:49px;flex:none;border:1px solid #eac68987;border-radius:15px;background:linear-gradient(145deg,#f9e6b7,#e6b96c);box-shadow:0 7px 17px #0003;color:#194d38;font-size:28px;font-weight:950;letter-spacing:-.08em}
+.earn-signature .earn-profile-avatar:after{content:"";position:absolute;right:7px;top:10px;width:6px;height:6px;background:#15744e;border-radius:50%}
+.earn-signature .earn-profile-header strong{display:block;font-size:16px;letter-spacing:-.035em;line-height:1.2;color:#fff}
+.earn-signature .earn-profile-header small{display:block;margin-top:5px;color:#d8ebdf;font-size:11px;line-height:1.5}
+.earn-signature .earn-profile-features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:24px}
+.earn-signature .earn-profile-features span{display:grid;justify-items:center;align-content:center;gap:6px;min-height:65px;padding:9px 4px;border:1px solid #c1e4cc3b;border-radius:12px;background:#fff1;color:#e9f9eb;text-align:center;font-size:10px;font-weight:750;line-height:1.3}
+.earn-signature .earn-profile-features b{display:grid;place-items:center;width:23px;height:23px;border-radius:8px;background:#f2d18d;color:#13573b;font-size:17px;line-height:1;font-weight:800}
+.earn-signature .earn-profile-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:17px;padding-top:12px;border-top:1px solid #daefe13d;color:#d7f1df}
+.earn-signature .earn-profile-footer span{font-size:9px;letter-spacing:.09em;font-weight:800}
+.earn-signature .earn-profile-footer strong{font-size:18px;color:#e8cf95}
+.earn-signature .earn-try{padding:19px 11px 8px}
+.earn-signature .earn-try-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}
+.earn-signature .earn-try-heading>div>span{display:block;color:#257452;font-size:9px;font-weight:900;letter-spacing:.15em;margin-bottom:7px}
+.earn-signature .earn-try-heading strong{display:block;max-width:27ch;font-size:17px;line-height:1.23;letter-spacing:-.038em;color:#1d5038}
+.earn-signature .earn-try-star{color:#c5a15d;font-size:22px}
+.earn-signature .earn-try-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:4px;margin-top:15px;background:#e5efe6;border:1px solid #d5e3d7;border-radius:12px}
+.earn-signature .earn-try-switch button{min-width:0;min-height:38px;padding:8px 4px;border:1px solid transparent;border-radius:8px;background:transparent;color:#47735b;font-size:11px;font-weight:850;line-height:1.35;transition:background .15s,color .15s,box-shadow .15s}
+.earn-signature .earn-try-switch button:hover{background:#d4e7d9;color:#1b6242}
+.earn-signature .earn-try-switch button[aria-pressed="true"]{background:#fff;color:#0e6848;border-color:#c5dccb;box-shadow:0 2px 8px #22563813}
+.earn-signature .earn-try-result{display:flex;justify-content:space-between;align-items:end;gap:11px;padding:15px 0 10px;border-bottom:1px solid #d3e0d6}
+.earn-signature .earn-try-result span{display:block;color:#285d42;font-size:11px;font-weight:850}
+.earn-signature .earn-try-result small{display:block;color:#627c69;font-size:10px;line-height:1.5;margin-top:4px}
+.earn-signature .earn-try-result>strong{color:#096a48;font-size:clamp(25px,3.1vw,35px);letter-spacing:-.06em;line-height:1.1;white-space:nowrap;font-weight:900;font-variant-numeric:tabular-nums}
+.earn-signature .earn-try>p{font-size:10px;line-height:1.58;margin:10px 0 0;color:#617869}
+.earn-signature .earn-verticals{margin-top:27px;padding:clamp(20px,3vw,33px);border:1px solid #d5e3d9;border-radius:22px;background:linear-gradient(140deg,#f5f9f4,#fffef9 80%)}
+.earn-signature .earn-verticals-heading{display:flex;align-items:end;justify-content:space-between;gap:23px}
+.earn-signature .earn-verticals-heading h3{max-width:26ch;margin:10px 0 0;font-size:clamp(21px,2.7vw,30px);line-height:1.18;letter-spacing:-.045em;color:#194b35}
+.earn-signature .earn-verticals-heading p{max-width:35ch;color:#61776b;font-size:12px;line-height:1.65;margin:0}
+.earn-signature .earn-verticals-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.earn-signature .earn-verticals-list>span{display:flex;align-items:center;gap:10px;min-height:39px;padding:7px 12px 7px 8px;background:#fff;border:1px solid #cfdfd3;border-radius:100px;font-size:12px;font-weight:800;color:#305c43;box-shadow:0 3px 7px #0b513808}
+.earn-signature .earn-verticals-list i{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e9f4ea;color:#188256;font-style:normal;font-size:9px;letter-spacing:.02em;font-weight:900}
+@media(max-width:990px){
+ .earn-signature .earn-v1146-preview{transform:none}
+ .earn-signature .earn-profile{padding:17px 14px 14px}
+ .earn-signature .earn-try{padding:17px 7px 6px}
+ .earn-signature .earn-profile-header{gap:9px}
+ .earn-signature .earn-profile-header strong{font-size:15px}
+ .earn-signature .earn-try-result{align-items:start;flex-direction:column}
+}
+@media(max-width:740px){
+ .earn-signature .earn-hero-copy:before{margin-bottom:19px}
+ .earn-signature .earn-profile-header{margin-top:19px}
+ .earn-signature .earn-try-result{align-items:end;flex-direction:row}
+ .earn-signature .earn-verticals-heading{flex-direction:column;align-items:flex-start;gap:10px}
+ .earn-signature .earn-verticals-heading p{max-width:60ch}
+}
+@media(max-width:540px){
+ .earn-signature .earn-hero h1{font-size:clamp(33px,8.7vw,43px)}
+ .earn-signature .earn-v1146-preview{padding:10px;border-radius:18px}
+ .earn-signature .earn-v1146-preview .earn-stage-head{padding:7px 7px 12px}
+ .earn-signature .earn-profile{padding:16px 13px 13px}
+ .earn-signature .earn-profile-features{gap:5px;margin-top:19px}
+ .earn-signature .earn-profile-features span{font-size:9px}
+ .earn-signature .earn-try-heading strong{font-size:15px}
+ .earn-signature .earn-try-result>strong{font-size:28px}
+ .earn-signature .earn-verticals{padding:19px 15px;border-radius:17px}
+ .earn-signature .earn-verticals-list{gap:7px}
+ .earn-signature .earn-verticals-list>span{font-size:11px;min-height:36px;padding:5px 10px 5px 6px;gap:7px}
+ .earn-signature .earn-verticals-list i{width:23px;height:23px}
+}
+@media(max-width:365px){
+ .earn-signature .earn-profile-header{grid-template-columns:40px minmax(0,1fr)}
+ .earn-signature .earn-profile-avatar{width:40px;height:40px;font-size:22px}
+ .earn-signature .earn-profile-header strong{font-size:14px}
+ .earn-signature .earn-profile-header small{font-size:10px}
+ .earn-signature .earn-try-result{align-items:flex-start;flex-direction:column}
+ .earn-signature .earn-try-result>strong{font-size:27px}
+}
+@media(prefers-reduced-motion:reduce){.earn-signature .earn-try-switch button{transition:none}}
