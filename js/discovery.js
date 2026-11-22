@@ -830,7 +830,6 @@ function discoveryPage(){
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
     (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
     '</header>')+
-    (kind==='professionals'?discoveryProfessionalsCategories(s.service,s.occupation):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
@@ -859,6 +858,7 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
+    (kind==='professionals'?discoveryProfessionalsCategories(s.service,s.occupation):'')+
     (kind==='professionals'?discoveryProfessionalsAfterSearch():'')+
     (eligible.length||savedIds.length?'<div class="discovery-tools" aria-label="Ferramentas para anúncios publicados">'+
     '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar resultados</label>'+
