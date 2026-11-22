@@ -29,7 +29,7 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
           <summary><span>Personalizar valor da primeira compra</span><span class="earn-simulator-settings-toggle" aria-hidden="true">+</span></summary>
           <div class="earn-simulator-settings-body">
             <label for="earn-ticket-value">Valor de cada primeira compra elegível (R$)</label>
-            <input id="earn-ticket-value" data-earn-ticket type="number" min="1" max="10000" step="1" inputmode="decimal" value="120" oninput="earnPremiumUpdateEstimate()" aria-describedby="earn-ticket-note">
+            <input id="earn-ticket-value" data-earn-ticket type="number" min="1" max="10000" step="0.01" inputmode="decimal" value="120" oninput="earnPremiumUpdateEstimate()" aria-describedby="earn-ticket-note">
             <div class="earn-simulator-presets" role="group" aria-label="Valores de compra de exemplo">
               <button type="button" data-earn-ticket-preset="80" aria-pressed="false" onclick="earnPremiumTicketPreset(80)">R$ 80</button>
               <button type="button" data-earn-ticket-preset="120" aria-pressed="true" onclick="earnPremiumTicketPreset(120)">R$ 120</button>
@@ -107,13 +107,18 @@ function earnPremiumUpdateEstimate(){
  const n=[1,5,10].includes(Number(selected?.getAttribute('data-earn-scenario')))
    ?Number(selected.getAttribute('data-earn-scenario')):5;
  const field=host.querySelector('[data-earn-ticket]');
- const raw=Number(String(field?.value||'').replace(',','.'));
- const ticket=Number.isFinite(raw)&&raw>=1?Math.min(10000,raw):120;
+ const typed=String(field?.value??'').trim().replace(',','.');
+ const raw=Number(typed);
+ const valid=typed!==''&&Number.isFinite(raw)&&raw>=1&&raw<=10000;
+ const ticket=valid?raw:0;
+ if(field)field.setAttribute('aria-invalid',String(!valid));
  const total=host.querySelector('[data-earn-scenario-total]');
  const detail=host.querySelector('[data-earn-scenario-description]');
- if(total)total.textContent=BRL.format(referralExample(ticket,n));
- if(detail)detail.textContent=n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+
-  ' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate());
+ if(total)total.textContent=valid?BRL.format(referralExample(ticket,n)):'—';
+ if(detail)detail.textContent=valid
+  ?n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+
+    ' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate())
+  :'Informe um valor de R$ 1 a R$ 10.000 para simular.';
  host.querySelectorAll('[data-earn-ticket-preset]').forEach(btn=>{
    btn.setAttribute('aria-pressed',String(Number(btn.getAttribute('data-earn-ticket-preset'))===ticket));
  });
