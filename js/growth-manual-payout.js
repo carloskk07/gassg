@@ -124,7 +124,7 @@ function tamaoNetworkManualPayoutDetailsPanel(){
          '<br><small>O prazo de pagamento ainda não começou.</small>')+'</p>':'')+
       (!d.minimumConfigured?'<p class="notice">O valor mínimo ainda será definido pela administração. Nenhum saque pode ser solicitado antes disso.</p>':'')+
       (d.minimumConfigured&&!d.accrualEnabled?
-        '<p class="notice">O programa ainda não está habilitado para solicitações.</p>':'')+
+        '<p class="notice">A apuração de receitas pode estar ativa, mas a retirada exige termos aprovados para cada modalidade, saldo maduro e verificação de identidade.</p>':'')+
       (d.canRequest===true?
         '<button type="button" class="primary small" onclick="tamaoManualPayoutRequest()" '+
         disabled+'>Solicitar saque manual</button>':
