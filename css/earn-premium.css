@@ -401,3 +401,10 @@
  .earn-signature .earn-simulator-total>strong{font-size:41px}
 }
 @media(prefers-reduced-motion:reduce){.earn-signature .earn-benefit-simulator .earn-try-switch button{transition:none}}
+
+
+/* Keep both commission result and primary action within compact laptop first fold. */
+@media(min-width:991px) and (max-height:740px){
+ .earn-signature .earn-hero{padding-block:17px}
+ .earn-signature .earn-hero-copy{transform:translateY(-8px)}
+}
