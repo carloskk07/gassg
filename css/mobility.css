@@ -398,3 +398,13 @@
  .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover img,
  .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover .mobility-choice-cta span{transform:none}
 }
+
+
+/* V1.1141 media resilience: preserve a polished, useful card even before
+   an external editorial photograph finishes downloading. */
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback{position:absolute;z-index:0;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 65% 35%,#d5e9dd,#f2f7ed 70%);color:#367157}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-fallback{background:radial-gradient(circle at 60% 35%,#dfebe6,#f5f5ed 70%)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback svg{display:block;width:clamp(38px,5vw,64px);height:clamp(38px,5vw,64px)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image img{position:relative;z-index:1}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{z-index:2;pointer-events:none}
+@media(max-width:490px){.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback svg{width:46px;height:46px}}
