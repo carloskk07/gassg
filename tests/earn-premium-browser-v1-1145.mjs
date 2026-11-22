@@ -67,6 +67,10 @@ try{
   const scenario=JSON.parse(changed.result.value);
   assert.equal(scenario.pressed,'true');
   assert.equal(scenario.total,scenario.expected);
+  const personal=await send('Runtime.evaluate',{expression:'JSON.stringify((()=>{const details=document.querySelector(".earn-simulator-settings");details.open=true;earnPremiumTicketPreset(200);const amount=document.querySelector("[data-earn-ticket]");const one={total:document.querySelector("[data-earn-scenario-total]")?.textContent,expected:BRL.format(referralExample(200,5)),active:document.querySelector("[data-earn-ticket-preset=\\"200\\"]")?.getAttribute("aria-pressed")};amount.value="150";earnPremiumUpdateEstimate();const two={total:document.querySelector("[data-earn-scenario-total]")?.textContent,expected:BRL.format(referralExample(150,5)),active:document.querySelector("[data-earn-ticket-preset=\\"200\\"]")?.getAttribute("aria-pressed")};earnPremiumTicketPreset(120);details.open=false;return {one,two};})())',returnByValue:true});
+  const personalized=JSON.parse(personal.result.value);
+  assert.deepEqual(personalized.one,{total:personalized.one.expected,expected:personalized.one.expected,active:'true'});
+  assert.deepEqual(personalized.two,{total:personalized.two.expected,expected:personalized.two.expected,active:'false'});
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(output,'earn-premium-'+size+'.png'),Buffer.from(shot.data,'base64'));
   results.push({width:size,ctaTop:item.ctaTop,ctaBottom:item.ctaBottom,overflow:item.documentWidth-size});
