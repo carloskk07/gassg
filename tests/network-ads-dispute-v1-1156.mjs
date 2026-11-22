@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261122232000_network_ads_dispute_hold_v1_1156.sql');
+const sql=read('supabase/migrations/20261122232026_network_ads_dispute_hold_v1_1156.sql');
 const test=read('tests/sql/network-ads-pool-v1-1154.sql');
 const admin=read('js/admin.js');
 for(const needle of [
