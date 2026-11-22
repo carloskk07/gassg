@@ -78,7 +78,7 @@ for(const term of ['.earn-signature','.earn-hero','.earn-stage','.earn-step-grid
 assert.match(sw,/function networkFirst\(req/);
 
 // V1.1153: recurring order reward MUST NOT be gated by the first qualifying order.
-const recurringSql=read('supabase/migrations/20261122201500_recurring_referral_orders_v1_1153.sql');
+const recurringSql=read('supabase/migrations/20261122202350_recurring_referral_orders_v1_1153.sql');
 assert.match(recurringSql,/create or replace function public\.grant_order_rewards/i);
 assert.match(recurringSql,/where referred_user_id=v_order\.customer_id/);
 assert.match(recurringSql,/and v_referral\.created_at<=v_order\.created_at/);
