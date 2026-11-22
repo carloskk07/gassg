@@ -13,7 +13,7 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
           <button type="button" class="earn-action earn-action-primary" onclick="go('refer')">Acessar minha Rede <span aria-hidden="true">↗</span></button>
           <button type="button" class="earn-action earn-action-secondary" onclick="document.getElementById('earn-benefits')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver todos os benefícios <span aria-hidden="true">↓</span></button>
         </div>
-        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Fundo coletivo de pacotes elegíveis</span><span><i aria-hidden="true"></i> Clube, cashback e cupons</span><span><i aria-hidden="true"></i> Extrato por origem</span></div>
+        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Fundo coletivo de pacotes e publicidade</span><span><i aria-hidden="true"></i> Clube, cashback e cupons</span><span><i aria-hidden="true"></i> Extrato por origem</span></div>
       </div>
       <aside class="earn-stage earn-benefit-simulator earn-v1146-preview" aria-label="Simulador de comissão recorrente por compras qualificadas">
         <div class="earn-simulator-top"><span class="earn-simulator-label"><span class="earn-simulator-live-dot" aria-hidden="true"></span> SIMULADOR DE COMISSÕES</span><span class="earn-simulator-rate">Taxa atual: ${rate}</span></div>
@@ -49,19 +49,19 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
     </header>
 
     <section class="earn-benefit-board" id="earn-benefits" aria-labelledby="earn-benefit-board-title">
-      <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Não é só indicar.<br>É participar de uma Rede de vantagens.</h2><p>Comissão por indicações, participação coletiva em pacotes elegíveis e benefícios do Clube — cada modalidade com suas regras.</p></div>
+      <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Não é só indicar.<br>É participar de uma Rede de vantagens.</h2><p>Comissão por indicações, participação coletiva em pacotes e publicidade elegíveis e benefícios do Clube — cada modalidade com suas regras.</p></div>
       <div class="earn-assurance" aria-label="Benefícios e oportunidades da Rede TAMÃO">
         <article><span class="earn-assurance-number">01 / INDICAÇÕES</span><strong class="earn-benefit-figure">${rate}</strong><h3>Comissão direta</h3><p>De cada compra qualificada de um cliente indicado, inclusive as próximas, após validação.</p><button type="button" onclick="go('refer')">Minhas indicações <span aria-hidden="true">↗</span></button></article>
-        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>O fundo recebe 10% do valor líquido de pacotes comerciais elegíveis. O rateio depende da atividade verificada nas últimas 24 horas; cupons ficam fora.</p><div class="earn-fund-clarity" aria-label="Simulação ilustrativa do fundo coletivo">
+        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes e anúncios</h3><p>O fundo reserva 10% do valor líquido de pacotes elegíveis e 10% da publicidade efetivamente realizada: visualizações cobradas ou campanhas por período concluídas e conciliadas. O rateio considera a atividade verificada nas últimas 24 horas; cupons ficam fora. As participações não são saque imediato.</p><div class="earn-fund-clarity" aria-label="Simulação ilustrativa do fundo coletivo">
           <span class="earn-fund-kicker">EXEMPLO DO FUNDO COLETIVO</span>
-          <div class="earn-fund-presets" role="group" aria-label="Valor líquido hipotético de pacotes elegíveis">
+          <div class="earn-fund-presets" role="group" aria-label="Valor hipotético de receita elegível de pacotes ou publicidade">
             <button type="button" data-earn-fund-preset="100" aria-pressed="true" onclick="earnPremiumFundChoose(100)">R$ 100</button>
             <button type="button" data-earn-fund-preset="250" aria-pressed="false" onclick="earnPremiumFundChoose(250)">R$ 250</button>
             <button type="button" data-earn-fund-preset="500" aria-pressed="false" onclick="earnPremiumFundChoose(500)">R$ 500</button>
           </div>
           <div class="earn-fund-result"><span>10% destinados ao fundo</span><strong data-earn-fund-total aria-live="polite">R$ 10,00</strong></div>
-          <p data-earn-fund-description>R$ 100,00 líquidos elegíveis: R$ 10,00 irão para o fundo coletivo, não para cada participante.</p>
-          <small>A parcela de cada pessoa depende do rateio e da atividade elegível nas últimas 24 horas.</small>
+          <p data-earn-fund-description>R$ 100,00 de receita elegível: R$ 10,00 irão para o fundo coletivo, não para cada participante.</p>
+          <small>Em anúncios por visualização, R$ 0,02 consumidos reservam R$ 0,002 ao fundo. Frações de centavo são acumuladas. A parcela de cada pessoa depende do rateio nas últimas 24 horas.</small>
         </div><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">03 / COMPRAS</span><strong class="earn-benefit-symbol" aria-hidden="true">✳</strong><h3>Clube TAMÃO</h3><p>Cupons, cashback elegível e outras vantagens disponíveis para suas compras.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">04 / SUA IDENTIDADE</span><strong class="earn-benefit-symbol" aria-hidden="true">↗</strong><h3>Sua página pessoal</h3><p>Link de convite, QR Code, conquistas e extrato com origem, tudo na sua Rede.</p><button type="button" onclick="go('refer')">Acessar minha página <span aria-hidden="true">↗</span></button></article>
@@ -172,7 +172,7 @@ function earnPremiumFundChoose(netAmount){
  const total=host.querySelector('[data-earn-fund-total]');
  const description=host.querySelector('[data-earn-fund-description]');
  if(total)total.textContent=pool;
- if(description)description.textContent=BRL.format(value)+' líquidos elegíveis: '+pool+
+ if(description)description.textContent=BRL.format(value)+' de receita elegível: '+pool+
   ' irão para o fundo coletivo, não para cada participante.';
  host.querySelectorAll('[data-earn-fund-preset]').forEach(button=>{
   button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-earn-fund-preset'))===value));

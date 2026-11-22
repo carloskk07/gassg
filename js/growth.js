@@ -486,21 +486,21 @@ if(!valid)return '<section class="card flat"><h3>Participação nos pacotes de t
 const pending=BRL.format(Number(raw.pendingCents)/100);
 const validated=BRL.format(Number(raw.validatedCents)/100);
 const sources=Number(raw.awardSources);
-return '<section class="card flat network-fee-package-statement" aria-label="Participação no fundo dos pacotes de taxas">'+
-'<span class="section-kicker">REDE TAMÃO • PACOTES DE TAXAS REDUZIDAS</span>'+
-'<h3>Seu resultado na distribuição dos pacotes</h3>'+
-'<p class="muted tiny">O fundo usa até 10% do valor líquido de pacotes elegíveis de revendas e moto/carro. '+
+return '<section class="card flat network-fee-package-statement" aria-label="Participação no fundo coletivo da Rede">'+
+'<span class="section-kicker">REDE TAMÃO • PACOTES E PUBLICIDADE</span>'+
+'<h3>Seu resultado no fundo coletivo</h3>'+
+'<p class="muted tiny">O fundo reserva 10% do valor líquido de pacotes elegíveis e 10% da publicidade realizada: visualizações cobradas e campanhas concluídas com receita confirmada. '+
 'A participação considera visitas verificadas nas 24 horas da janela de distribuição. '+
 'Pacotes de cupons não entram.</p>'+
 '<div class="merchant-kpis network-package-kpis"><div class="kpi"><span class="label">Em apuração</span><strong>'+pending+'</strong>'+
-'<small>Depende da validação do crédito pré-pago</small></div>'+
+'<small>Depende da validação da origem financeira</small></div>'+
 '<div class="kpi"><span class="label">Validado</span><strong>'+validated+'</strong>'+
 '<small>Disponibilidade conforme limite e conferência</small></div>'+
-'<div class="kpi"><span class="label">Pacotes com participação</span><strong>'+sources+'</strong>'+
+'<div class="kpi"><span class="label">Fontes com participação</span><strong>'+sources+'</strong>'+
 '<small>Somente fontes financeiras comprovadas</small></div></div>'+
-(!raw.accrualEnabled?'<div class="notice">A distribuição financeira dos pacotes ainda aguarda ativação das condições do programa.</div>':'')+
+(!raw.accrualEnabled?'<div class="notice">A participação nos pacotes aguarda aprovação das condições comerciais. A reserva sobre publicidade segue regras próprias, sem saque automático.</div>':'')+
 '<p class="tiny muted">Valores abaixo de R$ 0,01 permanecem contabilizados em frações. '+
-'Participar não garante ganhos diários; os pagamentos de saque são manuais.</p></section>'+tamaoNetworkManualPayoutPanel();
+'Participar não garante ganhos diários; retiradas exigem condições comerciais aprovadas, análise e comprovante de pagamento.</p></section>'+tamaoNetworkManualPayoutPanel();
 }
 
 let referralQrLoader=null;
