@@ -197,6 +197,15 @@
 .earn-signature .earn-finale-actions button:hover{background:#064831}
 .earn-signature .earn-finale-actions button+button{background:#fff;color:#16543d;border-color:#c9ddcd}
 .earn-signature .earn-finale-actions button+button:hover{background:#eaf4e9}
+/* Compact desktop: keep the genuine Rede action clearly visible on laptop screens. */
+@media(min-width:991px){
+ .earn-signature .earn-hero{align-items:start;padding-block:clamp(28px,2.7vw,37px)}
+ .earn-signature .earn-hero-copy{align-self:start;padding-top:5px}
+ .earn-signature .earn-hero h1{font-size:clamp(38px,4.1vw,59px);margin:20px 0 14px}
+ .earn-signature .earn-hero-lead{line-height:1.65}
+ .earn-signature .earn-hero-actions{margin-top:20px}
+ .earn-signature .earn-hero-trust{margin-top:16px}
+}
 @media(max-width:990px){
  .earn-signature .earn-hero{gap:22px;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);padding:29px}
  .earn-signature .earn-hero h1{font-size:clamp(35px,4.5vw,49px)}
