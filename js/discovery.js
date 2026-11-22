@@ -819,7 +819,7 @@ function discoveryRidesSearch(s){
  const states=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
  const advanced=s.advancedOpen===undefined?Boolean(s.city||s.state||s.departureAfter||s.minSeats):Boolean(s.advancedOpen);
  const options=states.map(uf=>`<option value="${uf}"${s.state===uf?' selected':''}>${uf}</option>`).join('');
- const seats=Array.from({length:8},(_,i)=>`<option value="${i+1}"${String(s.minSeats)===String(i+1)?' selected':''}>${i+1} ${i===0?'vaga':'vagas'}</option>`).join('');
+ const seats=Array.from({length:8},(_,i)=>`<option value="${i+1}"${String(s.minSeats)===String(i+1)?' selected':''}>${i+1} vaga(s)</option>`).join('');
  return `<form class="discovery-search rides-search-form" onsubmit="return discoverySearchFromUi(event)" aria-label="Buscar caronas anunciadas">
     <div class="rides-search-primary">
       <label class="rides-search-place"><span class="rides-place-icon" aria-hidden="true">○</span><span class="rides-field-label">De onde você sai?</span><input id="discovery-origin" maxlength="120" autocomplete="off" placeholder="Cidade de partida" value="${esc(s.origin)}"></label>
