@@ -720,6 +720,8 @@
 .discovery-rides .rides-card-details>div:last-child{grid-column:1/-1}
 .discovery-rides .rides-card-details dt{font-size:10px;color:#768478;margin-bottom:6px}
 .discovery-rides .rides-card-details dd{margin:0;color:#244b36;font-size:13px;font-weight:800;line-height:1.45;overflow-wrap:anywhere}
+.discovery-rides .rides-card-details>div:last-child dt{font-size:13px;color:#244b36;font-weight:820;line-height:1.4}
+.discovery-rides .rides-card-details>div:last-child dd{font-size:10px;color:#718073;font-weight:550}
 .discovery-rides .rides-card-area{font-size:11px!important;color:#60796b!important;margin-bottom:8px!important}
 .discovery-rides .rides-card-description{font-size:13px!important;line-height:1.65!important;color:#52695c!important;margin:1px 0 10px!important}
 .discovery-rides .rides-card-declared{margin:auto 0 0!important;padding-top:9px!important;font-size:10px!important;color:#849286!important}
