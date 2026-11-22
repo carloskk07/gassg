@@ -6,35 +6,48 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
     <header class="earn-hero">
       <div class="earn-hero-copy">
         <div class="earn-kicker"><span class="earn-kicker-dot" aria-hidden="true"></span> REDE TAMÃO <span class="earn-kicker-divider">/</span> INDICAÇÕES & BENEFÍCIOS</div>
-        <h1 id="earn-signature-title">Indique pessoas.<br><em>Veja seus benefícios.</em></h1>
-        <p class="earn-hero-lead">Seu convite tem identidade própria. Compartilhe o TAMÃO, acompanhe as indicações qualificadas e descubra as oportunidades que a Rede oferece.</p>
+        <h1 id="earn-signature-title">Indique pessoas.<br><em>Simule seus benefícios.</em></h1>
+        <p class="earn-hero-lead">Compartilhe seu link pessoal, simule comissões com a taxa vigente e conheça os benefícios de fazer parte da Rede. Tudo com origem e critérios transparentes.</p>
         <div class="earn-hero-earning"><span class="earn-hero-earning-mark" aria-hidden="true">✦</span><div><span>COMISSÃO DE INDICAÇÃO DIRETA</span><strong>${rate}</strong><small>sobre a primeira compra qualificada e validada</small></div></div>
         <div class="earn-hero-actions">
           <button type="button" class="earn-action earn-action-primary" onclick="go('refer')">Acessar minha Rede <span aria-hidden="true">↗</span></button>
           <button type="button" class="earn-action earn-action-secondary" onclick="document.getElementById('earn-benefits')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver todos os benefícios <span aria-hidden="true">↓</span></button>
         </div>
-        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Link pessoal e QR Code</span><span><i aria-hidden="true"></i> Extrato com origem</span></div>
+        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Fundo coletivo de pacotes elegíveis</span><span><i aria-hidden="true"></i> Clube, cashback e cupons</span><span><i aria-hidden="true"></i> Extrato por origem</span></div>
       </div>
       <aside class="earn-stage earn-benefit-simulator earn-v1146-preview" aria-label="Simulador de comissões por primeiras compras qualificadas">
         <div class="earn-simulator-top"><span class="earn-simulator-label"><span class="earn-simulator-live-dot" aria-hidden="true"></span> SIMULADOR DE COMISSÕES</span><span class="earn-simulator-rate">Taxa atual: ${rate}</span></div>
         <h2>Quanto suas indicações <em>podem representar?</em></h2>
-        <p class="earn-simulator-intro">Simule primeiras compras qualificadas de R$ 120,00 cada, conforme a taxa vigente da Rede.</p>
+        <p class="earn-simulator-intro">Escolha quantas primeiras compras elegíveis deseja simular. O valor inicial de cada compra é R$ 120,00 e pode ser personalizado.</p>
         <div class="earn-try-switch" role="group" aria-label="Quantidade hipotética de primeiras compras válidas">
-          <button type="button" data-earn-scenario="1" aria-pressed="true" onclick="earnPremiumScenarioChoose(1)">1 compra</button>
-          <button type="button" data-earn-scenario="5" aria-pressed="false" onclick="earnPremiumScenarioChoose(5)">5 compras</button>
+          <button type="button" data-earn-scenario="1" aria-pressed="false" onclick="earnPremiumScenarioChoose(1)">1 compra</button>
+          <button type="button" data-earn-scenario="5" aria-pressed="true" onclick="earnPremiumScenarioChoose(5)">5 compras</button>
           <button type="button" data-earn-scenario="10" aria-pressed="false" onclick="earnPremiumScenarioChoose(10)">10 compras</button>
         </div>
-        <div class="earn-simulator-total"><span>RESULTADO DA SIMULAÇÃO</span><strong data-earn-scenario-total aria-live="polite">${example}</strong><small data-earn-scenario-description>1 primeira compra válida × R$ 120 × ${rate}</small></div>
-        <div class="earn-simulator-foot"><span aria-hidden="true">✓</span><p>Exemplo ilustrativo, não saldo real nem rendimento garantido. O crédito depende da compra elegível, da conclusão e das validações aplicáveis.</p></div>
+        <div class="earn-simulator-total"><span>COMISSÃO ESTIMADA • EXEMPLO</span><strong data-earn-scenario-total aria-live="polite">${example}</strong><small data-earn-scenario-description>5 primeiras compras válidas × R$ 120,00 × ${rate}</small></div>
+        <details class="earn-simulator-settings">
+          <summary><span>Personalizar valor da primeira compra</span><span class="earn-simulator-settings-toggle" aria-hidden="true">+</span></summary>
+          <div class="earn-simulator-settings-body">
+            <label for="earn-ticket-value">Valor de cada primeira compra elegível (R$)</label>
+            <input id="earn-ticket-value" data-earn-ticket type="number" min="1" max="10000" step="0.01" inputmode="decimal" value="120" oninput="earnPremiumUpdateEstimate()" aria-describedby="earn-ticket-note">
+            <div class="earn-simulator-presets" role="group" aria-label="Valores de compra de exemplo">
+              <button type="button" data-earn-ticket-preset="80" aria-pressed="false" onclick="earnPremiumTicketPreset(80)">R$ 80</button>
+              <button type="button" data-earn-ticket-preset="120" aria-pressed="true" onclick="earnPremiumTicketPreset(120)">R$ 120</button>
+              <button type="button" data-earn-ticket-preset="200" aria-pressed="false" onclick="earnPremiumTicketPreset(200)">R$ 200</button>
+            </div>
+            <small id="earn-ticket-note">Exemplo matemático limitado a R$ 10.000 por compra. O valor real depende de cada pedido válido.</small>
+          </div>
+        </details>
+        <div class="earn-simulator-foot"><span aria-hidden="true">✓</span><p>Simulação, não saldo disponível nem renda prometida. Só há comissão quando a primeira compra indicada é elegível, concluída e validada.</p></div>
         <div class="earn-simulator-bottom"><span>SEU LINK • SUAS INDICAÇÕES • SEU EXTRATO</span><span class="earn-stage-mark" aria-hidden="true">T<span>•</span></span></div>
       </aside>
     </header>
 
     <section class="earn-benefit-board" id="earn-benefits" aria-labelledby="earn-benefit-board-title">
-      <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Benefícios que fazem valer a pena participar.</h2><p>Conheça as vantagens da Rede e acompanhe os resultados elegíveis e confirmados para sua conta.</p></div>
+      <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Não é só indicar.<br>É participar de uma Rede de vantagens.</h2><p>Comissão por indicações, participação coletiva em pacotes elegíveis e benefícios do Clube — cada modalidade com suas regras.</p></div>
       <div class="earn-assurance" aria-label="Benefícios e oportunidades da Rede TAMÃO">
         <article><span class="earn-assurance-number">01 / INDICAÇÕES</span><strong class="earn-benefit-figure">${rate}</strong><h3>Comissão direta</h3><p>Da primeira compra qualificada de cada novo cliente indicado, após validação.</p><button type="button" onclick="go('refer')">Minhas indicações <span aria-hidden="true">↗</span></button></article>
-        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">Até 10%</strong><h3>Fundo de pacotes</h3><p>Do valor líquido de pacotes elegíveis pode ser distribuído entre participantes com visitas verificadas nas últimas 24 horas. Cupons não entram.</p><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>Do valor líquido dos pacotes comerciais elegíveis, distribuído conforme visitas verificadas nas últimas 24 horas. Não é 10% para cada pessoa; cupons ficam fora.</p><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">03 / COMPRAS</span><strong class="earn-benefit-symbol" aria-hidden="true">✳</strong><h3>Clube TAMÃO</h3><p>Cupons, cashback elegível e outras vantagens disponíveis para suas compras.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">04 / SUA IDENTIDADE</span><strong class="earn-benefit-symbol" aria-hidden="true">↗</strong><h3>Sua página pessoal</h3><p>Link de convite, QR Code, conquistas e extrato com origem, tudo na sua Rede.</p><button type="button" onclick="go('refer')">Acessar minha página <span aria-hidden="true">↗</span></button></article>
       </div>
@@ -86,17 +99,44 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
   </section>`);
 }
 
-/* Purely explanatory calculator: the existing commission policy remains the sole source of truth. */
+/* Transparent calculator. Always uses the commercial policy and the existing referralExample helper. */
+function earnPremiumUpdateEstimate(){
+ const host=document.querySelector('.earn-hero .earn-v1146-preview');
+ if(!host)return false;
+ const selected=host.querySelector('[data-earn-scenario][aria-pressed="true"]');
+ const n=[1,5,10].includes(Number(selected?.getAttribute('data-earn-scenario')))
+   ?Number(selected.getAttribute('data-earn-scenario')):5;
+ const field=host.querySelector('[data-earn-ticket]');
+ const typed=String(field?.value??'').trim().replace(',','.');
+ const raw=Number(typed);
+ const valid=typed!==''&&Number.isFinite(raw)&&raw>=1&&raw<=10000;
+ const ticket=valid?raw:0;
+ if(field)field.setAttribute('aria-invalid',String(!valid));
+ const total=host.querySelector('[data-earn-scenario-total]');
+ const detail=host.querySelector('[data-earn-scenario-description]');
+ if(total)total.textContent=valid?BRL.format(referralExample(ticket,n)):'—';
+ if(detail)detail.textContent=valid
+  ?n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+
+    ' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate())
+  :'Informe um valor de R$ 1 a R$ 10.000 para simular.';
+ host.querySelectorAll('[data-earn-ticket-preset]').forEach(btn=>{
+   btn.setAttribute('aria-pressed',String(Number(btn.getAttribute('data-earn-ticket-preset'))===ticket));
+ });
+ return true;
+}
 function earnPremiumScenarioChoose(quantity){
- const n=[1,5,10].includes(Number(quantity))?Number(quantity):1;
+ const n=[1,5,10].includes(Number(quantity))?Number(quantity):5;
  const host=document.querySelector('.earn-hero .earn-v1146-preview');
  if(!host)return false;
  host.querySelectorAll('[data-earn-scenario]').forEach(button=>{
    button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-earn-scenario'))===n));
  });
- const total=host.querySelector('[data-earn-scenario-total]');
- const descriptor=host.querySelector('[data-earn-scenario-description]');
- if(total)total.textContent=BRL.format(referralExample(120,n));
- if(descriptor)descriptor.textContent=n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+' × R$ 120 × '+policyPercent(referralPilotRate());
- return true;
+ return earnPremiumUpdateEstimate();
+}
+function earnPremiumTicketPreset(amount){
+ const ticket=[80,120,200].includes(Number(amount))?Number(amount):120;
+ const field=document.querySelector('.earn-hero .earn-v1146-preview [data-earn-ticket]');
+ if(!field)return false;
+ field.value=String(ticket);
+ return earnPremiumUpdateEstimate();
 }

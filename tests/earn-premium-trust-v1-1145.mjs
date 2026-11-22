@@ -7,33 +7,42 @@ const pageJs=read('js/earn-premium.js'),css=read('css/earn-premium.css'),sw=read
 new vm.Script(pageJs,{filename:'earn-premium.js'});
 const ctx=vm.createContext({shell:markup=>markup});
 vm.runInContext(pageJs+'\nthis.page=earnPremiumPage;',ctx);
-const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 2,40'});
+const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 12,00'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
-for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato com origem',
- 'primeira compra elegível','não saldo real','Apenas cadastrar alguém','Posso sacar imediatamente'])
+for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato por origem',
+ 'primeira compra elegível','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
-assert.match(page,/R\$ 2,40/);
+assert.match(page,/R\$ 12,00/);
 assert.equal((page.match(/<details>/g)||[]).length,6);
+assert.match(page,/<details class="earn-simulator-settings">/);
 assert.equal((page.match(/data-earn-scenario="/g)||[]).length,3);
 assert.match(page,/Quanto suas indicações/);
 assert.match(page,/SIMULADOR DE COMISSÕES/);
-assert.match(page,/Benefícios que fazem valer a pena participar/);
+assert.match(page,/Não é só indicar/);
+assert.match(page,/data-earn-ticket/);
+assert.equal((page.match(/data-earn-ticket-preset="/g)||[]).length,3);
+assert.match(page,/Personalizar valor da primeira compra/);
+assert.match(page,/5 primeiras compras válidas/);
+assert.match(page,/data-earn-scenario="5" aria-pressed="true"/);
 assert.ok(page.indexOf('earn-benefit-simulator')<page.indexOf('earn-benefit-board'));
 assert.ok(page.indexOf('earn-benefit-board')<page.indexOf('earn-section earn-value'));
 assert.ok(page.indexOf('earn-section earn-value')<page.indexOf('earn-section earn-process'));
 assert.ok(page.indexOf('earn-hero')<page.indexOf('data-earn-scenario-total'));
-assert.match(page,/Até 10%/);
+assert.match(page,/10% <small>fundo coletivo<\/small>/);
+assert.match(page,/Não é 10% para cada pessoa/);
 assert.match(page,/últimas 24 horas/);
 assert.match(page,/Sete frentes com registros de conquistas/);
-assert.match(page,/não saldo real nem rendimento garantido/);
+assert.match(page,/não saldo disponível nem renda prometida/);
 assert.match(page,/Indique pessoas/);
 assert.match(page,/INDICAÇÕES & BENEFÍCIOS/);
 assert.match(page,/data-earn-scenario-total/);
 assert.match(pageJs,/function earnPremiumScenarioChoose\(quantity\)/);
-assert.match(pageJs,/BRL\.format\(referralExample\(120,n\)\)/);
+assert.match(pageJs,/BRL\.format\(referralExample\(ticket,n\)\)/);
+assert.match(pageJs,/function earnPremiumTicketPreset\(amount\)/);
+assert.match(pageJs,/function earnPremiumUpdateEstimate\(\)/);
 assert.match(pageJs,/earn-hero \.earn-v1146-preview/);
 assert.doesNotMatch(page,/(?:ganhos reais|saldo verdadeiro|lucro garantido)/i);
 assert.doesNotMatch(page,/R\$ 24,00 de ganhos garantidos/i);
@@ -43,6 +52,7 @@ assert.doesNotMatch(page,/(?:5 estrelas|milhares de clientes|ganho garantido|sal
 assert.doesNotMatch(page,/https?:\/\/images|<form|onclick="checkout\(/i);
 assert.match(growth,/function earn\(\)\{\s*if\(typeof earnPremiumPage/);
 assert.match(growth,/rateLabel:policyPercent\(referralPilotRate\(\)\)/);
+assert.match(growth,/exampleAmount:BRL\.format\(referralExample\(120,5\)\)/);
 assert.match(boot,/function tamaoEnsureEarnPremium\(page\)/);
 assert.match(boot,/tamaoEnsureEarnPremium\(r\)/);
 assert.match(boot,/css\/earn-premium\.css/);

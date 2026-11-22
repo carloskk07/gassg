@@ -282,6 +282,17 @@ assert.equal(await evaluate("document.querySelectorAll('[data-earn-scenario]').l
 await evaluate("earnPremiumScenarioChoose(10)");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"10\"]')?.getAttribute('aria-pressed')"),'true');
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(120,10))"));
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"5\"]')?.getAttribute('aria-pressed')"),'false');
+assert.equal(await evaluate("document.querySelectorAll('[data-earn-ticket-preset]').length"),3);
+await evaluate("earnPremiumTicketPreset(200)");
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(200,10))"));
+await evaluate("document.querySelector('[data-earn-ticket]').value='150';earnPremiumUpdateEstimate()");
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(150,10))"));
+await evaluate("document.querySelector('[data-earn-ticket]').value='20000';earnPremiumUpdateEstimate()");
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),'—');
+assert.equal(await evaluate("document.querySelector('[data-earn-ticket]')?.getAttribute('aria-invalid')"),'true');
+await evaluate("earnPremiumTicketPreset(120)");
+
 assert.equal(await evaluate("document.querySelector('.earn-action-primary')?.getAttribute('onclick')"),"go('refer')");
 await auditDom('earn');
 
