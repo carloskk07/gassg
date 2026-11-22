@@ -70,6 +70,24 @@ try{
   fs.writeFileSync(path.join(output,'earn-premium-'+size+'.png'),Buffer.from(shot.data,'base64'));
   results.push({width:size,ctaTop:item.ctaTop,ctaBottom:item.ctaBottom,overflow:item.documentWidth-size});
  }
+ // Commercial CTA must be visible on compact laptop displays, not only 900px-tall screenshots.
+ await send('Emulation.setDeviceMetricsOverride',{width:1365,height:645,deviceScaleFactor:1,mobile:false,screenWidth:1365,screenHeight:645});
+ await send('Page.navigate',{url:origin+'/?earnPremiumVisual=1147-short#earn'});
+ let compact;
+ for(let attempts=0;attempts<75;attempts++){
+  await sleep(180);
+  const current=await send('Runtime.evaluate',{expression:inspect,returnByValue:true});
+  if(current?.result?.value)compact=JSON.parse(current.result.value);
+  if(compact?.ready&&compact?.style)break;
+ }
+ assert.ok(compact?.ready&&compact?.style,'Short desktop hero unavailable');
+ assert.equal(compact.width,1365);
+ assert.ok(compact.documentWidth<=1367,'Short desktop overflow');
+ assert.ok(compact.ctaTop>=0&&compact.ctaBottom<=635,
+   'Rede primary CTA must be fully above fold at 1365x645: '+JSON.stringify(compact));
+ const compactShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
+ fs.writeFileSync(path.join(output,'earn-premium-short-desktop-1365x645.png'),Buffer.from(compactShot.data,'base64'));
+ results.push({width:1365,height:645,ctaTop:compact.ctaTop,ctaBottom:compact.ctaBottom,overflow:compact.documentWidth-1365});
  await send('Runtime.evaluate',{expression:'document.querySelector(".earn-action-primary")?.click()',returnByValue:true});
  await sleep(350);
  const targetRoute=await send('Runtime.evaluate',{expression:'location.hash',returnByValue:true});
