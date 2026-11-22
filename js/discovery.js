@@ -702,6 +702,48 @@ function discoveryCard(item,kind){
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
     '</div>'+discoveryInquiryForm(item,kind)+discoveryReportForm(item,kind)+'</article>';
 }
+
+/* Premium editorial layer for professionals — real listings and existing search only. */
+function discoveryProfessionalsHero(shortcut){
+ const heading=shortcut?.title||'O profissional certo faz toda a diferença.';
+ const description=shortcut?.summary||'Encontre especialidades anunciadas na sua região e converse diretamente com quem pode ajudar.';
+ return '<header class="pros-hero">'+
+  '<div class="pros-hero-copy"><span class="pros-eyebrow">✦ &nbsp; TAMÃO / PROFISSIONAIS</span>'+
+  '<h1>'+esc(heading)+' <em>'+(shortcut?'Perto de você.':'Perto de você.')+'</em></h1>'+
+  '<p class="pros-hero-lead">'+esc(description)+'</p>'+
+  '<div class="pros-hero-actions"><button type="button" class="pros-hero-primary" onclick="document.getElementById(\'pros-search\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Encontrar profissionais <span aria-hidden="true">↗</span></button>'+
+  '<button type="button" class="pros-hero-secondary" onclick="go(\'advertise\')">Anunciar meus serviços <span aria-hidden="true">→</span></button></div>'+
+  '<div class="pros-hero-assurances"><span>Busca por região</span><span>Contato direto</span><span>Escolha com liberdade</span></div></div>'+
+  '<div class="pros-hero-visual" aria-hidden="true"><div class="pros-visual-frame">'+
+   '<div class="pros-visual-meta"><span>O VALOR DO TRABALHO BEM-FEITO</span><span>TAMÃO.01</span></div>'+
+   '<svg class="pros-visual-art" viewBox="0 0 420 355" xmlns="http://www.w3.org/2000/svg" fill="none">'+
+    '<circle cx="230" cy="156" r="136" stroke="#c5a575" stroke-width="1" opacity=".65"/>'+
+    '<circle cx="230" cy="156" r="109" stroke="#c5a575" stroke-width="1" opacity=".35"/>'+
+    '<path d="M89 280V125L210 35L331 125V280" stroke="#e5d2ac" stroke-width="4" stroke-linejoin="round"/>'+
+    '<path d="M143 280V150H277V280M210 150V280M143 215H277" stroke="#e5d2ac" stroke-width="3"/>'+
+    '<path d="M54 284H365M77 302H345" stroke="#e5d2ac" stroke-width="2" stroke-linecap="round"/>'+
+    '<circle cx="330" cy="79" r="17" fill="#d9b875"/>'+
+    '<path d="M66 274v-42m-19 17 19-26 19 26m264 25v-50m-21 18 21-26 21 26" stroke="#9eaf9d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+   '</svg>'+
+   '<div class="pros-visual-caption"><span>SERVIÇOS • SUA CIDADE</span><strong>Feito com cuidado.</strong></div>'+
+  '</div><div class="pros-visual-stamp">CONHEÇA <b>✳</b> ESCOLHA</div></div></header>';
+}
+function discoveryProfessionalsCategories(active){
+ return '<nav class="pros-categories" aria-label="Explorar categorias de serviços">'+
+ '<div class="pros-categories-heading"><span class="pros-overline">ESCOLHA POR NECESSIDADE</span><strong>Do dia a dia às ocasiões especiais.</strong></div>'+
+ discoveryServiceLinks(active)+'</nav>';
+}
+function discoveryProfessionalsAfterSearch(){
+ return '<section class="pros-how" aria-labelledby="pros-how-heading">'+
+ '<div class="pros-how-lead"><span class="pros-overline">COMO FUNCIONA</span><h2 id="pros-how-heading">Encontre. Converse. Combine.</h2><p>Uma experiência simples para escolher com tranquilidade — sem prometer disponibilidade ou contratar por você.</p></div>'+
+ '<ol class="pros-how-steps"><li><span>01</span><strong>Encontre</strong><p>Pesquise profissionais e serviços por região.</p></li>'+
+ '<li><span>02</span><strong>Conheça</strong><p>Veja especialidades e informações do anúncio.</p></li>'+
+ '<li><span>03</span><strong>Converse</strong><p>Confirme orçamento, prazo e atendimento diretamente.</p></li></ol></section>'+
+ '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true">✳</div>'+
+ '<div><span class="pros-overline">TAMÃO AGENDA</span><strong>Precisa marcar um horário?</strong><p>Descubra páginas profissionais com serviços e opções de reserva.</p></div>'+
+ '<a href="/agenda/">Explorar agendas <span aria-hidden="true">↗</span></a></aside>';
+}
+
 function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
@@ -733,18 +775,20 @@ function discoveryPage(){
     stays:'Explore opções por destino, perfil da hospedagem e número de hóspedes.'};
   const advertiseLabels={professionals:'Anunciar meus serviços',rides:'Oferecer uma carona',
     stays:'Anunciar hospedagem'};
-  return shell('<section class="section discovery-page discovery-'+kind+'"><header class="discovery-intro">'+
+  return shell('<section class="section discovery-page discovery-'+kind+'">'+
+    (kind==='professionals'?discoveryProfessionalsHero(shortcut):'<header class="discovery-intro">'+
     '<div class="discovery-intro-copy"><span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span>'+
     '<h1>'+esc(shortcut?.title||titles[kind])+'</h1>'+
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
     (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
-    '</header>'+
-    (kind==='professionals'?'<div class="discovery-onboard-strip"><div><strong>Precisa de um horário marcado?</strong><span>Conheça as agendas profissionais com reservas pelo TAMÃO.</span></div><a href="/agenda/">Ver agendas disponíveis →</a></div>'+discoveryServiceLinks(s.service):'')+
+    '</header>')+
+    (kind==='professionals'?discoveryProfessionalsCategories(s.service):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
        '<span>Mostre seu trabalho para quem precisa desse serviço. Seu anúncio passa por revisão antes da publicação.</span></div>'+
        '<a href="'+discoveryOwnerSignupLink(s.service)+'">Quero anunciar meu serviço →</a></div>':'')+
+    (kind==='professionals'?'<div class="pros-search-heading" id="pros-search"><span class="pros-overline">ENCONTRE NA SUA REGIÃO</span><h2>O que você precisa resolver hoje?</h2><p>Busque pela cidade e pela especialidade desejada.</p></div>':'')+
     '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)">'+
     '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
@@ -767,6 +811,7 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
+    (kind==='professionals'?discoveryProfessionalsAfterSearch():'')+
     (eligible.length||savedIds.length?'<div class="discovery-tools" aria-label="Ferramentas para anúncios publicados">'+
     '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar resultados</label>'+
      '<select id="discovery-sort" onchange="discoverySetSort(this.value)">'+
