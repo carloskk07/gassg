@@ -761,7 +761,7 @@ return `<section class="section growth-network-intro" aria-label="Convide pessoa
 </section>`;
 }
 function earn(){
-if(typeof earnPremiumPage==='function')return earnPremiumPage({rateLabel:policyPercent(referralPilotRate()),exampleAmount:BRL.format(referralExample(120))});
+if(typeof earnPremiumPage==='function')return earnPremiumPage({rateLabel:policyPercent(referralPilotRate()),exampleAmount:BRL.format(referralExample(120,5))});
 if(typeof tamaoMerchantExecutiveStyles==='function')tamaoMerchantExecutiveStyles();
 if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
 const merchantSample=merchantEconomicsExample(120);
