@@ -143,6 +143,40 @@ begin
    where kind like 'ads_%' and state='eligible')<>2 then
    raise exception 'ADS_MATURITY_NOT_FINANCIALLY_VERIFIED:%',v_result;end if;
 
+ -- Disputed wallet and refund REQUEST, before provider reversal: source must
+ -- immediately leave 'eligible' and suspend every possible redemption path.
+ update public.ads_credit_wallets_v1_1097 set frozen=true where owner_user_id=v_owner;
+ insert into public.ads_independent_refund_cases_v1_887
+  (campaign_id,owner_user_id,request_id,reason,status)
+ values(v_fixed,v_owner,gen_random_uuid(),
+   'CI temporary review of paid campaign, not a provider refund','reviewing');
+ v_result:=public.network_ads_pool_tick_v1_1154();
+ if v_result->>'heldForReview'<>'2'
+  or (select count(*) from public.network_fee_package_sources_v1_1030
+    where kind like 'ads_%' and state='pending' and
+      ads_hold_reason='FINANCIAL_REVIEW')<>2
+  or (select count(*) from public.network_fee_package_sources_v1_1030
+    where kind like 'ads_%' and state='eligible')<>0
+ then raise exception 'ADS_DISPUTE_DID_NOT_SUSPEND_MATURED_FUNDS:%',v_result;end if;
+ v_summary:=public.network_ads_pool_admin_summary_v1_1154(v_admin);
+ if (select count(*) from jsonb_array_elements(v_summary->'sources') x
+    where (x->>'heldForReview')::int=1
+      and (x->>'heldMicrocents')::bigint>0)<>2
+ then raise exception 'ADS_DISPUTED_AMOUNTS_NOT_VISIBLE_IN_ADMIN';end if;
+
+ -- A cleared wallet dispute may mature again; the fixed-price campaign
+ -- remains held while its refund CASE is open. No double-credit occurs.
+ update public.ads_credit_wallets_v1_1097 set frozen=false where owner_user_id=v_owner;
+ v_result:=public.network_ads_pool_tick_v1_1154();
+ if v_result->>'matured'<>'1'
+  or (select state from public.network_fee_package_sources_v1_1030
+       where kind='ads_verified_view' and source_id=v_view)<>'eligible'
+  or (select state from public.network_fee_package_sources_v1_1030
+       where kind='ads_fixed_campaign' and source_id=v_fixed)<>'pending'
+  or (select count(*) from public.network_fee_package_awards_v1_1030
+       where kind like 'ads_%')<>4
+ then raise exception 'ADS_DISPUTE_RESOLUTION_OR_ANTIREPLAY_FAILED:%',v_result;end if;
+
  -- Refund after validation changes STATE, never adds another credit or Pix.
  update public.ads_credit_topups_v1_1097
  set status='reversed',reversed_cents=1990,reversed_at=clock_timestamp()
