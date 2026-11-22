@@ -563,3 +563,106 @@
 
 /* SPA-safe jump control is a button, not a hash link. */
 .mobility-page .mobility-hero .mobility-hero-quicklink{border:0;border-bottom:1px solid #2d7051;border-radius:0;background:transparent;cursor:pointer;font-family:inherit;text-align:left}
+
+
+/* V1.1144 — SERVICE FIRST / QUIET LUXURY.
+   No stock imagery and no counterfeit regional cues. The service choice is the hero. */
+.mobility-page{max-width:1200px;padding-block:21px 76px}
+.mobility-page .mobility-hero.mobility-v1144{display:block;margin:0;border:1px solid #d9e3da;border-radius:25px;background:#143b2c;overflow:hidden;box-shadow:0 25px 58px rgba(16,54,38,.1)}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-top{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);min-height:420px;align-items:stretch;background:#143b2c}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;min-height:0;padding:clamp(35px,4.4vw,65px);overflow:hidden;background:radial-gradient(ellipse at 5% 0%,#22593d 0%,transparent 65%),linear-gradient(120deg,#143a2b,#0a3127)}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy:after{content:"T";position:absolute;z-index:-1;right:-.13em;bottom:-.38em;font-family:Georgia,serif;font-size:clamp(280px,32vw,490px);font-weight:700;color:rgba(236,248,233,.035);pointer-events:none;line-height:1}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-eyebrow{display:inline-flex;align-items:center;gap:10px;color:#e1cf9b;letter-spacing:.17em;font-size:10px;font-weight:900}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-eyebrow-mark{background:#e5ca83;box-shadow:0 0 0 4px rgba(230,202,143,.12)}
+.mobility-page .mobility-hero.mobility-v1144 h1{max-width:12ch;margin:25px 0 18px;color:#fffdf5;font-size:clamp(41px,4.4vw,64px);font-weight:770;letter-spacing:-.055em;line-height:1.035;text-wrap:balance}
+.mobility-page .mobility-hero.mobility-v1144 h1 em{display:block;color:#e0c690;font-family:Georgia,'Times New Roman',serif;font-size:.99em;line-height:1.06;font-weight:500;font-style:italic;letter-spacing:-.049em}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy p{max-width:49ch;margin:0;color:#dae8dc;font-size:clamp(13px,1.13vw,15px);font-weight:480;line-height:1.8}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-signature{display:flex;align-items:center;gap:14px;margin-top:31px;color:#c7d8c9;font-size:10px;font-weight:800;letter-spacing:.12em;line-height:1.5}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-signature-line{display:inline-block;width:30px;height:1px;flex:none;background:#cfb981}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-panel{box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;min-width:0;padding:clamp(25px,3.5vw,48px);background:linear-gradient(145deg,#f8f9f3,#f0f3e9);border-left:1px solid rgba(255,255,255,.13);color:#173d2c}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-eyebrow{display:block;color:#457d59;font-size:10px;font-weight:900;letter-spacing:.17em}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading h2,.mobility-page .mobility-hero.mobility-v1144 .mobility-select-intent h2{max-width:none;margin:10px 0 8px;color:#123c2a;font-size:clamp(25px,2.8vw,37px);font-weight:800;letter-spacing:-.046em;line-height:1.15}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading p,.mobility-page .mobility-hero.mobility-v1144 .mobility-select-intent p{margin:0;color:#68796b;font-size:13px;line-height:1.55}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-provider-links.mobility-choices{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:0;margin:22px 0 0;border:0;background:transparent;scroll-margin-top:90px}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card{position:relative;display:flex;align-items:center;justify-content:stretch;min-width:0;min-height:105px;gap:15px;margin:0;padding:20px 19px;background:#fff;border:1px solid #dce6d9;border-radius:14px;color:#163d2b!important;text-decoration:none!important;box-shadow:0 7px 20px rgba(20,66,39,.045);transition:border-color .2s,transform .2s,box-shadow .2s,background .2s}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover{border-color:#83b093;background:#fbfefa;transform:translateY(-2px);box-shadow:0 14px 28px rgba(24,69,44,.1)}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:focus-visible{outline:3px solid #b89053;outline-offset:3px}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choice-number{display:grid;place-items:center;flex:none;width:48px;height:48px;border:1px solid #d4e5d6;border-radius:50%;background:#edf6ed;color:#256848;font-family:Georgia,serif;font-size:17px;font-weight:700}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choice-carro .mobility-choice-number{background:#f4f0e6;border-color:#e8dfca;color:#8b6c37}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy{position:static;z-index:auto;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;flex:1;min-width:0;max-width:none;min-height:0;margin:0;padding:0}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{display:block;max-width:none;color:#153e2c;font-size:clamp(20px,2vw,25px);font-weight:800;line-height:1.16;letter-spacing:-.042em}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;margin:6px 0 0;max-width:none;color:#5b7664;font-size:12px;font-weight:500;line-height:1.5}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{display:grid;place-items:center;flex:none;width:42px;height:42px;min-height:42px;margin:0;padding:0;border:1px solid #d5e6d8;border-radius:50%;background:#f2f9f2;color:#167246;font-size:24px;font-weight:500;line-height:1;transition:transform .2s,background .2s}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover .mobility-choice-cta{background:#dfecdf;transform:translate(2px,-2px)}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-footnote{margin:18px 0 0;color:#667d6b;font-size:11px;line-height:1.55}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-intent{justify-content:center}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-select-intent-foot{display:inline-flex;align-items:center;gap:16px;margin-top:25px;padding-top:20px;border-top:1px solid #dce6d9;font-size:11px;letter-spacing:.12em;font-weight:850;color:#276747}
+.mobility-page .mobility-clarity{display:grid;grid-template-columns:minmax(0,.55fr) minmax(0,1.45fr);gap:20px;align-items:center;margin:14px 0 20px;padding:21px 25px;border:1px solid #e3e8dc;border-radius:17px;background:#fff;box-shadow:0 6px 25px rgba(24,56,38,.03)}
+.mobility-page .mobility-clarity-title{margin:0;color:#163e2b;font-family:Georgia,'Times New Roman',serif;font-weight:650;font-size:clamp(20px,2.2vw,28px);letter-spacing:-.03em;line-height:1.2}
+.mobility-page .mobility-clarity ul{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none}
+.mobility-page .mobility-clarity li{display:flex;align-items:flex-start;gap:9px;min-width:0;font-size:12px;color:#2c553c}
+.mobility-page .mobility-clarity li>span:first-child{display:block;flex:none;width:auto;height:auto;min-width:19px;padding-top:1px;background:transparent;border-radius:0;color:#a88d53;font-size:10px;font-weight:900;letter-spacing:.08em}
+.mobility-page .mobility-clarity li>span:last-child{display:grid;gap:6px}
+.mobility-page .mobility-clarity li strong{color:#204c35;font-size:12px;font-weight:850;line-height:1.25}
+.mobility-page .mobility-clarity li small{color:#667c6d;font-size:11px;line-height:1.5}
+.mobility-page .mobility-access-layout{gap:16px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.mobility-page .mobility-access-panel,.mobility-page .mobility-driver-panel{border-radius:19px;padding:clamp(24px,3vw,36px)}
+.mobility-page .mobility-access-panel{border:1px solid #e0e8de;background:#fff}
+.mobility-page .mobility-driver-panel{border:1px solid #24513d;background:radial-gradient(circle at 98% 0%,rgba(75,129,92,.23),transparent 52%),linear-gradient(125deg,#10362b,#0d3428)}
+.mobility-page .mobility-driver-panel h2{max-width:18ch}
+.mobility-page .mobility-driver-links a{border-radius:11px;min-height:50px;background:rgba(255,255,255,.095);border-color:rgba(238,250,237,.2)}
+.mobility-page .mobility-driver-links a:focus-visible{outline:3px solid #d4bb89;outline-offset:2px}
+@media(max-width:950px){
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-top{grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr)}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy{padding:35px}
+ .mobility-page .mobility-hero.mobility-v1144 h1{font-size:clamp(34px,4.8vw,46px)}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-panel{padding:28px}
+ .mobility-page .mobility-clarity{grid-template-columns:1fr;gap:12px}
+}
+@media(max-width:760px){
+ .mobility-page{padding:13px 11px 62px}
+ .mobility-page .mobility-hero.mobility-v1144{border-radius:20px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-top{display:flex;flex-direction:column;min-height:0}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy{padding:26px 25px 27px;min-height:0}
+ .mobility-page .mobility-hero.mobility-v1144 h1{font-size:clamp(34px,6.9vw,47px);margin:18px 0 13px;max-width:17ch}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy p{max-width:59ch;font-size:13px;line-height:1.6}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-signature{margin-top:15px;font-size:9px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-panel{padding:23px 21px 25px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading h2{font-size:clamp(25px,5.1vw,34px);margin:7px 0 3px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading p{font-size:12px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-provider-links.mobility-choices{gap:9px;margin-top:15px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card{min-height:91px;padding:14px 14px;gap:12px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choice-number{width:40px;height:40px;font-size:15px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{font-size:22px;margin:0}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;font-size:11px;margin-top:4px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{width:37px;height:37px;min-height:37px;font-size:21px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-footnote{margin:12px 0 0;font-size:11px}
+ .mobility-page .mobility-clarity{margin:11px 0 15px;padding:19px;grid-template-columns:1fr}
+ .mobility-page .mobility-clarity ul{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .mobility-page .mobility-access-layout{grid-template-columns:1fr;gap:12px}
+}
+@media(max-width:490px){
+ .mobility-page{padding-inline:9px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy{padding:25px 21px 22px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-eyebrow{font-size:9px}
+ .mobility-page .mobility-hero.mobility-v1144 h1{font-size:clamp(33px,8.5vw,42px);margin:14px 0 11px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy p{font-size:12px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-panel{padding:20px 17px 21px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading h2{font-size:25px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-select-heading p{font-size:11px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card{min-height:83px;gap:10px;padding:12px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choice-number{width:36px;height:36px;font-size:13px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{font-size:21px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{font-size:10px;line-height:1.35}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{width:33px;height:33px;min-height:33px}
+ .mobility-page .mobility-clarity{padding:17px}
+ .mobility-page .mobility-clarity ul{grid-template-columns:1fr;gap:13px}
+ .mobility-page .mobility-clarity li strong{font-size:12px}
+ .mobility-page .mobility-clarity li small{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card,
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{transition:none}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover,
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover .mobility-choice-cta{transform:none}
+}
