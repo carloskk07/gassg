@@ -264,9 +264,13 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.querySelector('.earn-signature') && document.body.innerText.includes('Indique com confiança.')","earn premium route");
+await waitFor("document.querySelector('.earn-signature') && document.body.innerText.includes('Indique pessoas.')","earn premium route");
 body=await text();
 assert.match(body,/Seu link\. Sua indicação\./);
+assert.match(body,/Fundo de pacotes/);
+assert.match(body,/SIMULADOR DE COMISSÕES/);
+assert.equal(await evaluate("document.querySelectorAll('.earn-benefit-board .earn-assurance>article').length"),4);
+assert.equal(await evaluate("document.querySelector('.earn-hero .earn-benefit-simulator')!==null"),true);
 assert.match(await evaluate("document.querySelector('.earn-faq')?.textContent||''"),/Apenas cadastrar alguém gera comissão/,
  'Condições financeiras e qualificação devem permanecer acessíveis na Rede');
 assert.match(body,/Sua empresa em uma Rede local/);

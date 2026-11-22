@@ -10,24 +10,32 @@ vm.runInContext(pageJs+'\nthis.page=earnPremiumPage;',ctx);
 const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 2,40'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
-for(const label of ['Acessar minha Rede','Convite identificado','Resultados verificáveis','Extrato por origem',
- 'primeira compra elegível','Não representa saldo','Apenas cadastrar alguém','Posso sacar imediatamente'])
+for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato com origem',
+ 'primeira compra elegível','não saldo real','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
 assert.match(page,/R\$ 2,40/);
 assert.equal((page.match(/<details>/g)||[]).length,6);
 assert.equal((page.match(/data-earn-scenario="/g)||[]).length,3);
-assert.match(page,/Quanto representam primeiras compras elegíveis/);
-assert.match(page,/SEU ESPAÇO NA REDE TAMÃO/);
-assert.match(page,/Uma indicação sua/);
+assert.match(page,/Quanto suas indicações/);
+assert.match(page,/SIMULADOR DE COMISSÕES/);
+assert.match(page,/Benefícios que fazem valer a pena participar/);
+assert.ok(page.indexOf('earn-benefit-simulator')<page.indexOf('earn-benefit-board'));
+assert.ok(page.indexOf('earn-benefit-board')<page.indexOf('earn-section earn-value'));
+assert.ok(page.indexOf('earn-section earn-value')<page.indexOf('earn-section earn-process'));
+assert.ok(page.indexOf('earn-hero')<page.indexOf('data-earn-scenario-total'));
+assert.match(page,/Até 10%/);
+assert.match(page,/últimas 24 horas/);
 assert.match(page,/Sete frentes com registros de conquistas/);
-assert.match(page,/Não representa saldo ou renda garantida/);
-assert.match(page,/Indique com confiança/);
-assert.match(page,/CONEXÕES QUE FAZEM SENTIDO/);
+assert.match(page,/não saldo real nem rendimento garantido/);
+assert.match(page,/Indique pessoas/);
+assert.match(page,/INDICAÇÕES & BENEFÍCIOS/);
 assert.match(page,/data-earn-scenario-total/);
 assert.match(pageJs,/function earnPremiumScenarioChoose\(quantity\)/);
 assert.match(pageJs,/BRL\.format\(referralExample\(120,n\)\)/);
+assert.match(pageJs,/earn-hero \.earn-v1146-preview/);
+assert.doesNotMatch(page,/(?:ganhos reais|saldo verdadeiro|lucro garantido)/i);
 assert.doesNotMatch(page,/R\$ 24,00 de ganhos garantidos/i);
 for(const route of ["go('refer')","go('club')","go('merchants')","go('contact')"])
  assert(page.includes(route),'Missing real action '+route);
