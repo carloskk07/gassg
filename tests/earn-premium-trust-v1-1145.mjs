@@ -33,7 +33,7 @@ assert.ok(page.indexOf('earn-section earn-value')<page.indexOf('earn-section ear
 assert.ok(page.indexOf('earn-hero')<page.indexOf('data-earn-scenario-total'));
 assert.match(page,/10% <small>fundo coletivo<\/small>/);
 assert.match(page,/não para cada participante/);
-assert.match(page,/R\$ 100,00 líquidos/);
+assert.match(page,/R\$ 100,00 de receita elegível/);
 assert.match(page,/R\$ 10,00 irão para o fundo coletivo/);
 assert.match(page,/data-earn-fund-total aria-live="polite">R\$ 10,00/);
 assert.equal((page.match(/data-earn-fund-preset="/g)||[]).length,3);
