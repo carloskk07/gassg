@@ -817,7 +817,7 @@ function discoveryRidesHero(){
 
 function discoveryRidesSearch(s){
  const states=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
- const advanced=Boolean(s.advancedOpen||s.city||s.state||s.departureAfter||s.minSeats);
+ const advanced=s.advancedOpen===undefined?Boolean(s.city||s.state||s.departureAfter||s.minSeats):Boolean(s.advancedOpen);
  const options=states.map(uf=>`<option value="${uf}"${s.state===uf?' selected':''}>${uf}</option>`).join('');
  const seats=Array.from({length:8},(_,i)=>`<option value="${i+1}"${String(s.minSeats)===String(i+1)?' selected':''}>${i+1} ${i===0?'vaga':'vagas'}</option>`).join('');
  return `<form class="discovery-search rides-search-form" onsubmit="return discoverySearchFromUi(event)" aria-label="Buscar caronas anunciadas">
@@ -1025,6 +1025,7 @@ function discoveryPage(){
     
     (kind==='professionals'?discoveryProfessionalsCategories(s.service,s.occupation):'')+
     (kind==='professionals'?discoveryProfessionalsAfterSearch():'')+
+    (kind==='rides'?discoveryRidesResultsHeading(s):'')+
     (eligible.length||savedIds.length?'<div class="discovery-tools" aria-label="Ferramentas para anúncios publicados">'+
     '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar resultados</label>'+
      '<select id="discovery-sort" onchange="discoverySetSort(this.value)">'+
@@ -1040,7 +1041,6 @@ function discoveryPage(){
     '<p class="discovery-saved-note">Os anúncios salvos só aparecem quando ainda estão publicados nesta busca.</p></div>':'')+
     (s.savedNotice?'<p class="discovery-saved-feedback" role="status">'+esc(s.savedNotice)+'</p>':'')+
     (s.compareOpen?discoverySavedComparison(kind,eligible):'')+
-    (kind==='rides'?discoveryRidesResultsHeading(s):'')+
     '<p class="tiny muted discovery-disclaimer">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
     (visibleCount?'<p class="discovery-count" role="status">Exibindo '+visibleCount+
       (s.savedOnly?(visibleCount===1?' anúncio salvo':' anúncios salvos'):(visibleCount===1?' anúncio publicado':' anúncios publicados'))+
@@ -1063,7 +1063,11 @@ function discoverySearchFromUi(event){
   s.origin=String(document.getElementById('discovery-origin')?.value||'').trim().slice(0,120);
   s.destination=String(document.getElementById('discovery-destination')?.value||'').trim().slice(0,120);
   s.departureAfter=kind==='rides'?String(document.getElementById('discovery-departure-after')?.value||'').trim().slice(0,16):'';
-  if(kind==='rides'&&s.quickDate){const original=String(s.quickDate);if(original==='any'&&s.departureAfter||original!=='any'&&original!=='today'&&original!=='tomorrow')s.quickDate='';}
+  if(kind==='rides'&&['today','tomorrow'].includes(s.quickDate)){
+    const date=new Date();date.setHours(0,0,0,0);if(s.quickDate==='tomorrow')date.setDate(date.getDate()+1);
+    const two=n=>String(n).padStart(2,'0');const expected=`${date.getFullYear()}-${two(date.getMonth()+1)}-${two(date.getDate())}T00:00`;
+    if(s.departureAfter!==expected)s.quickDate='';
+  }
   s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
   s.occupation=kind==='professionals'?String(document.getElementById('discovery-occupation')?.value||'').trim().slice(0,100):'';
   if(s.service&&s.occupation!==discoveryServiceShortcuts[s.service]?.occupation){s.service='';discoveryForgetServiceUrl();}
@@ -1081,6 +1085,7 @@ function discoveryClearFilters(){
    'occupation','service','minSeats','propertyType','maxPrice','sharedId'])s[field]='';
  discoveryForgetServiceUrl();
  s.offset=0;s.hasMore=false;
+ if(kind==='rides')s.advancedOpen=false;
  discoveryFetch();
 }
 function discoveryLoadMore(){
