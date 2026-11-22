@@ -794,24 +794,110 @@ function discoveryProfessionalsFooter(){
 }
 
 function discoveryRidesHero(){
- return `<header class="rides-hero" aria-labelledby="rides-hero-heading">
+ return `<header class="rides-hero rides-signature-hero" aria-labelledby="rides-hero-heading">
   <div class="rides-hero-copy">
-    <div class="rides-hero-eyebrow"><span class="rides-eyebrow-mark" aria-hidden="true"></span>TAMÃO CARONAS <span class="rides-eyebrow-divider">/</span> CAMINHOS COMPARTILHADOS</div>
-    <h1 id="rides-hero-heading">Seu destino.<br><em>Um caminho em comum.</em></h1>
-    <p>Descubra caronas anunciadas, conheça o trajeto e converse diretamente com quem vai viajar. Tudo em um lugar simples de explorar.</p>
+    <div class="rides-hero-eyebrow"><span class="rides-eyebrow-mark" aria-hidden="true"></span>TAMÃO CARONAS <span class="rides-eyebrow-divider">/</span> VIAGENS COMPARTILHADAS</div>
+    <h1 id="rides-hero-heading">Bons caminhos.<br><em>Novas conexões.</em></h1>
+    <p>Encontre pessoas que anunciaram uma viagem no mesmo sentido que você. Compare trajetos, consulte as vagas e converse antes de decidir.</p>
     <div class="rides-hero-actions">
-      <button type="button" class="rides-hero-primary" onclick="document.getElementById('rides-search')?.scrollIntoView({behavior:'smooth',block:'start'})">Encontrar uma carona <span aria-hidden="true">↗</span></button>
-      <button class="rides-hero-secondary" type="button" onclick="go('advertise')">Oferecer uma carona <span aria-hidden="true">→</span></button>
+      <button type="button" class="rides-hero-primary" onclick="document.getElementById('rides-search')?.scrollIntoView({behavior:'smooth',block:'center'})">Buscar uma carona <span aria-hidden="true">↗</span></button>
+      <button class="rides-hero-secondary" type="button" onclick="go('advertise')">Vou oferecer carona <span aria-hidden="true">→</span></button>
     </div>
-    <div class="rides-hero-points" aria-label="Como funcionam os anúncios"><span><i aria-hidden="true"></i> Trajeto informado</span><span><i aria-hidden="true"></i> Vagas anunciadas</span><span><i aria-hidden="true"></i> Contato direto</span></div>
+    <div class="rides-hero-points" aria-label="Vantagens da consulta"><span><i aria-hidden="true"></i> Descubra rotas</span><span><i aria-hidden="true"></i> Veja as vagas anunciadas</span><span><i aria-hidden="true"></i> Converse diretamente</span></div>
   </div>
   <div class="rides-hero-visual">
-    <img src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&amp;fit=crop&amp;w=1300&amp;q=85" alt="Vista ilustrativa de uma viagem de carro pela estrada" width="1300" height="1600" decoding="async" fetchpriority="high">
+    <img src="https://images.unsplash.com/photo-1749181124982-fc0a85453620?auto=format&amp;fit=crop&amp;w=1400&amp;q=84" alt="Fotografia ilustrativa de carros em uma estrada aberta entre paisagens rurais" width="1400" height="940" decoding="async" fetchpriority="high">
     <div class="rides-photo-shade" aria-hidden="true"></div>
-    <div class="rides-photo-caption"><span>O CAMINHO APROXIMA</span><strong>Boas viagens começam com boas escolhas.</strong></div>
-    <span class="rides-photo-credit">Imagem ilustrativa · Unsplash</span>
+    <div class="rides-photo-caption"><span>SEU PRÓXIMO TRAJETO</span><strong>Encontre um caminho em comum.</strong></div>
+    <span class="rides-photo-credit">Fotografia ilustrativa · Unsplash</span>
   </div>
+  <div class="rides-hero-bottom" aria-label="Sobre as caronas do TAMÃO"><span>01 <b>Pesquise trajetos publicados</b></span><span>02 <b>Confira o que foi informado</b></span><span>03 <b>Combine diretamente</b></span></div>
 </header>`;
+}
+
+function discoveryRidesSearch(s){
+ const states=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+ const advanced=Boolean(s.advancedOpen||s.city||s.state||s.departureAfter||s.minSeats);
+ const options=states.map(uf=>`<option value="${uf}"${s.state===uf?' selected':''}>${uf}</option>`).join('');
+ const seats=Array.from({length:8},(_,i)=>`<option value="${i+1}"${String(s.minSeats)===String(i+1)?' selected':''}>${i+1} ${i===0?'vaga':'vagas'}</option>`).join('');
+ return `<form class="discovery-search rides-search-form" onsubmit="return discoverySearchFromUi(event)" aria-label="Buscar caronas anunciadas">
+    <div class="rides-search-primary">
+      <label class="rides-search-place"><span class="rides-place-icon" aria-hidden="true">○</span><span class="rides-field-label">De onde você sai?</span><input id="discovery-origin" maxlength="120" autocomplete="off" placeholder="Cidade de partida" value="${esc(s.origin)}"></label>
+      <button class="rides-swap" type="button" aria-label="Inverter origem e destino" title="Inverter origem e destino" onclick="discoveryRidesSwap()">⇄</button>
+      <label class="rides-search-place"><span class="rides-place-icon rides-place-icon-end" aria-hidden="true">⌖</span><span class="rides-field-label">Para onde você vai?</span><input id="discovery-destination" maxlength="120" autocomplete="off" placeholder="Cidade de destino" value="${esc(s.destination)}"></label>
+      <button type="submit" class="primary rides-search-submit">Encontrar caronas <span aria-hidden="true">↗</span></button>
+    </div>
+    <div class="rides-search-toolbar">
+      <div class="rides-search-quick" aria-label="Data da saída"><span class="rides-search-quick-label">Quando?</span>
+        <button type="button" onclick="discoveryRidesQuickDate('today')"${s.quickDate==='today'?' aria-pressed="true"':' aria-pressed="false"'}>Hoje</button>
+        <button type="button" onclick="discoveryRidesQuickDate('tomorrow')"${s.quickDate==='tomorrow'?' aria-pressed="true"':' aria-pressed="false"'}>Amanhã</button>
+        <button type="button" onclick="discoveryRidesQuickDate('any')"${!s.departureAfter?' aria-pressed="true"':' aria-pressed="false"'}>Qualquer dia</button>
+      </div>
+      <button class="rides-clear" type="button" onclick="discoveryClearFilters()">Limpar pesquisa</button>
+    </div>
+    <details class="rides-refine"${advanced?' open':''} ontoggle="discoveryRidesRefineChanged(this.open)">
+      <summary>Personalizar a busca <span class="rides-refine-supplement">Estado, cidade, saída e quantidade de vagas</span><span class="rides-refine-chevron" aria-hidden="true">⌄</span></summary>
+      <div class="rides-refine-grid">
+        <label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>${options}</select></label>
+        <label>Cidade ou região<input id="discovery-city" autocomplete="address-level2" maxlength="120" placeholder="Opcional" value="${esc(s.city)}"></label>
+        <label>Saída a partir de<input id="discovery-departure-after" type="datetime-local" value="${esc(s.departureAfter)}"></label>
+        <label>Vagas mínimas<select id="discovery-min-seats"><option value="">Qualquer quantidade</option>${seats}</select></label>
+      </div>
+    </details>
+    <p class="rides-search-hint">A busca mostra anúncios publicados. Datas, lugares e vagas devem ser confirmados com o anunciante.</p>
+  </form>`;
+}
+
+function discoveryRidesSwap(){
+ const origin=document.getElementById('discovery-origin'),destination=document.getElementById('discovery-destination');
+ if(!origin||!destination)return false;
+ const old=origin.value;
+ origin.value=destination.value;
+ destination.value=old;
+ origin.focus?.();
+ return false;
+}
+
+function discoveryRidesRefineChanged(open){
+ const state=discoveryState('rides');
+ if(discoveryKind()!=='rides')return false;
+ state.advancedOpen=Boolean(open);
+ return false;
+}
+
+function discoveryRidesQuickDate(mode){
+ if(discoveryKind()!=='rides'||!['today','tomorrow','any'].includes(mode))return false;
+ const dateInput=document.getElementById('discovery-departure-after');
+ if(!dateInput)return false;
+ if(mode==='any')dateInput.value='';
+ else{
+  const date=new Date();
+  date.setHours(0,0,0,0);
+  if(mode==='tomorrow')date.setDate(date.getDate()+1);
+  const two=n=>String(n).padStart(2,'0');
+  dateInput.value=`${date.getFullYear()}-${two(date.getMonth()+1)}-${two(date.getDate())}T00:00`;
+ }
+ const state=discoveryState('rides');
+ state.quickDate=mode;
+ return discoverySearchFromUi({preventDefault(){}});
+}
+
+function discoveryRidesResultsHeading(s){
+ const a=String(s.origin||'').trim(),b=String(s.destination||'').trim();
+ const route=a&&b?`<span class="rides-results-route">${esc(a)} <i aria-hidden="true">→</i> ${esc(b)}</span>`:'';
+ return `<div class="rides-results-heading" id="rides-results">
+  <div><span class="rides-overline">ROTAS PUBLICADAS NO TAMÃO</span><h2>${a&&b?'Veja os trajetos encontrados':'Explore as caronas anunciadas'}</h2>${route}</div>
+  <p>As vagas e condições são informadas por cada anunciante. Escolha uma viagem para consultar os detalhes.</p>
+ </div>`;
+}
+
+function discoveryRidesEmpty(s){
+ const saved=Boolean(s.savedOnly);
+ return `<div class="discovery-empty rides-empty" role="status"><span class="rides-empty-icon" aria-hidden="true">↗</span>
+  <span class="rides-overline">SUA BUSCA CONTINUA</span><h3>${saved?'Seus anúncios salvos não aparecem nesta pesquisa.':'Ainda não encontramos uma carona nessa busca.'}</h3>
+  <p>${saved?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Ainda não há anúncios publicados para esta busca.'} Tente outras cidades ou datas para ampliar as possibilidades.</p>
+  <div class="rides-empty-actions"><button type="button" onclick="${saved?'discoveryToggleSavedFilter()':'discoveryClearFilters()'}">${saved?'Mostrar todos desta busca':'Ver todos os anúncios'}</button><button type="button" onclick="go('advertise')">Anunciar no TAMÃO →</button></div>
+ </div>`;
 }
 
 function discoveryRidesAfterSearch(){
@@ -885,10 +971,10 @@ function discoveryPage(){
   const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
-    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Ainda não há anúncios publicados para esta busca.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':
+    s.status==='ready'&&!visible.length?(kind==='rides'?discoveryRidesEmpty(s):'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Ainda não há anúncios publicados para esta busca.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':
     '<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button>'+
     (shortcut?'<a class="discovery-owner-cta" href="'+discoveryOwnerSignupLink(s.service)+'">Trabalha com esse serviço? Anuncie no TAMÃO →</a>':
-      '<button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>'))+'</div>':
+      '<button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>'))+'</div>'):
     displayItems.map(item=>discoveryCard(item,kind)).join('');
   const titles={professionals:'Encontre profissionais para o que você precisa',
     rides:'Encontre caronas para sua próxima viagem',
@@ -910,8 +996,8 @@ function discoveryPage(){
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
        '<span>Mostre seu trabalho para quem precisa desse serviço. Seu anúncio passa por revisão antes da publicação.</span></div>'+
        '<a href="'+discoveryOwnerSignupLink(s.service)+'">Quero anunciar meu serviço →</a></div>':'')+
-    (kind==='professionals'?'<div class="pros-search-heading" id="pros-search"><span class="pros-overline">ENCONTRE NA SUA REGIÃO</span><h2>O que você precisa resolver hoje?</h2><p>Busque pela cidade e pela especialidade desejada.</p></div>':kind==='rides'?'<div class="rides-search-heading" id="rides-search"><div><span class="rides-overline">BUSQUE SEU PRÓXIMO TRAJETO</span><h2>Para onde vamos?</h2></div><p>Conte de onde pretende sair e aonde quer chegar. Os outros filtros são opcionais.</p></div>':'')+
-    '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)" aria-label="Buscar anúncios publicados">'+
+    (kind==='professionals'?'<div class="pros-search-heading" id="pros-search"><span class="pros-overline">ENCONTRE NA SUA REGIÃO</span><h2>O que você precisa resolver hoje?</h2><p>Busque pela cidade e pela especialidade desejada.</p></div>':kind==='rides'?'<div class="rides-search-panel" id="rides-search"><div class="rides-search-heading"><div><span class="rides-overline">BUSCA INTELIGENTE DE TRAJETOS</span><h2>Sua próxima viagem começa aqui.</h2></div><p>Informe seu percurso. Refine a busca somente se precisar.</p></div>':'')+
+    (kind==='rides'?discoveryRidesSearch(s):'<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)" aria-label="Buscar anúncios publicados">'+
     '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
     '<option value="'+uf+'"'+(s.state===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></label>'+
@@ -932,8 +1018,9 @@ function discoveryPage(){
         '</select></label>'+
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
-    '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
-    (kind==='rides'?discoveryRidesAfterSearch():'')+
+    '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>')+
+    (kind==='rides'?'</div>':'')+
+    
     (kind==='professionals'?discoveryProfessionalsCategories(s.service,s.occupation):'')+
     (kind==='professionals'?discoveryProfessionalsAfterSearch():'')+
     (eligible.length||savedIds.length?'<div class="discovery-tools" aria-label="Ferramentas para anúncios publicados">'+
@@ -951,7 +1038,7 @@ function discoveryPage(){
     '<p class="discovery-saved-note">Os anúncios salvos só aparecem quando ainda estão publicados nesta busca.</p></div>':'')+
     (s.savedNotice?'<p class="discovery-saved-feedback" role="status">'+esc(s.savedNotice)+'</p>':'')+
     (s.compareOpen?discoverySavedComparison(kind,eligible):'')+
-    (kind==='rides'?'<div class="rides-results-heading"><div><span class="rides-overline">ANÚNCIOS PUBLICADOS</span><h2>Caronas para explorar</h2></div><p>Consulte as informações de cada rota e converse diretamente com o anunciante.</p></div>':'')+
+    (kind==='rides'?discoveryRidesResultsHeading(s):'')+
     '<p class="tiny muted discovery-disclaimer">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
     (visibleCount?'<p class="discovery-count" role="status">Exibindo '+visibleCount+
       (s.savedOnly?(visibleCount===1?' anúncio salvo':' anúncios salvos'):(visibleCount===1?' anúncio publicado':' anúncios publicados'))+
@@ -959,6 +1046,7 @@ function discoveryPage(){
     '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
     (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
     (s.status==='ready'&&s.error?'<p role="alert">Não foi possível trazer mais anúncios. Tente novamente.</p>':'')+
+    (kind==='rides'?discoveryRidesAfterSearch():'')+
     (kind==='professionals'?discoveryProfessionalsFooter():kind==='rides'?discoveryRidesFooter():'')+
     '</section>');
 }
@@ -973,6 +1061,7 @@ function discoverySearchFromUi(event){
   s.origin=String(document.getElementById('discovery-origin')?.value||'').trim().slice(0,120);
   s.destination=String(document.getElementById('discovery-destination')?.value||'').trim().slice(0,120);
   s.departureAfter=kind==='rides'?String(document.getElementById('discovery-departure-after')?.value||'').trim().slice(0,16):'';
+  if(kind==='rides'&&s.quickDate){const original=String(s.quickDate);if(original==='any'&&s.departureAfter||original!=='any'&&original!=='today'&&original!=='tomorrow')s.quickDate='';}
   s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
   s.occupation=kind==='professionals'?String(document.getElementById('discovery-occupation')?.value||'').trim().slice(0,100):'';
   if(s.service&&s.occupation!==discoveryServiceShortcuts[s.service]?.occupation){s.service='';discoveryForgetServiceUrl();}
@@ -986,7 +1075,7 @@ function discoveryClearFilters(){
  const kind=discoveryKind();
  if(!kind)return;
  const s=discoveryState(kind);
- for(const field of ['city','state','origin','destination','departureAfter','guests',
+ for(const field of ['city','state','origin','destination','departureAfter','quickDate','guests',
    'occupation','service','minSeats','propertyType','maxPrice','sharedId'])s[field]='';
  discoveryForgetServiceUrl();
  s.offset=0;s.hasMore=false;
