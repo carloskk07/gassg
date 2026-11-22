@@ -706,12 +706,12 @@ function discoveryCard(item,kind){
 /* Premium editorial layer for professionals — real listings and existing search only. */
 function discoveryProfessionalsHero(shortcut){
  const special=Boolean(shortcut);
- const heading=special?shortcut.title:'Bons serviços começam com boas escolhas.';
+ const heading=special?shortcut.title:'Encontre profissionais na sua região.';
  const lead=special?shortcut.summary:'Encontre profissionais e serviços anunciados na sua região. Conheça o trabalho, tire dúvidas e combine diretamente com quem atende.';
  return '<header class="pros-hero">'+
   '<div class="pros-hero-copy">'+
     '<span class="pros-eyebrow"><span class="pros-eyebrow-dot" aria-hidden="true"></span> TAMÃO PROFISSIONAIS <span class="pros-eyebrow-sep">/</span> SUA REGIÃO</span>'+
-    '<h1>'+esc(heading)+(special?' <em>Do seu jeito.</em>':' <em>Comece por aqui.</em>')+'</h1>'+
+    '<h1>'+esc(heading)+(special?' <em>Do seu jeito.</em>':' <em>Com mais praticidade.</em>')+'</h1>'+
     '<p class="pros-hero-lead">'+esc(lead)+'</p>'+
     '<div class="pros-hero-actions">'+
       '<button type="button" class="pros-hero-primary" onclick="document.getElementById(\'pros-search\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Encontrar um profissional <span aria-hidden="true">↗</span></button>'+
