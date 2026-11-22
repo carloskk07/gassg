@@ -720,80 +720,52 @@ function mobilityFeeLedgerPanel(){
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
- // V1.1143 — Editorial trust design: no invented places, stock faces or fictitious availability.
- // Keep live listing routes, authentication, fees, requests and location sharing unchanged.
- const motoIcon='<svg viewBox="0 0 160 100" fill="none" aria-hidden="true" focusable="false">'+
-  '<circle cx="28" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
-  '<circle cx="130" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
-  '<path d="M28 77 57 48h48l25 29" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
-  '<path d="M62 40h38c8 0 14 6 19 15l-19 12-36-5-9-10 7-12Z" fill="currentColor" fill-opacity=".82"/>'+
-  '<path d="M69 38h35l10 12H65Z" fill="currentColor" />'+
-  '<path d="M60 39H43l-9-10H18" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
-  '<path d="M111 41 127 21h12M126 21l6-6" stroke="currentColor" stroke-width="5" stroke-linecap="round" />'+
-  '<rect x="68" y="59" width="31" height="18" rx="5" fill="currentColor" fill-opacity=".56"/>'+
-  '<path d="m71 77-13 9h38l14-16M114 55l16 22" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
-  '<circle cx="121" cy="40" r="6" fill="currentColor" fill-opacity=".92"/>'+
-  '</svg>';
- const carIcon='<svg viewBox="0 0 160 100" fill="none" aria-hidden="true" focusable="false">'+
-  '<path d="m19 66 10-24 20-6 16-17h39l22 23 15 6 6 18v16H19V66Z" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" fill="currentColor" fill-opacity=".13"/>'+
-  '<path d="m64 27-13 17h70l-17-17H64Z" fill="currentColor" fill-opacity=".46" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>'+
-  '<path d="M87 29v15M24 61h17m78 0h20" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>'+
-  '<circle cx="49" cy="80" r="13" fill="#f8faf7" stroke="currentColor" stroke-width="5"/>'+
-  '<circle cx="117" cy="80" r="13" fill="#f8faf7" stroke="currentColor" stroke-width="5"/>'+
-  '</svg>';
- const discover=intent?'':`
-  <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro" id="mobility-choices">
-   <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals" aria-label="Encontrar mototaxista — consultar anúncios de moto">
-    <span class="mobility-choice-copy">
-     <span class="mobility-choice-overline">TRANSPORTE EM MOTO <span aria-hidden="true">/</span> 01</span>
-     <strong>Encontrar mototaxista</strong>
-     <small>Consulte anúncios de mototáxi e escolha quem contatar.</small>
-     <span class="mobility-choice-cta">Ver mototaxistas <span aria-hidden="true">↗</span></span>
-    </span>
-    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback">${motoIcon}</span></span>
-   </a>
-   <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — consultar anúncios de carro">
-    <span class="mobility-choice-copy">
-     <span class="mobility-choice-overline">TRANSPORTE EM CARRO <span aria-hidden="true">/</span> 02</span>
-     <strong>Encontrar motorista</strong>
-     <small>Explore os perfis anunciados e combine os detalhes.</small>
-     <span class="mobility-choice-cta">Ver motoristas <span aria-hidden="true">↗</span></span>
-    </span>
-    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback">${carIcon}</span></span>
-   </a>
-  </nav>`;
+ // V1.1144 — service-first discovery: the choice is on the FIRST screen.
+ // No synthetic cars, drivers, photo landscapes, provider counts, ratings or availability.
+ const discover=intent?'<div class="mobility-select-panel mobility-select-intent"><span class="mobility-select-eyebrow">CONTINUAR</span><h2>Seu atendimento, no seu tempo.</h2><p>Entre com seu e-mail para acompanhar ou confirmar a solicitação com o profissional escolhido.</p><span class="mobility-select-intent-foot">ACESSO IDENTIFICADO <span aria-hidden="true">↗</span></span></div>':`
+  <div class="mobility-select-panel">
+   <div class="mobility-select-heading">
+    <span class="mobility-select-eyebrow">ESCOLHA SEU CAMINHO</span>
+    <h2>Como você prefere ir?</h2>
+    <p>Explore os anúncios da sua região.</p>
+   </div>
+   <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro" id="mobility-choices">
+    <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals" aria-label="Encontrar mototaxista — consultar anúncios de moto">
+     <span class="mobility-choice-number" aria-hidden="true">01</span>
+     <span class="mobility-choice-copy"><strong>Mototáxi</strong><small>Conhecer mototaxistas anunciados</small></span>
+     <span class="mobility-choice-cta" aria-hidden="true">↗</span>
+    </a>
+    <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — consultar anúncios de carro">
+     <span class="mobility-choice-number" aria-hidden="true">02</span>
+     <span class="mobility-choice-copy"><strong>Carro</strong><small>Conhecer motoristas anunciados</small></span>
+     <span class="mobility-choice-cta" aria-hidden="true">↗</span>
+    </a>
+   </nav>
+   <p class="mobility-select-footnote">Você conhece as opções antes de decidir com quem falar.</p>
+  </div>`;
  const clarity=intent?'':`
-  <section class="mobility-clarity" aria-label="Informações importantes sobre o serviço">
-   <span class="mobility-clarity-title">Tudo com clareza.</span>
+  <section class="mobility-clarity" aria-label="Vantagens e funcionamento da Mobilidade TAMÃO">
+   <h2 class="mobility-clarity-title">Mobilidade sem complicação.</h2>
    <ul>
-    <li><span aria-hidden="true">✓</span> Consulte anúncios sem login</li>
-    <li><span aria-hidden="true">✓</span> Valores combinados diretamente</li>
-    <li><span aria-hidden="true">✓</span> Compartilhe localização só se quiser</li>
+    <li><span aria-hidden="true">01</span><span><strong>Explore livremente</strong><small>Consulte anúncios sem login.</small></span></li>
+    <li><span aria-hidden="true">02</span><span><strong>Combine os detalhes</strong><small>Converse sobre valor e atendimento.</small></span></li>
+    <li><span aria-hidden="true">03</span><span><strong>Você tem o controle</strong><small>Compartilhar localização é opcional.</small></span></li>
    </ul>
   </section>`;
  const top=`
-  <header class="mobility-hero ${intent?'mobility-hero-intent':''} ${s.user?'mobility-hero-account':''}">
+  <header class="mobility-hero mobility-v1144 ${intent?'mobility-hero-intent':''} ${s.user?'mobility-hero-account':''}">
    <div class="mobility-hero-top">
     <div class="mobility-hero-copy">
-     <span class="mobility-eyebrow"><span class="mobility-eyebrow-mark" aria-hidden="true"></span>TAMÃO <span aria-hidden="true">/</span> MOBILIDADE LOCAL</span>
-     <h1>${intent?'Continue seu atendimento.':'Seu destino começa <em>com a sua escolha.</em>'}</h1>
-     <p>${intent?'Entre com seu e-mail para continuar com o profissional selecionado. Confirme os detalhes antes de enviar a solicitação.':'Encontre mototaxistas e motoristas anunciados na sua região. Veja os perfis e combine o atendimento diretamente com o profissional.'}</p>
-     ${intent?'<span class="mobility-hero-hint">Acesso seguro para acompanhar solicitações</span>':'<button class="mobility-hero-quicklink" type="button" onclick="document.getElementById(&quot;mobility-choices&quot;)?.scrollIntoView({behavior:window.matchMedia(&quot;(prefers-reduced-motion: reduce)&quot;).matches?&quot;auto&quot;:&quot;smooth&quot;,block:&quot;start&quot;})">Escolher moto ou carro <span aria-hidden="true">↓</span></button>'}
-    </div>
-    <aside class="mobility-hero-art" aria-label="Como funciona a Mobilidade TAMÃO">
-     <div class="mobility-editorial-process">
-      <span class="mobility-graphic-kicker">COMO FUNCIONA</span>
-      <h2>${intent?'Acompanhe com tranquilidade.':'Seu caminho, em três passos.'}</h2>
-      <ol class="mobility-editorial-steps">
-       <li><span>01</span><div><strong>Encontre</strong><small>Explore os anúncios da sua região.</small></div></li>
-       <li><span>02</span><div><strong>Escolha</strong><small>Veja o perfil e decida com quem falar.</small></div></li>
-       <li><span>03</span><div><strong>Combine</strong><small>Confirme valores e detalhes diretamente.</small></div></li>
-      </ol>
-      <span class="mobility-editorial-foot">MOTO <i aria-hidden="true"></i> CARRO</span>
+     <span class="mobility-eyebrow"><span class="mobility-eyebrow-mark" aria-hidden="true"></span>TAMÃO / MOBILIDADE LOCAL</span>
+     <h1>${intent?'Continue com quem você escolheu.':'Quem te leva, <em>você escolhe.</em>'}</h1>
+     <p>${intent?'Sua solicitação começa depois da sua confirmação. Entre para acompanhar o atendimento e decidir quais informações compartilhar.':'Mototaxistas e motoristas anunciados em um só lugar. Conheça os perfis, escolha o profissional e combine diretamente.'}</p>
+     <div class="mobility-hero-signature">
+      <span class="mobility-signature-line" aria-hidden="true"></span>
+      <span>UMA FORMA MAIS SIMPLES DE SE CONECTAR</span>
      </div>
-    </aside>
+    </div>
+    ${discover}
    </div>
-   ${discover}
   </header>
   ${clarity}`;
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
