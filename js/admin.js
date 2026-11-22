@@ -4036,7 +4036,7 @@ function adminNetworkFeePackagePanel(){
     return BRL.format(Math.floor((Number.isSafeInteger(n)&&n>=0?n:0)/1000000)/100);
   };
   const label=d?.error?'Diagnóstico indisponível':
-    !d?'Ainda não consultado':d.accrualEnabled?'Apuração habilitada':'Apuração pausada';
+    !d?'Ainda não consultado':d.accrualEnabled?'Pacotes habilitados':(d.adsPool?.accrualEnabled?'Pacotes pendentes • anúncios em apuração':'Apuração pausada');
   return '<section class="section admin-network-fee-packages">'+
     '<div class="section-head"><div><span class="section-kicker">REDE TAMÃO • FINANCEIRO</span>'+
     '<h3>Fundo coletivo: pacotes e publicidade</h3>'+
