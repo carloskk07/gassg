@@ -720,51 +720,63 @@ function mobilityFeeLedgerPanel(){
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
- // V1.1139: photo-led discovery, without changing authenticating or dispatch.
- const mobilityMotoPhoto='https://images.unsplash.com/photo-1753573984153-4c4174b4ab6b?auto=format&fit=crop&w=1100&q=80';
- const mobilityCarPhoto='https://images.unsplash.com/photo-1651933701501-e58cd2b3ba4e?auto=format&fit=crop&w=1300&q=82';
+ // V1.1140: human-first local mobility. Illustrative photography, real listing links.
+ // No fake drivers, availability, ratings, dispatch, GPS, payments or guarantees.
+ const mobilityMotoPhoto='https://images.unsplash.com/photo-1786093525552-62da701d143a?auto=format&fit=crop&w=1100&q=82';
+ const mobilityCarPhoto='https://images.unsplash.com/photo-1626019240499-926f8bf154c8?auto=format&fit=crop&w=1100&q=82';
+ const mobilityHeroPhoto='https://images.unsplash.com/photo-1773063449875-332dff62b6e3?auto=format&fit=crop&w=1300&q=82';
  const discover=intent?'':`
-  <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro">
+  <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro" id="mobility-choices">
    <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals" aria-label="Encontrar mototaxista — explorar anúncios na região">
-    <span class="mobility-choice-copy"><span class="mobility-choice-overline">01 / EM DUAS RODAS</span>
-     <strong>Encontre um mototaxista.</strong><small>Conheça anúncios da sua região e escolha o profissional com quem falar.</small>
-     <span class="mobility-choice-cta">Explorar mototaxistas <span aria-hidden="true">↗</span></span>
-    </span><span class="mobility-choice-image"><img src="${mobilityMotoPhoto}" alt="" loading="lazy" decoding="async" width="640" height="720"></span>
+    <span class="mobility-choice-copy">
+     <span class="mobility-choice-overline">MOBILIDADE / MOTO</span>
+     <strong>Vou de moto.</strong>
+     <small>Conheça os mototaxistas anunciados e escolha com quem conversar.</small>
+     <span class="mobility-choice-cta">Ver mototaxistas <span aria-hidden="true">↗</span></span>
+    </span>
+    <span class="mobility-choice-image"><img src="${mobilityMotoPhoto}" alt="" loading="lazy" decoding="async" width="640" height="720"></span>
    </a>
    <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — explorar anúncios na região">
-    <span class="mobility-choice-copy"><span class="mobility-choice-overline">02 / EM QUATRO RODAS</span>
-     <strong>Encontre um motorista.</strong><small>Explore opções de carro anunciadas e combine o atendimento diretamente.</small>
-     <span class="mobility-choice-cta">Explorar motoristas <span aria-hidden="true">↗</span></span>
-    </span><span class="mobility-choice-image"><img src="${mobilityCarPhoto}" alt="" loading="lazy" decoding="async" width="640" height="720"></span>
+    <span class="mobility-choice-copy">
+     <span class="mobility-choice-overline">MOBILIDADE / CARRO</span>
+     <strong>Vou de carro.</strong>
+     <small>Explore motoristas anunciados e combine os detalhes do atendimento.</small>
+     <span class="mobility-choice-cta">Ver motoristas <span aria-hidden="true">↗</span></span>
+    </span>
+    <span class="mobility-choice-image"><img src="${mobilityCarPhoto}" alt="" loading="lazy" decoding="async" width="640" height="720"></span>
    </a>
   </nav>`;
  const journey=(intent||s.user)?'':`
   <section class="mobility-journey" aria-labelledby="mobility-journey-title">
-   <div class="mobility-journey-heading"><span class="mobility-eyebrow mobility-eyebrow-light">COMO FUNCIONA</span>
-    <h2 id="mobility-journey-title">Um caminho simples, do começo ao combinado.</h2>
-    <p>Escolha com calma. Nenhuma solicitação é enviada sem a sua confirmação.</p>
+   <div class="mobility-journey-heading">
+    <span class="mobility-eyebrow mobility-eyebrow-light">UMA ESCOLHA MAIS SIMPLES</span>
+    <h2 id="mobility-journey-title">Você encontra. <em>Você decide.</em></h2>
+    <p>O TAMÃO aproxima você dos profissionais anunciados. O atendimento é combinado diretamente com o motorista ou mototaxista.</p>
    </div>
    <div class="mobility-journey-steps">
-    <article><span class="mobility-step-no">01</span><h3>Explore as opções</h3><p>Veja os profissionais anunciados na modalidade que você procura.</p></article>
-    <article><span class="mobility-step-no">02</span><h3>Escolha com quem falar</h3><p>Selecione o anúncio que faz sentido para você e prossiga com a solicitação.</p></article>
-    <article><span class="mobility-step-no">03</span><h3>Combine diretamente</h3><p>Confirme os detalhes do atendimento e o valor com o profissional.</p></article>
+    <article><span class="mobility-step-no">01</span><h3>Veja os anúncios</h3><p>Consulte as opções da sua região, sem precisar entrar na conta.</p></article>
+    <article><span class="mobility-step-no">02</span><h3>Escolha o profissional</h3><p>Confira o anúncio e converse para acertar valores e detalhes.</p></article>
+    <article><span class="mobility-step-no">03</span><h3>Acompanhe pelo TAMÃO</h3><p>Quando houver solicitação, acompanhe o atendimento com acesso à sua conta.</p></article>
    </div>
   </section>`;
  const top=`
   <header class="mobility-hero ${intent?'mobility-hero-intent':''} ${s.user?'mobility-hero-account':''}">
    <div class="mobility-hero-copy">
     <span class="mobility-eyebrow"><span class="mobility-eyebrow-mark" aria-hidden="true"></span>TAMÃO / MOBILIDADE LOCAL</span>
-    <h1>${intent?'Continue seu atendimento com tranquilidade.':'Sua cidade em movimento. <em>No seu ritmo.</em>'}</h1>
-    <p>${intent?'Acesse sua conta para continuar com o profissional escolhido. Você confirma antes de enviar qualquer solicitação.':'Encontre mototaxistas e motoristas anunciados na sua região. Conheça as opções, escolha quem contatar e combine o atendimento do seu jeito.'}</p>
+    <h1>${intent?'Continue seu atendimento com tranquilidade.':'Moto ou carro. <em>Você escolhe quem te leva.</em>'}</h1>
+    <p>${intent?'Entre na sua conta para continuar com o profissional escolhido. Uma solicitação só é enviada depois da sua confirmação.':'Encontre mototaxistas e motoristas anunciados na sua região. Veja as opções, escolha quem contatar e combine diretamente o atendimento.'}</p>
+    <div class="mobility-hero-actions">
+     ${intent?'':`<button class="mobility-hero-explore" type="button" onclick="document.querySelector('.mobility-choices')?.scrollIntoView({behavior:'smooth',block:'start'})">Conhecer as opções <span aria-hidden="true">↓</span></button>`}
+     <span class="mobility-hero-access-note">Consultar anúncios não exige login</span>
+    </div>
     <div class="mobility-hero-points" aria-label="O que você pode esperar">
-     <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>Você escolhe o profissional</span>
-     <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>Localização sob seu controle</span>
+     <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>Profissional escolhido por você</span>
+     <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>Compartilhamento de localização opcional</span>
     </div>
    </div>
-   <div class="mobility-hero-art" aria-hidden="true">
-    <img class="mobility-hero-car" src="${mobilityCarPhoto}" alt="" width="800" height="980" fetchpriority="high" decoding="async">
-    <div class="mobility-hero-mini"><img src="${mobilityMotoPhoto}" alt="" width="360" height="420" loading="lazy" decoding="async"></div>
-    <span class="mobility-hero-art-caption">MOTO <span aria-hidden="true">/</span> CARRO</span>
+   <div class="mobility-hero-art">
+    <img class="mobility-hero-car" src="${mobilityHeroPhoto}" alt="Motorista e passageira durante um deslocamento, imagem ilustrativa" width="950" height="700" fetchpriority="high" decoding="async">
+    <span class="mobility-hero-art-caption">IMAGEM ILUSTRATIVA</span>
    </div>
   </header>
   ${discover}
