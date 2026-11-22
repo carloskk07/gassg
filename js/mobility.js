@@ -775,7 +775,7 @@ function mobilityPage(){
      <span class="mobility-eyebrow"><span class="mobility-eyebrow-mark" aria-hidden="true"></span>TAMÃO <span aria-hidden="true">/</span> MOBILIDADE LOCAL</span>
      <h1>${intent?'Continue seu atendimento.':'Seu destino começa <em>com a sua escolha.</em>'}</h1>
      <p>${intent?'Entre com seu e-mail para continuar com o profissional selecionado. Confirme os detalhes antes de enviar a solicitação.':'Encontre mototaxistas e motoristas anunciados na sua região. Veja os perfis e combine o atendimento diretamente com o profissional.'}</p>
-     ${intent?'<span class="mobility-hero-hint">Acesso seguro para acompanhar solicitações</span>':'<a class="mobility-hero-quicklink" href="#mobility-choices">Escolher moto ou carro <span aria-hidden="true">↓</span></a>'}
+     ${intent?'<span class="mobility-hero-hint">Acesso seguro para acompanhar solicitações</span>':'<button class="mobility-hero-quicklink" type="button" onclick="document.getElementById(&quot;mobility-choices&quot;)?.scrollIntoView({behavior:window.matchMedia(&quot;(prefers-reduced-motion: reduce)&quot;).matches?&quot;auto&quot;:&quot;smooth&quot;,block:&quot;start&quot;})">Escolher moto ou carro <span aria-hidden="true">↓</span></button>'}
     </div>
     <aside class="mobility-hero-art" aria-label="Como funciona a Mobilidade TAMÃO">
      <div class="mobility-editorial-process">
