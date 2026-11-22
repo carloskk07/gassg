@@ -819,7 +819,7 @@
 .discovery-rides .rides-hero-bottom{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;background:#0d3229;border-top:1px solid rgba(255,255,255,.13);min-height:65px}
 .discovery-rides .rides-hero-bottom span{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;color:#d8c493;font:italic 21px/1.1 Georgia,serif}
 .discovery-rides .rides-hero-bottom span+span{border-left:1px solid rgba(255,255,255,.11)}
-.discovery-rides .rides-hero-bottom b{font:650 11px/1.4 inherit;font-family:inherit;color:#d6e4d9;letter-spacing:0}
+.discovery-rides .rides-hero-bottom b{font-size:11px;font-weight:650;line-height:1.4;font-family:inherit;color:#d6e4d9;letter-spacing:0}
 .discovery-rides .rides-search-panel{position:relative;z-index:2;margin:-18px 30px 0;scroll-margin-top:100px;padding:26px 30px 18px;border-radius:24px;border:1px solid #e2e9e2;background:#fff;box-shadow:0 24px 65px rgba(24,60,37,.11)}
 .discovery-rides .rides-search-panel .rides-search-heading{margin:0 0 20px;align-items:center}
 .discovery-rides .rides-search-panel .rides-search-heading h2{font-size:clamp(23px,2.7vw,34px);letter-spacing:-.045em;margin-top:6px}
@@ -840,10 +840,10 @@
 .discovery-rides .rides-search-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 10px}
 .discovery-rides .rides-search-quick{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .discovery-rides .rides-search-quick-label{font-size:11px;font-weight:800;color:#6c8170;margin-right:5px}
-.discovery-rides .rides-search-quick button{border:1px solid #e0e9de;background:#f7faf6;color:#38624c;border-radius:999px;padding:8px 12px;min-height:34px;font:730 11px/1.2 inherit;font-family:inherit;cursor:pointer}
+.discovery-rides .rides-search-quick button{border:1px solid #e0e9de;background:#f7faf6;color:#38624c;border-radius:999px;padding:8px 12px;min-height:34px;font-size:11px;font-weight:730;line-height:1.2;font-family:inherit;cursor:pointer}
 .discovery-rides .rides-search-quick button[aria-pressed=true]{background:#174b39;border-color:#174b39;color:white}
 .discovery-rides .rides-search-quick button:hover{border-color:#88b097}
-.discovery-rides .rides-clear{border:0;background:transparent;color:#65806b;font:750 11px/1.3 inherit;font-family:inherit;text-decoration:underline;text-underline-offset:3px;padding:8px;min-height:36px;cursor:pointer}
+.discovery-rides .rides-clear{border:0;background:transparent;color:#65806b;font-size:11px;font-weight:750;line-height:1.3;font-family:inherit;text-decoration:underline;text-underline-offset:3px;padding:8px;min-height:36px;cursor:pointer}
 .discovery-rides .rides-refine{margin-top:2px;border-top:1px solid #edf0e9}
 .discovery-rides .rides-refine summary{display:flex;align-items:center;gap:10px;list-style:none;padding:14px 3px;cursor:pointer;font-size:12px;font-weight:850;color:#1b583d}
 .discovery-rides .rides-refine summary::-webkit-details-marker{display:none}
