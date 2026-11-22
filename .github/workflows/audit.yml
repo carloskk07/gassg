@@ -1400,10 +1400,10 @@ jobs:
           # Rede premium loads progressively; old shell and premium landing both
           # support real invitation access. Detailed mobile/desktop experience is
           # checked in earn-premium-browser-v1-1145.mjs.
-          if grep -Fq 'class="earn-signature"' /tmp/earn.html; then
+          if grep -Fq 'tamao-earn-page earn-signature' /tmp/earn.html; then
             grep -Fq 'Indique pessoas.' /tmp/earn.html
             grep -Fq 'Acessar minha Rede' /tmp/earn.html
-            grep -Fq 'go('\''refer'\'')' /tmp/earn.html
+            grep -Fq 'earn-action-primary' /tmp/earn.html
           else
             grep -Fq 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.' /tmp/earn.html
           fi
