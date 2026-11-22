@@ -940,3 +940,34 @@
  .discovery-rides .rides-search-primary .rides-swap,.discovery-rides .rides-refine summary .rides-refine-chevron{transition:none}
  .discovery-rides .rides-search-primary .rides-swap:hover{transform:none}
 }
+
+
+/* Caronas signature polish — preserve the cinematic hero while bringing search into first view. */
+@media(min-width:761px){
+ .discovery-rides .rides-signature-hero .rides-hero-copy{padding:26px clamp(27px,3.2vw,45px) 30px}
+ .discovery-rides .rides-signature-hero h1{font-size:clamp(40px,4.05vw,56px);line-height:1.07;margin:17px 0 14px;max-width:16ch}
+ .discovery-rides .rides-signature-hero .rides-hero-copy>p{font-size:13px;line-height:1.62;max-width:51ch}
+ .discovery-rides .rides-signature-hero .rides-hero-actions{margin-top:19px}
+ .discovery-rides .rides-signature-hero .rides-hero-points{margin-top:18px;padding-top:13px}
+ .discovery-rides .rides-signature-hero .rides-hero-visual{min-height:405px}
+ .discovery-rides .rides-signature-hero .rides-photo-caption{bottom:40px}
+ .discovery-rides .rides-signature-hero .rides-photo-caption strong{font-size:clamp(23px,2.3vw,30px)}
+ .discovery-rides .rides-hero-bottom{display:none}
+ .discovery-rides .rides-search-panel{margin:-55px 31px 0;padding:22px 27px 17px;box-shadow:0 20px 53px rgba(12,59,36,.12)}
+ .discovery-rides .rides-search-panel .rides-search-heading{margin-bottom:14px}
+ .discovery-rides .rides-search-panel .rides-search-heading h2{font-size:clamp(23px,2.3vw,30px)}
+}
+.discovery-rides .rides-signature-hero .rides-photo-credit{right:17px;top:15px;bottom:auto;padding:6px 9px;border-radius:8px;background:rgba(16,44,34,.45);font-size:9px;color:#fff;backdrop-filter:blur(4px)}
+@media(min-width:761px) and (max-width:1060px){
+ .discovery-rides .rides-signature-hero h1{font-size:clamp(37px,4vw,48px)}
+ .discovery-rides .rides-signature-hero .rides-hero-visual{min-height:425px}
+ .discovery-rides .rides-search-panel{margin:-37px 16px 0;padding:21px}
+}
+@media(max-width:760px){
+ .discovery-rides .rides-hero-bottom{display:none}
+ .discovery-rides .rides-search-panel{margin:-16px 12px 0}
+ .discovery-rides .rides-signature-hero .rides-photo-credit{right:10px;top:10px}
+}
+@media(max-width:520px){
+ .discovery-rides .rides-search-panel{margin:-12px 8px 0}
+}
