@@ -25,6 +25,11 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
           <button type="button" data-earn-scenario="10" aria-pressed="false" onclick="earnPremiumScenarioChoose(10)">10 compras</button>
         </div>
         <div class="earn-simulator-total"><span>COMISSÃO ESTIMADA • EXEMPLO</span><strong data-earn-scenario-total aria-live="polite">${example}</strong><small data-earn-scenario-description>5 primeiras compras válidas × R$ 120,00 × ${rate}</small></div>
+        <div class="earn-simulator-breakdown" aria-label="Detalhes do cálculo ilustrativo">
+          <div><span>COMPRAS VÁLIDAS</span><strong data-earn-count>5</strong></div>
+          <div><span>TOTAL DAS COMPRAS</span><strong data-earn-gross>R$ 600,00</strong></div>
+          <div><span>POR COMPRA</span><strong data-earn-per-order>R$ 2,40</strong></div>
+        </div>
         <details class="earn-simulator-settings">
           <summary><span>Personalizar valor da primeira compra</span><span class="earn-simulator-settings-toggle" aria-hidden="true">+</span></summary>
           <div class="earn-simulator-settings-body">
@@ -47,7 +52,7 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
       <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Não é só indicar.<br>É participar de uma Rede de vantagens.</h2><p>Comissão por indicações, participação coletiva em pacotes elegíveis e benefícios do Clube — cada modalidade com suas regras.</p></div>
       <div class="earn-assurance" aria-label="Benefícios e oportunidades da Rede TAMÃO">
         <article><span class="earn-assurance-number">01 / INDICAÇÕES</span><strong class="earn-benefit-figure">${rate}</strong><h3>Comissão direta</h3><p>Da primeira compra qualificada de cada novo cliente indicado, após validação.</p><button type="button" onclick="go('refer')">Minhas indicações <span aria-hidden="true">↗</span></button></article>
-        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>Do valor líquido dos pacotes comerciais elegíveis, distribuído conforme visitas verificadas nas últimas 24 horas. Não é 10% para cada pessoa; cupons ficam fora.</p><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>O fundo recebe 10% do valor líquido de pacotes comerciais elegíveis. O rateio depende da atividade verificada nas últimas 24 horas; cupons ficam fora.</p><details class="earn-fund-clarity"><summary>Entenda com um exemplo <span aria-hidden="true">+</span></summary><p>Se um pacote elegível gerar R$ 100,00 líquidos, R$ 10,00 irão para o fundo coletivo — não para cada participante. O valor individual depende do rateio e dos critérios vigentes.</p></details><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">03 / COMPRAS</span><strong class="earn-benefit-symbol" aria-hidden="true">✳</strong><h3>Clube TAMÃO</h3><p>Cupons, cashback elegível e outras vantagens disponíveis para suas compras.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">04 / SUA IDENTIDADE</span><strong class="earn-benefit-symbol" aria-hidden="true">↗</strong><h3>Sua página pessoal</h3><p>Link de convite, QR Code, conquistas e extrato com origem, tudo na sua Rede.</p><button type="button" onclick="go('refer')">Acessar minha página <span aria-hidden="true">↗</span></button></article>
       </div>
@@ -119,6 +124,12 @@ function earnPremiumUpdateEstimate(){
   ?n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+
     ' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate())
   :'Informe um valor de R$ 1 a R$ 10.000 para simular.';
+ const count=host.querySelector('[data-earn-count]');
+ const gross=host.querySelector('[data-earn-gross]');
+ const perOrder=host.querySelector('[data-earn-per-order]');
+ if(count)count.textContent=String(n);
+ if(gross)gross.textContent=valid?BRL.format(ticket*n):'—';
+ if(perOrder)perOrder.textContent=valid?BRL.format(referralExample(ticket,1)):'—';
  host.querySelectorAll('[data-earn-ticket-preset]').forEach(btn=>{
    btn.setAttribute('aria-pressed',String(Number(btn.getAttribute('data-earn-ticket-preset'))===ticket));
  });
