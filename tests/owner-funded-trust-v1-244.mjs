@@ -49,8 +49,9 @@ for(const f of [
  'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.',
  'Tudo acompanhado em um só lugar.',
 
- 'uma primeira compra elegível','primeira compra válida',
- 'A comissão é calculada sobre a primeira compra válida'
+ 'Simulação de uma compra elegível e validada, inclusive recorrente',
+ 'Compras posteriores também podem gerar comissão',
+ 'A comissão de ${referralRateLabel} pode se repetir a cada compra válida'
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
 const sponsor=file('js/sponsors-premium.js');
 assert.ok(sponsor.includes('Uma presença profissional, sem complicar') || sponsor.includes('Mais presença para o seu negócio'),

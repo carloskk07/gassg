@@ -607,7 +607,7 @@ const total=referralExample(ticket,clients);
 const out=document.querySelector('#ref-sim-total');
 if(out)out.textContent=BRL.format(total);
 const detail=document.querySelector('#ref-sim-detail');
-if(detail)detail.textContent=clients+' novo'+(clients===1?' cliente':'s clientes')+' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate());
+if(detail)detail.textContent=clients+' '+(clients===1?'compra elegível':'compras elegíveis')+' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate());
 }
 function updateMerchantSimulator(){
 const orders=Math.min(10000,Math.max(1,Math.trunc(Number(document.querySelector('#merchant-sim-orders')?.value)||1)));
@@ -686,7 +686,7 @@ const hasReferral=Boolean(state.user.referralCode);
 const referredCount=live?Math.max(0,Number(globalThis.liveRuntime?.referredCount||0)):0;
 const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
 const referralCard=hasReferral
-? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">Seu código é pessoal. Comissão exige primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
+? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">Seu código é pessoal. Comissões podem ocorrer em todas as compras elegíveis dos clientes indicados.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
 : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do TAMÃO.</div>';
 const identityCard=live&&!permanent
 ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
@@ -707,7 +707,7 @@ return shell(`<section class="page">
 <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
 <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
 <div class="earn-balance-card"><span>Indicados</span><strong>${referredCount}</strong><small>novos usuários vinculados</small></div>
-<div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com 1ª compra qualificada</small></div>
+<div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com ao menos uma compra qualificada</small></div>
 </div>
 ${referralCard}
 ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
@@ -718,20 +718,20 @@ ${globalThis.tamaoNetworkCelebraPanel?.()||''}
 ${identityCard}
 ${tamaoNetworkFeePackagePanel()}
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule benefícios de primeiras compras válidas.</p></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule benefícios por compras válidas, incluindo recompras de um mesmo cliente.</p></div></div>
 <div class="calculator-card">
 <div class="calculator-inputs">
-<div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()" list="rqn"><datalist id="rqn"><option value="5"><option value="10"><option value="50"></datalist></div>
-<div class="input-wrap"><label for="ref-sim-ticket">Valor médio da primeira compra (R$)</label><input id="ref-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateReferralSimulator()"></div>
+<div class="input-wrap"><label for="ref-sim-clients">Compras elegíveis dos clientes indicados</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()" list="rqn"><datalist id="rqn"><option value="5"><option value="10"><option value="50"></datalist></div>
+<div class="input-wrap"><label for="ref-sim-ticket">Valor médio por compra elegível (R$)</label><input id="ref-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateReferralSimulator()"></div>
 </div>
-<div class="calculator-result"><small>Resultado da simulação</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × ${referralRateLabel}</span></div>
+<div class="calculator-result"><small>Resultado da simulação</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 compras elegíveis × ${BRL.format(120)} × ${referralRateLabel}</span></div>
 </div>
-<div class="notice" style="margin-top:12px"><strong>Uma indicação qualificada faz a diferença.</strong><br>A comissão é calculada sobre a primeira compra válida do novo cliente indicado, após validação. Compras posteriores não geram outra comissão de aquisição.</div>
+<div class="notice" style="margin-top:12px"><strong>Uma indicação qualificada faz a diferença.</strong><br>A comissão de ${referralRateLabel} pode se repetir a cada compra válida do mesmo cliente indicado, após conclusão e validação. A compra deve ter lastro financeiro elegível; cadastro e compartilhamento isolados não geram comissão.</div>
 </section>
 
 <section class="section"><div class="section-head"><div><h2>Quando a indicação pode gerar comissão</h2></div></div><div class="how-grid">
 <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo TAMÃO.</p></div></div>
-<div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra válida</strong><p>Cadastro e compras posteriores não criam nova comissão.</p></div></div>
+<div class="how-card"><span>2</span><div><strong>O cliente indicado faz uma compra válida</strong><p>Compras posteriores também podem gerar comissão, desde que elegíveis.</p></div></div>
 <div class="how-card"><span>3</span><div><strong>A venda é concluída</strong><p>A entrega e o pagamento precisam ser confirmados.</p></div></div>
 <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Após validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
 </div></section>
@@ -797,8 +797,8 @@ return shell(`<section class="page tamao-earn-page">
 <details class="tamao-network-clarity"><summary>Como funcionam os benefícios financeiros?</summary><p>O Clube reúne cupons e cashback de compras elegíveis; a Rede acompanha convites e indicações. Comissões exigem eventos reais, programa habilitado e validação. Um compartilhamento ou cadastro isolado não gera pagamento; empresas vendem após habilitação comercial.</p></details>
 <div class="opportunity-grid main-opportunities">
 <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Seu link aproxima pessoas de boas opções. Acompanhe suas indicações e eventuais comissões de compras qualificadas.</p>
-<ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Histórico de conquistas e origem dos benefícios no extrato</li></ul>
-<div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Simulação para uma primeira compra elegível e validada, conforme a política comercial.</span></div>
+<ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} em cada compra qualificada</li><li>Vínculo de indicação persistente, com comissões nas recompras elegíveis</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Histórico de conquistas e origem dos benefícios no extrato</li></ul>
+<div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Simulação de uma compra elegível e validada, inclusive recorrente, conforme a política comercial.</span></div>
 <button class="primary full" onclick="go('refer')">Conhecer as indicações →</button>
 </article>
 <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Sua empresa pode vender por mais um canal.</h2><p>Ganhe outra vitrine sem abandonar seus canais atuais.</p>

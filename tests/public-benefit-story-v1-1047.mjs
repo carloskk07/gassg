@@ -46,7 +46,7 @@ assert.match(growth,/<h1>Suas compras podem render muito mais no Clube TAMÃO/);
 assert.match(growth,/<h1 class="page-title">Compartilhe o TAMÃO\. Veja sua Rede ganhar vida/);
 assert.match(growth,/<details class="tamao-network-clarity">/);
 assert.match(growth,/Comissões exigem eventos reais, programa habilitado e validação/);
-assert.match(growth,/prima|primeira compra qualificada/i);
+assert.match(growth,/Compras posteriores também podem gerar comissão/i);
 const sponsor=read('js/sponsors-premium.js');
 assert.match(sponsor,/Sua marca merece <em>ser vista<\/em> por quem vive a sua cidade/);
 assert.match(sponsor,/PUBLICIDADE IDENTIFICADA/);

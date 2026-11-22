@@ -250,6 +250,11 @@ jobs:
         run: node tests/isolated-virtual-participant-journey-v1-1084.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
+      - name: V1.1153 repeated referral order earns 2%, one ledger and original attribution (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/recurring-referral-v1-1153.sql
       - name: V1.843 REAL partner-funded product welcome complete checkout, refund and fee settlement
         run: node tests/isolated-product-partner-welcome-v1-843.mjs
       - name: V1.844 PostgreSQL merchant capability scope, ACL, and intact paid-coupon obligations

@@ -288,7 +288,7 @@ assert.equal(await evaluate("document.querySelector('.earn-hero .earn-benefit-si
 assert.match(await evaluate("document.querySelector('.earn-faq')?.textContent||''"),/Apenas cadastrar alguém gera comissão/,
  'Condições financeiras e qualificação devem permanecer acessíveis na Rede');
 assert.match(body,/Sua empresa em uma Rede local/);
-assert.match(body,/primeira compra qualificada/);
+assert.match(body,/comissão recorrente/i);
 assert.match(body,/não gera comissão/i);
 assert.equal(await evaluate("document.querySelectorAll('.earn-step-grid article').length"),3);
 assert.equal(await evaluate("document.querySelectorAll('.earn-faq details').length"),6);
@@ -407,8 +407,8 @@ await waitFor("document.body.innerText.includes('Seu próximo convite pode abrir
 body=await text();
 assert.match(body,/Tudo acompanhado em um só lugar/);
 assert.match(body,/R\$\s*24,00/);
-assert.match(body,/primeira compra qualificada/i);
-assert.match(body,/Compras posteriores não geram outra comissão de aquisição/i);
+assert.match(body,/A comissão de 2% pode se repetir a cada compra válida/i);
+assert.match(body,/Compras posteriores também podem gerar comissão/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),false);
 await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);

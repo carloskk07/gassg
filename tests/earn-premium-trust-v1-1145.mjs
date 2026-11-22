@@ -11,7 +11,7 @@ const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 12,00'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
 for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato por origem',
- 'primeira compra elegível','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
+ 'compras válidas','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
@@ -24,8 +24,8 @@ assert.match(page,/SIMULADOR DE COMISSÕES/);
 assert.match(page,/Não é só indicar/);
 assert.match(page,/data-earn-ticket/);
 assert.equal((page.match(/data-earn-ticket-preset="/g)||[]).length,3);
-assert.match(page,/Personalizar valor da primeira compra/);
-assert.match(page,/5 primeiras compras válidas/);
+assert.match(page,/Personalizar valor de cada compra/);
+assert.match(page,/5 compras válidas/);
 assert.match(page,/data-earn-scenario="5" aria-pressed="true"/);
 assert.ok(page.indexOf('earn-benefit-simulator')<page.indexOf('earn-benefit-board'));
 assert.ok(page.indexOf('earn-benefit-board')<page.indexOf('earn-section earn-value'));
@@ -76,4 +76,33 @@ assert.doesNotMatch(html,/<script[^>]*src="\.\/js\/earn-premium\.js"/);
 for(const term of ['.earn-signature','.earn-hero','.earn-stage','.earn-step-grid','.earn-faq','@media(max-width:540px)','@media(prefers-reduced-motion:reduce)',':focus-visible'])
  assert(css.includes(term),'Missing responsive design contract '+term);
 assert.match(sw,/function networkFirst\(req/);
+
+// V1.1153: recurring order reward MUST NOT be gated by the first qualifying order.
+const recurringSql=read('supabase/migrations/20261122202350_recurring_referral_orders_v1_1153.sql');
+assert.match(recurringSql,/create or replace function public\.grant_order_rewards/i);
+assert.match(recurringSql,/where referred_user_id=v_order\.customer_id/);
+assert.match(recurringSql,/and v_referral\.created_at<=v_order\.created_at/);
+assert.doesNotMatch(recurringSql,/and \(v_referral\.qualified_order_id is null or v_referral\.qualified_order_id=v_order\.id\)/);
+assert.match(recurringSql,/set qualified_order_id=v_order\.id/);
+assert.match(recurringSql,/where order_id=v_order\.id/);
+assert.match(recurringSql,/on conflict\(idempotency_key\) do nothing/);
+assert.match(recurringSql,/v_order\.financial_reversed_at is not null/);
+assert.match(recurringSql,/v_order\.payment_confirmed_at is null/);
+assert.match(recurringSql,/v_platform_contribution<v_minimum_contribution/);
+assert.match(recurringSql,/'purchaseType',case when v_referral\.qualified_order_id is null then 'first' else 'repeat' end/);
+assert.match(recurringSql,/revoke all on function public\.grant_order_rewards\(uuid\) from public, anon, authenticated/);
+for(const feeBps of [650,700,750,800,900]){
+ const cents=12000,variable=75,minimum=250,cashback=100,referral=200;
+ const platformFee=Math.floor(cents*feeBps/10000);
+ const variableReserve=Math.min(platformFee,Math.ceil(cents*variable/10000));
+ const minimumContribution=Math.min(platformFee-variableReserve,Math.ceil(cents*minimum/10000));
+ const cashbackTarget=Math.floor(cents*cashback/10000);
+ const referralTarget=Math.floor(cents*referral/10000);
+ assert.ok(platformFee-variableReserve-minimumContribution-cashbackTarget>=referralTarget,
+  'Plano comercial de '+feeBps+'bps precisa financiar os 2% nas compras de R$ 120');
+}
+assert.match(page,/inclusive recompras de um mesmo cliente indicado/);
+assert.match(page,/cada compra qualificada/);
+assert.doesNotMatch(page,/Compras posteriores não geram outra comissão/);
+
 console.log('TAMÃO Rede premium PASS: financial clarity, honest example, valid routes, lazy assets and mobile styles.');
