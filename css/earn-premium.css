@@ -590,3 +590,13 @@
 @media(prefers-reduced-motion:reduce){
  .earn-signature .earn-fund-clarity summary>span{transition:none}
 }
+
+
+/* The larger calculator must not displace access to My Network on short laptops. */
+@media(min-width:991px) and (max-height:740px){
+ .earn-signature .earn-hero{align-items:start;padding-block:18px}
+ .earn-signature .earn-hero-copy{align-self:start;transform:none;padding-top:2px}
+ .earn-signature .earn-hero h1{margin-top:16px;margin-bottom:10px}
+ .earn-signature .earn-hero-earning{margin-top:12px}
+ .earn-signature .earn-hero-actions{margin-top:13px}
+}
