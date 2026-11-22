@@ -800,7 +800,7 @@ function discoveryRidesHero(){
     <h1 id="rides-hero-heading">Seu destino.<br><em>Um caminho em comum.</em></h1>
     <p>Descubra caronas anunciadas, conheça o trajeto e converse diretamente com quem vai viajar. Tudo em um lugar simples de explorar.</p>
     <div class="rides-hero-actions">
-      <a class="rides-hero-primary" href="#rides-search">Encontrar uma carona <span aria-hidden="true">↗</span></a>
+      <button type="button" class="rides-hero-primary" onclick="document.getElementById('rides-search')?.scrollIntoView({behavior:'smooth',block:'start'})">Encontrar uma carona <span aria-hidden="true">↗</span></button>
       <button class="rides-hero-secondary" type="button" onclick="go('advertise')">Oferecer uma carona <span aria-hidden="true">→</span></button>
     </div>
     <div class="rides-hero-points" aria-label="Como funcionam os anúncios"><span><i aria-hidden="true"></i> Trajeto informado</span><span><i aria-hidden="true"></i> Vagas anunciadas</span><span><i aria-hidden="true"></i> Contato direto</span></div>
@@ -827,7 +827,7 @@ function discoveryRidesAfterSearch(){
 }
 
 function discoveryRidesFooter(){
- return `<section class="rides-partner" aria-labelledby="rides-partner-heading"><div class="rides-partner-copy"><span class="rides-overline">PARA QUEM JÁ VAI PEGAR A ESTRADA</span><h2 id="rides-partner-heading">Tem espaço no carro?<br><em>Compartilhe seu caminho.</em></h2><p>Publique a sua rota, informe as vagas e facilite o contato com pessoas interessadas no mesmo destino. Anúncios passam por revisão antes da publicação.</p><div class="rides-partner-actions"><button type="button" onclick="go('advertise')">Anunciar minha carona <span aria-hidden="true">↗</span></button><a href="#rides-search">Buscar uma carona</a></div></div><div class="rides-partner-art" aria-hidden="true"><span class="rides-partner-orbit"></span><span class="rides-partner-route">→</span><small>Seu trajeto pode fazer a diferença.</small></div></section>`;
+ return `<section class="rides-partner" aria-labelledby="rides-partner-heading"><div class="rides-partner-copy"><span class="rides-overline">PARA QUEM JÁ VAI PEGAR A ESTRADA</span><h2 id="rides-partner-heading">Tem espaço no carro?<br><em>Compartilhe seu caminho.</em></h2><p>Publique a sua rota, informe as vagas e facilite o contato com pessoas interessadas no mesmo destino. Anúncios passam por revisão antes da publicação.</p><div class="rides-partner-actions"><button type="button" onclick="go('advertise')">Anunciar minha carona <span aria-hidden="true">↗</span></button><button type="button" class="rides-partner-search" onclick="document.getElementById('rides-search')?.scrollIntoView({behavior:'smooth',block:'start'})">Buscar uma carona</button></div></div><div class="rides-partner-art" aria-hidden="true"><span class="rides-partner-orbit"></span><span class="rides-partner-route">→</span><small>Seu trajeto pode fazer a diferença.</small></div></section>`;
 }
 
 function discoveryRidesCard(item){
