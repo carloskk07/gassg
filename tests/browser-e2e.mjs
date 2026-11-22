@@ -268,6 +268,8 @@ await waitFor("document.querySelector('.earn-signature') && document.body.innerT
 body=await text();
 assert.match(body,/Seu link\. Sua indicação\./);
 assert.match(body,/Fundo de pacotes/);
+assert.match(body,/fundo coletivo/);
+assert.match(await evaluate("document.querySelector('.earn-fund-clarity')?.textContent||''"),/R\$ 10,00 irão para o fundo coletivo/);
 assert.match(body,/SIMULADOR DE COMISSÕES/);
 assert.equal(await evaluate("document.querySelectorAll('.earn-benefit-board .earn-assurance>article').length"),4);
 assert.equal(await evaluate("document.querySelector('.earn-hero .earn-benefit-simulator')!==null"),true);
@@ -286,10 +288,15 @@ assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"5\"]'
 assert.equal(await evaluate("document.querySelectorAll('[data-earn-ticket-preset]').length"),3);
 await evaluate("earnPremiumTicketPreset(200)");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(200,10))"));
+assert.equal(await evaluate("document.querySelector('[data-earn-count]')?.textContent"),'10');
+assert.equal(await evaluate("document.querySelector('[data-earn-gross]')?.textContent"),await evaluate("BRL.format(200*10)"));
+assert.equal(await evaluate("document.querySelector('[data-earn-per-order]')?.textContent"),await evaluate("BRL.format(referralExample(200,1))"));
 await evaluate("document.querySelector('[data-earn-ticket]').value='150';earnPremiumUpdateEstimate()");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(150,10))"));
 await evaluate("document.querySelector('[data-earn-ticket]').value='20000';earnPremiumUpdateEstimate()");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),'—');
+assert.equal(await evaluate("document.querySelector('[data-earn-gross]')?.textContent"),'—');
+assert.equal(await evaluate("document.querySelector('[data-earn-per-order]')?.textContent"),'—');
 assert.equal(await evaluate("document.querySelector('[data-earn-ticket]')?.getAttribute('aria-invalid')"),'true');
 await evaluate("earnPremiumTicketPreset(120)");
 

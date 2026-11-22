@@ -531,3 +531,72 @@
 }
 
 .earn-signature .earn-simulator-settings-body input[aria-invalid="true"]{border-color:#efb6a4;box-shadow:0 0 0 2px #f1ae9633}
+
+
+/* V1.1151 — live commission composition and understandable collective benefits. */
+.earn-signature .earn-simulator-breakdown{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;
+ margin-top:13px;border:1px solid #a3c9b349;border-radius:14px;
+ background:linear-gradient(115deg,#ffffff0c,#ffffff15);overflow:hidden;
+}
+.earn-signature .earn-simulator-breakdown>div{
+ display:flex;flex-direction:column;justify-content:center;min-width:0;gap:5px;
+ padding:13px 11px;
+}
+.earn-signature .earn-simulator-breakdown>div+div{border-left:1px solid #c3dbc530}
+.earn-signature .earn-simulator-breakdown span{
+ color:#b6d3c2;font-size:9px;font-weight:850;letter-spacing:.065em;
+ line-height:1.4;
+}
+.earn-signature .earn-simulator-breakdown strong{
+ color:#ffedc7;font-size:clamp(15px,1.5vw,21px);font-weight:850;
+ letter-spacing:-.025em;line-height:1.15;font-variant-numeric:tabular-nums;
+ overflow-wrap:anywhere;
+}
+.earn-signature .earn-fund-clarity{
+ width:100%;margin:-1px 0 15px;padding:0 0 11px;
+ border-bottom:1px solid #dfe9de;min-width:0;
+}
+.earn-signature .earn-fund-clarity summary{
+ display:flex;justify-content:space-between;align-items:center;gap:7px;
+ padding:8px 0;list-style:none;color:#926924;font-size:11px;line-height:1.4;
+ font-weight:850;cursor:pointer;
+}
+.earn-signature .earn-fund-clarity summary::-webkit-details-marker{display:none}
+.earn-signature .earn-fund-clarity summary>span{font-size:16px;color:#b38642}
+.earn-signature .earn-fund-clarity[open] summary>span{transform:rotate(45deg)}
+.earn-signature .earn-benefit-board .earn-assurance .earn-fund-clarity p{
+ padding:9px 11px;margin:0;border-radius:9px;background:#f8f3e9;
+ color:#685d46;font-size:11px;line-height:1.62;
+}
+.earn-signature .earn-fund-clarity summary:focus-visible{
+ outline:3px solid #cfa05c;outline-offset:3px;border-radius:5px;
+}
+@media(max-width:990px){
+ .earn-signature .earn-simulator-breakdown>div{padding:10px 8px}
+ .earn-signature .earn-simulator-breakdown strong{font-size:16px}
+ .earn-signature .earn-simulator-breakdown span{font-size:8px}
+}
+@media(max-width:540px){
+ .earn-signature .earn-simulator-breakdown{margin-top:12px}
+ .earn-signature .earn-simulator-breakdown strong{font-size:clamp(14px,4vw,18px)}
+ .earn-signature .earn-simulator-breakdown>div{padding:10px 6px}
+ .earn-signature .earn-simulator-breakdown span{font-size:8px;letter-spacing:0}
+}
+@media(max-width:350px){
+ .earn-signature .earn-simulator-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .earn-signature .earn-simulator-breakdown strong{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+ .earn-signature .earn-fund-clarity summary>span{transition:none}
+}
+
+
+/* The larger calculator must not displace access to My Network on short laptops. */
+@media(min-width:991px) and (max-height:740px){
+ .earn-signature .earn-hero{align-items:start;padding-block:18px}
+ .earn-signature .earn-hero-copy{align-self:start;transform:none;padding-top:2px}
+ .earn-signature .earn-hero h1{margin-top:16px;margin-bottom:10px}
+ .earn-signature .earn-hero-earning{margin-top:12px}
+ .earn-signature .earn-hero-actions{margin-top:13px}
+}
