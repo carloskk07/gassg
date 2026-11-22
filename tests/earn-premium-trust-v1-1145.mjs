@@ -10,13 +10,21 @@ vm.runInContext(pageJs+'\nthis.page=earnPremiumPage;',ctx);
 const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 2,40'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
-for(const label of ['Acessar minha Rede','Código individual','Eventos verificados','Extrato com origem',
- 'Primeira compra elegível','Não é saldo real','Apenas cadastrar alguém','Posso sacar imediatamente'])
+for(const label of ['Acessar minha Rede','Código individual','Resultados verificáveis','Extrato por origem',
+ 'primeira compra elegível','Não representa saldo','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
-assert.match(page,/R\$ 120,00/);
+assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
 assert.match(page,/R\$ 2,40/);
-assert.equal((page.match(/<details>/g)||[]).length,5);
+assert.equal((page.match(/<details>/g)||[]).length,6);
+assert.equal((page.match(/data-earn-scenario="/g)||[]).length,3);
+assert.match(page,/Quanto representam primeiras compras elegíveis/);
+assert.match(page,/Uma página para chamar de sua/);
+assert.match(page,/Sete frentes com registros próprios/);
+assert.match(page,/Não representa saldo ou renda garantida/);
+assert.match(pageJs,/function earnPremiumScenarioChoose\(quantity\)/);
+assert.match(pageJs,/BRL\.format\(referralExample\(120,n\)\)/);
+assert.doesNotMatch(page,/R\$ 24,00 de ganhos garantidos/i);
 for(const route of ["go('refer')","go('club')","go('merchants')","go('contact')"])
  assert(page.includes(route),'Missing real action '+route);
 assert.doesNotMatch(page,/(?:5 estrelas|milhares de clientes|ganho garantido|saldo fictício|lucro certo)/i);
