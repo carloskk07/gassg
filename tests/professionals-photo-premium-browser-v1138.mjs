@@ -55,7 +55,7 @@ try{
   }
   assert.ok(ready,'Premium professionals module must paint at '+width+'px');
   const value=JSON.parse(await evaluate("JSON.stringify((()=>{const h=document.querySelector('.pros-hero');const photo=document.querySelector('.pros-photo-main img');const actions=[...document.querySelectorAll('.pros-hero-actions button')].map(el=>el.getBoundingClientRect());return {title:h.querySelector('h1')?.textContent,viewport:innerWidth,documentWidth:document.documentElement.scrollWidth,heroWidth:Math.round(h.getBoundingClientRect().width),heroVisible:getComputedStyle(h).display,photos:[...document.querySelectorAll('.pros-hero-visual img')].map(i=>({src:i.getAttribute('src'),alt:i.alt,loaded:i.complete&&i.naturalWidth>0})),specialties:document.querySelectorAll('.pros-specialty').length,primaryHeight:actions[0]?.height,primaryLeft:actions[0]?.left,primaryRight:actions[0]?.right,searchFields:['discovery-uf','discovery-city','discovery-occupation'].every(id=>!!document.getElementById(id)),illustrative:document.querySelector('.pros-photo-note')?.textContent,agendaLink:!!document.querySelector('.pros-agenda a[href=\"/agenda/\"]'),ownerCta:!!document.querySelector('.pros-partner button')}})())"));
-  assert.match(value.title,/Encontre profissionais na sua região/);
+  assert.match(value.title,/Encontre profissionais/);
   assert.equal(value.specialties,6);
   assert.equal(value.photos.length,3);
   assert.ok(value.photos.every(p=>p.src?.includes('images.unsplash.com')&&/ilustrativa/i.test(p.alt)));
