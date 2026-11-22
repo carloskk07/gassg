@@ -63,7 +63,8 @@ try{
     photos:[...document.querySelectorAll('.mobility-hero-art img,.mobility-choices img')].map(x=>x.getAttribute('src')),
     visuals:document.querySelectorAll('.mobility-choices .mobility-choice-image svg').length,
     graphic:!!document.querySelector('.mobility-hero .mobility-editorial-process'),
-    quicklink:document.querySelector('.mobility-hero-quicklink')?.getAttribute('href'),
+    quicklink:!!document.querySelector('button.mobility-hero-quicklink[type="button"]'),
+    jumpBehavior:document.querySelector('.mobility-hero-quicklink')?.getAttribute('onclick')?.includes('scrollIntoView'),
     redundantJourney:!!document.querySelector('.mobility-journey'),
     destinations:cards.map(x=>x.getAttribute('href')),
     guideSteps:document.querySelectorAll('.mobility-editorial-steps li').length,
@@ -84,7 +85,8 @@ try{
   assert.equal(value.photos.length,0,'No synthetic stock visuals should load');
   assert.equal(value.visuals,2,'Expected clearly visible motorcycle and car vector symbols');
   assert.equal(value.graphic,true,'Hero needs informative editorial steps without fake local imagery');
-  assert.equal(value.quicklink,'#mobility-choices','Hero action must navigate to the real choices');
+  assert.equal(value.quicklink,true,'Hero action must be a button without breaking SPA hash routing');
+  assert.equal(value.jumpBehavior,true,'Hero action must scroll to real choices');
   assert.equal(value.redundantJourney,false,'Do not repeat the same 3-step explanation below');
   assert.ok(value.photos.every(src=>!src),'No external hero/card photo should remain');
   assert.deepEqual(value.destinations,['/?servico=moto#professionals','/?servico=carro#professionals']);
