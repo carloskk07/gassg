@@ -52,7 +52,17 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
       <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Não é só indicar.<br>É participar de uma Rede de vantagens.</h2><p>Comissão por indicações, participação coletiva em pacotes elegíveis e benefícios do Clube — cada modalidade com suas regras.</p></div>
       <div class="earn-assurance" aria-label="Benefícios e oportunidades da Rede TAMÃO">
         <article><span class="earn-assurance-number">01 / INDICAÇÕES</span><strong class="earn-benefit-figure">${rate}</strong><h3>Comissão direta</h3><p>Da primeira compra qualificada de cada novo cliente indicado, após validação.</p><button type="button" onclick="go('refer')">Minhas indicações <span aria-hidden="true">↗</span></button></article>
-        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>O fundo recebe 10% do valor líquido de pacotes comerciais elegíveis. O rateio depende da atividade verificada nas últimas 24 horas; cupons ficam fora.</p><details class="earn-fund-clarity"><summary>Entenda com um exemplo <span aria-hidden="true">+</span></summary><p>Se um pacote elegível gerar R$ 100,00 líquidos, R$ 10,00 irão para o fundo coletivo — não para cada participante. O valor individual depende do rateio e dos critérios vigentes.</p></details><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">10% <small>fundo coletivo</small></strong><h3>Fundo de pacotes</h3><p>O fundo recebe 10% do valor líquido de pacotes comerciais elegíveis. O rateio depende da atividade verificada nas últimas 24 horas; cupons ficam fora.</p><div class="earn-fund-clarity" aria-label="Simulação ilustrativa do fundo coletivo">
+          <span class="earn-fund-kicker">EXEMPLO DO FUNDO COLETIVO</span>
+          <div class="earn-fund-presets" role="group" aria-label="Valor líquido hipotético de pacotes elegíveis">
+            <button type="button" data-earn-fund-preset="100" aria-pressed="true" onclick="earnPremiumFundChoose(100)">R$ 100</button>
+            <button type="button" data-earn-fund-preset="250" aria-pressed="false" onclick="earnPremiumFundChoose(250)">R$ 250</button>
+            <button type="button" data-earn-fund-preset="500" aria-pressed="false" onclick="earnPremiumFundChoose(500)">R$ 500</button>
+          </div>
+          <div class="earn-fund-result"><span>10% destinados ao fundo</span><strong data-earn-fund-total aria-live="polite">R$ 10,00</strong></div>
+          <p data-earn-fund-description>R$ 100,00 líquidos elegíveis: R$ 10,00 irão para o fundo coletivo, não para cada participante.</p>
+          <small>A parcela de cada pessoa depende do rateio e da atividade elegível nas últimas 24 horas.</small>
+        </div><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">03 / COMPRAS</span><strong class="earn-benefit-symbol" aria-hidden="true">✳</strong><h3>Clube TAMÃO</h3><p>Cupons, cashback elegível e outras vantagens disponíveis para suas compras.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button></article>
         <article><span class="earn-assurance-number">04 / SUA IDENTIDADE</span><strong class="earn-benefit-symbol" aria-hidden="true">↗</strong><h3>Sua página pessoal</h3><p>Link de convite, QR Code, conquistas e extrato com origem, tudo na sua Rede.</p><button type="button" onclick="go('refer')">Acessar minha página <span aria-hidden="true">↗</span></button></article>
       </div>
@@ -150,4 +160,22 @@ function earnPremiumTicketPreset(amount){
  if(!field)return false;
  field.value=String(ticket);
  return earnPremiumUpdateEstimate();
+}
+
+
+/* V1.1152: illustrative pool preview only; does not calculate or promise individual payouts. */
+function earnPremiumFundChoose(netAmount){
+ const value=[100,250,500].includes(Number(netAmount))?Number(netAmount):100;
+ const host=document.querySelector('.earn-fund-clarity');
+ if(!host)return false;
+ const pool=BRL.format(value/10);
+ const total=host.querySelector('[data-earn-fund-total]');
+ const description=host.querySelector('[data-earn-fund-description]');
+ if(total)total.textContent=pool;
+ if(description)description.textContent=BRL.format(value)+' líquidos elegíveis: '+pool+
+  ' irão para o fundo coletivo, não para cada participante.';
+ host.querySelectorAll('[data-earn-fund-preset]').forEach(button=>{
+  button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-earn-fund-preset'))===value));
+ });
+ return true;
 }
