@@ -74,6 +74,8 @@ try{
     artDisplay:getComputedStyle(document.querySelector('.mobility-select-panel')).display,
     integrated:!!document.querySelector('.mobility-hero .mobility-choices'),
     clarityCount:document.querySelectorAll('.mobility-clarity li').length,
+    clarityTitleFits:(()=>{const el=document.querySelector('.mobility-clarity-title');return !!el&&el.scrollWidth<=el.clientWidth+2;})(),
+    clarityTextFits:[...document.querySelectorAll('.mobility-clarity li>span:last-child')].every(el=>el.getBoundingClientRect().width>=75&&el.scrollWidth<=el.clientWidth+3),
     choiceTop:document.querySelector('.mobility-choices')?.getBoundingClientRect().top,
     linkAccessible:cards.every(x=>/Encontrar (mototaxista|motorista)/.test(x.getAttribute('aria-label'))),
     firstCardTop:rects[0]?.top,
@@ -93,6 +95,8 @@ try{
   assert.equal(value.guideSteps,3);
   assert.equal(value.integrated,true,'Service choices must be inside the main editorial hero');
   assert.equal(value.clarityCount,3,'Missing clear service, payment and privacy information');
+  assert.equal(value.clarityTitleFits,true,'Trust heading clipped or overlapping the choices');
+  assert.equal(value.clarityTextFits,true,'Trust text clipped into a 17px legacy chip');
   assert.equal(value.heroPhotoAlt,undefined,'Hero should not impersonate a local photograph');
   assert.deepEqual(value.cardTitles,['Mototáxi','Carro']);
   assert.equal(value.artDisplay,'flex','Selection must be visible at every viewport width');
