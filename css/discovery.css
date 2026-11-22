@@ -619,3 +619,14 @@
  .discovery-professionals .pros-specialty,.discovery-professionals .pros-hero-actions button{transition:none}
  .discovery-professionals .pros-specialty:hover,.discovery-professionals .pros-hero-actions button:hover{transform:none}
 }
+
+/* More breathing room in the shared header on the professionals tablet route. */
+@media(min-width:760px) and (max-width:900px){
+ body:has(.discovery-professionals) .tamao-public-header .brand small{display:none}
+ body:has(.discovery-professionals) .tamao-public-header .topbar-inner{gap:9px}
+ body:has(.discovery-professionals) .tamao-public-header .tamao-public-nav{gap:2px}
+ body:has(.discovery-professionals) .tamao-public-nav>button,
+ body:has(.discovery-professionals) .tamao-public-nav .tamao-nav-more>summary{
+  padding:9px 6px!important
+ }
+}
