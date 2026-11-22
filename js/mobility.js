@@ -722,9 +722,7 @@ function mobilityPage(){
  const s=mobilityRuntime,intent=mobilityIntent();
  // V1.1141: first-class service discovery; published profiles, not synthetic dispatch.
  // Keep real listing destinations, account access, location consent and billing intact.
- const mobilityMotoPhoto='https://images.unsplash.com/photo-1786093525552-62da701d143a?auto=format&fit=crop&w=800&q=80';
- const mobilityCarPhoto='https://images.unsplash.com/photo-1626019240499-926f8bf154c8?auto=format&fit=crop&w=800&q=80';
- const mobilityHeroPhoto='https://images.unsplash.com/photo-1773063449875-332dff62b6e3?auto=format&fit=crop&w=1200&q=84';
+ // V1.1142: no stock portraits or fabricated local scenes; genuine participant photos may replace these graphics later.
  const discover=intent?'':`
   <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro" id="mobility-choices">
    <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals" aria-label="Encontrar mototaxista — consultar anúncios de moto">
@@ -734,7 +732,7 @@ function mobilityPage(){
      <small>Veja os anúncios de moto e escolha com quem combinar.</small>
      <span class="mobility-choice-cta">Explorar opções <span aria-hidden="true">→</span></span>
     </span>
-    <span class="mobility-choice-image"><span class="mobility-choice-fallback" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="46" r="9"></circle><circle cx="49" cy="46" r="9"></circle><path d="M15 46h14l8-17h9l5 17M28 46l-9-19H9M30 23h13l5 6M37 30l-5 16"></path></svg></span><img src="${mobilityMotoPhoto}" alt="" loading="eager" decoding="async" fetchpriority="low" width="400" height="360"></span>
+    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="47" r="9"></circle><circle cx="50" cy="47" r="9"></circle><path d="M14 47l10-14h16l10 14"></path><path d="M24 33l-5-8h-8M32 31h12l5-9h7M26 25h12l6 6"></path><path d="M24 39h14l4 8H25l-4-4Z" fill="currentColor" fill-opacity=".18"></path><path d="M30 39v8M43 29l7 18M49 22l-3-7h-8"></path></svg></span></span>
    </a>
    <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — consultar anúncios de carro">
     <span class="mobility-choice-copy">
@@ -743,7 +741,7 @@ function mobilityPage(){
      <small>Conheça motoristas anunciados e combine os detalhes.</small>
      <span class="mobility-choice-cta">Explorar opções <span aria-hidden="true">→</span></span>
     </span>
-    <span class="mobility-choice-image"><span class="mobility-choice-fallback" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40l6-16h36l6 16v12h-7v-5H15v5H8V40Z"></path><path d="m16 39 4-10h24l4 10H16Z"></path><path d="M13 45h6m26 0h6"></path></svg></span><img src="${mobilityCarPhoto}" alt="" loading="eager" decoding="async" fetchpriority="low" width="400" height="360"></span>
+    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40l6-16h36l6 16v12h-7v-5H15v5H8V40Z"></path><path d="m16 39 4-10h24l4 10H16Z"></path><path d="M13 45h6m26 0h6"></path></svg></span></span>
    </a>
   </nav>`;
  const clarity=intent?'':`
@@ -777,9 +775,18 @@ function mobilityPage(){
       <p>${intent?'Entre para continuar com o profissional selecionado. Você confirma antes de enviar qualquer solicitação.':'Encontre mototaxistas e motoristas anunciados na sua região. Explore os perfis e combine diretamente o atendimento.'}</p>
       <span class="mobility-hero-hint">${intent?'Acompanhe seu atendimento com segurança':'Escolha uma modalidade abaixo para começar'}</span>
      </div>
-     <div class="mobility-hero-art">
-       <img class="mobility-hero-car" src="${mobilityHeroPhoto}" alt="Motorista e passageira durante um deslocamento, fotografia ilustrativa" width="850" height="600" fetchpriority="high" decoding="async">
-       <span class="mobility-hero-art-caption">FOTOGRAFIA ILUSTRATIVA</span>
+     <div class="mobility-hero-art" aria-hidden="true">
+       <div class="mobility-hero-graphic">
+        <span class="mobility-graphic-kicker">DESLOCAMENTOS LOCAIS</span>
+        <svg class="mobility-route-line" viewBox="0 0 360 185" fill="none" aria-hidden="true">
+         <path d="M16 140C64 140 56 50 132 50S228 139 284 139 318 72 344 72" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 9"></path>
+         <circle cx="18" cy="140" r="9" fill="currentColor"></circle>
+         <circle cx="344" cy="72" r="9" fill="currentColor"></circle>
+         <circle cx="132" cy="50" r="5" fill="currentColor"></circle>
+        </svg>
+        <div class="mobility-graphic-title">Escolha.<br>Converse.<br><em>Combine.</em></div>
+        <div class="mobility-graphic-bottom"><span>MOTO</span><span class="mobility-graphic-separator"></span><span>CARRO</span></div>
+       </div>
      </div>
     </div>
     ${discover}
