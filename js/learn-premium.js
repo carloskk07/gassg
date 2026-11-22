@@ -132,7 +132,7 @@ return shell(`<section class="page learn-premium">
         <div>
           <span class="learn-label">COMPROMISSO COM A CLAREZA</span>
           <strong id="learn-transparency-title">Você sabe quem confirma o pedido e o que acontece depois.</strong>
-          <small>Você confere preço e condições antes de solicitar. O TAMÃO organiza o pedido; a revenda confirma o atendimento e realiza a entrega.</small>
+          <small>O TAMÃO conecta e organiza; a revenda aceita e realiza a entrega. O pedido só é confirmado após o aceite da revenda. Preços e condições são apresentados antes de solicitar.</small>
         </div>
       </div>
       <nav class="learn-trust-disclosure-links" aria-label="Atendimento e informações oficiais">
