@@ -744,7 +744,7 @@ function mobilityPage(){
     <span class="mobility-choice-copy">
      <span class="mobility-choice-overline">TRANSPORTE EM MOTO <span aria-hidden="true">/</span> 01</span>
      <strong>Encontrar mototaxista</strong>
-     <small>Conheça os anúncios disponíveis e escolha quem contatar.</small>
+     <small>Consulte anúncios de mototáxi e escolha quem contatar.</small>
      <span class="mobility-choice-cta">Ver mototaxistas <span aria-hidden="true">↗</span></span>
     </span>
     <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback">${motoIcon}</span></span>
@@ -765,7 +765,7 @@ function mobilityPage(){
    <ul>
     <li><span aria-hidden="true">✓</span> Consulte anúncios sem login</li>
     <li><span aria-hidden="true">✓</span> Valores combinados diretamente</li>
-    <li><span aria-hidden="true">✓</span> Localização compartilhada só com sua escolha</li>
+    <li><span aria-hidden="true">✓</span> Compartilhe localização só se quiser</li>
    </ul>
   </section>`;
  const top=`
