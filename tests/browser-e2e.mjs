@@ -275,7 +275,7 @@ assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.t
 assert.equal(await evaluate("document.querySelector('.earn-fund-clarity')?.tagName"),'DIV');
 await evaluate("earnPremiumFundChoose(500)");
 assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 50,00');
-assert.equal(await evaluate("document.querySelector('[data-earn-fund-preset=500]')?.getAttribute('aria-pressed')"),'true');
+assert.equal(await evaluate("document.querySelectorAll('[data-earn-fund-preset]')[2]?.getAttribute('aria-pressed')"),'true');
 assert.match(await evaluate("document.querySelector('[data-earn-fund-description]')?.textContent||''"),/não para cada participante/);
 await evaluate("earnPremiumFundChoose(250)");
 assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 25,00');
