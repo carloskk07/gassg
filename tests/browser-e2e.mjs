@@ -269,7 +269,7 @@ body=await text();
 assert.match(body,/Seu link\. Sua indicação\./);
 assert.match(body,/Fundo de pacotes/);
 assert.match(body,/fundo coletivo/);
-assert.match(body,/R\$ 10,00 irão para o fundo coletivo/);
+assert.match(await evaluate("document.querySelector('.earn-fund-clarity')?.textContent||''"),/R\$ 10,00 irão para o fundo coletivo/);
 assert.match(body,/SIMULADOR DE COMISSÕES/);
 assert.equal(await evaluate("document.querySelectorAll('.earn-benefit-board .earn-assurance>article').length"),4);
 assert.equal(await evaluate("document.querySelector('.earn-hero .earn-benefit-simulator')!==null"),true);
