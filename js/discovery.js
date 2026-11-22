@@ -854,16 +854,16 @@ function discoveryRidesCard(item){
   discoveryPublicGallery(item)+
   '<div class="rides-card-copy"><small class="rides-card-locality">'+(locality||'Trajeto informado pelo anunciante')+'</small><h2>'+title+'</h2>'+
   '<div class="rides-card-route" aria-label="Trajeto informado"><div><small>SAÍDA DE</small><strong>'+origin+'</strong></div><span class="rides-route-arrow" aria-hidden="true">→</span><div><small>DESTINO</small><strong>'+destination+'</strong></div></div>'+
-  '<dl class="rides-card-details"><div><dt>Data e horário declarados</dt><dd>'+esc(time)+'</dd></div><div><dt>Vagas informadas</dt><dd>'+esc(seatsText)+'</dd></div><div><dt>Contribuição sugerida por vaga</dt><dd>'+esc(cost)+'</dd></div></dl>'+
-  (typeof item.public_area==='string'&&item.public_area.trim()?'<p class="rides-card-area">Região informada: '+esc(item.public_area.slice(0,140))+'</p>':'')+
+  '<dl class="rides-card-details"><div><dt>Data e horário declarados</dt><dd>'+esc(time)+'</dd></div><div><dt>Vagas informadas</dt><dd>'+esc(seatsText)+'</dd></div><div><dt>Contribuição sugerida por vaga: '+esc(cost)+'</dt><dd>Confirme as condições antes de combinar</dd></div></dl>'+
+  (typeof item.public_area==='string'&&item.public_area.trim()?'<p class="rides-card-area">Região: '+esc(item.public_area.slice(0,140))+'</p>':'')+
   (description?'<p class="rides-card-description">'+description+'</p>':'')+
   '<p class="rides-card-declared">Informações fornecidas pelo anunciante; confirme antes de combinar.</p></div>'+
   '<div class="discovery-actions rides-card-actions">'+
-   (contact&&available?'<a class="rides-card-contact" href="'+esc(contact)+'" target="_blank" rel="noopener noreferrer"'+(canSave?' data-listing-id="'+esc(id)+'" onclick="return discoveryConfirmRideContact(this)"':'')+'>Consultar disponibilidade pelo WhatsApp <span aria-hidden="true">↗</span></a>':'<p class="rides-card-unavailable" role="status">Esta saída está encerrada ou sem vagas disponíveis para consulta.</p>')+
-   (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Anúncio salvo':'☆ Salvar anúncio')+'</button>':'')+
+   (contact&&available?'<a class="rides-card-contact" href="'+esc(contact)+'" target="_blank" rel="noopener noreferrer"'+(canSave?' data-listing-id="'+esc(id)+'" onclick="return discoveryConfirmRideContact(this)"':'')+'>Consultar vagas pelo WhatsApp <span aria-hidden="true">↗</span></a>':'<p class="rides-card-unavailable" role="status">Saída encerrada ou sem vagas disponíveis para consulta.</p>')+
+   (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
    (saved?'<button type="button" class="discovery-pick" data-id="'+esc(id)+'" aria-pressed="'+compared+'" onclick="discoveryPickForComparison(this.dataset.id)">'+(compared?'✓ Comparando':'⇄ Comparar')+'</button>':'')+
-   (share?'<a class="discovery-direct-link" href="'+esc(share)+'" aria-label="Abrir link direto do anúncio">Ver link do anúncio ↗</a>':'')+
-   (share?'<a class="rides-share" href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja esta carona anunciada no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar ↗</a>':'')+
+   (share?'<a class="discovery-direct-link" href="'+esc(share)+'" aria-label="Abrir link direto deste anúncio">Ver link do anúncio ↗</a>':'')+
+   (share?'<a class="rides-share" href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja esta carona anunciada no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
   '</div>'+discoveryInquiryForm(item,'rides')+discoveryReportForm(item,'rides')+'</article>';
 }
 
