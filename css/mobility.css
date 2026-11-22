@@ -275,3 +275,136 @@
  .mobility-page .mobility-access-panel,.mobility-page .mobility-driver-panel{padding:21px}
 }
 @media(prefers-reduced-motion:reduce){.mobility-hero-explore{transition:none}.mobility-hero-explore:hover{transform:none}}
+
+
+/* V1.1141 — one editorial surface, real choices above the fold.
+   Scope strictly to public mobility; existing authenticated panels remain operational. */
+.mobility-page{max-width:1216px;padding-block:24px 72px}
+.mobility-page .mobility-hero{display:block;min-height:0;margin:0 0 0;padding:0;overflow:hidden;border-radius:28px;border:1px solid #d7e3d8;background:#f8f9f3;box-shadow:0 18px 48px rgba(17,62,40,.08)}
+.mobility-hero-top{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);min-height:315px}
+.mobility-page .mobility-hero .mobility-hero-copy{min-width:0;padding:clamp(30px,4vw,52px);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;background:radial-gradient(circle at 0% 0%,#fffdf7,transparent 65%),linear-gradient(125deg,#fbfbf6,#f0f6ed)}
+.mobility-page .mobility-hero .mobility-eyebrow{display:inline-flex;gap:10px;align-items:center;color:#386c4d;font-size:10px;font-weight:900;letter-spacing:.18em}
+.mobility-eyebrow-mark{background:#168058;box-shadow:0 0 0 5px rgba(13,130,79,.09)}
+.mobility-page .mobility-hero h1{max-width:17ch;margin:18px 0 13px;font-size:clamp(36px,4.45vw,56px);line-height:1.075;letter-spacing:-.055em;font-weight:850;color:#123c2b;text-wrap:balance}
+.mobility-page .mobility-hero h1 em{display:block;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:.93em;font-weight:500;line-height:1.1;color:#26825c;letter-spacing:-.052em}
+.mobility-page .mobility-hero p{max-width:54ch;margin:0;color:#4e6856;line-height:1.65;font-size:clamp(13px,1.2vw,15px)}
+.mobility-hero-hint{display:inline-flex;gap:10px;align-items:center;margin-top:21px;color:#255f45;font-weight:800;font-size:12px}
+.mobility-hero-hint::before{content:"";width:20px;height:1px;background:#b89b64}
+.mobility-page .mobility-hero .mobility-hero-art{position:relative;min-height:315px;max-height:none;height:auto;overflow:hidden;background:#ced9cf}
+.mobility-page .mobility-hero .mobility-hero-art:after{background:linear-gradient(0deg,rgba(12,39,28,.6),transparent 27%);pointer-events:none}
+.mobility-page .mobility-hero .mobility-hero-car{width:100%;height:100%;min-height:315px;max-height:none;display:block;object-fit:cover;object-position:center 38%;filter:saturate(.92)}
+.mobility-page .mobility-hero .mobility-hero-art-caption{position:absolute;bottom:15px;right:19px;z-index:2;color:#fff;font-size:10px;font-weight:800;letter-spacing:.115em}
+.mobility-page .mobility-hero .mobility-provider-links.mobility-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:0;padding:15px;background:#eaf2ea;border-top:1px solid #d9e5db;scroll-margin-top:85px}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card{display:block;position:relative;min-height:160px;margin:0;padding:0;overflow:hidden;isolation:isolate;border:1px solid #d4e0d4;border-radius:17px;background:#fffefa;box-shadow:0 4px 14px rgba(23,66,41,.045);color:#153e2e!important;text-decoration:none!important;transition:transform .18s,box-shadow .18s,border-color .18s}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro{background:#f8faf7}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover{transform:translateY(-2px);border-color:#7da994;box-shadow:0 14px 32px rgba(14,66,42,.13)}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:focus-visible{outline:3px solid #ae8b4e;outline-offset:3px}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;box-sizing:border-box;min-width:0;max-width:70%;min-height:160px;padding:21px 0 19px 24px}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-overline{display:block;margin:0 0 9px;color:#567e62;font-weight:900;font-size:9px;letter-spacing:.13em}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{display:block;max-width:16ch;margin:0;font-size:clamp(19px,2.1vw,27px);line-height:1.12;letter-spacing:-.042em;color:#163c2c;font-weight:850;text-wrap:balance}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{display:block;max-width:29ch;margin:8px 0 0;color:#5a7360;font-size:11px;line-height:1.45;font-weight:550}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{display:inline-flex;align-items:center;gap:10px;margin-top:12px;padding:0;min-height:0;border-radius:0;background:none;color:#067248;font-size:12px;line-height:1.25;font-weight:900;white-space:normal}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-cta span{font-size:18px;line-height:1;font-weight:500;transition:transform .18s}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover .mobility-choice-cta span{transform:translateX(4px)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image{display:block;position:absolute;z-index:1;inset:0 0 0 auto;width:41%;height:100%;border-radius:0;overflow:hidden}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 42%;filter:saturate(.86);transition:transform .3s}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{position:absolute;content:"";inset:0;background:linear-gradient(90deg,#fffefa 0%,rgba(255,254,250,.78) 20%,transparent 68%)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-image:after{background:linear-gradient(90deg,#f8faf7 0%,rgba(248,250,247,.8) 20%,transparent 68%)}
+.mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover img{transform:scale(1.035)}
+.mobility-clarity{display:flex;align-items:center;justify-content:space-between;gap:16px 25px;margin:13px 0 20px;padding:13px 15px;border:1px solid #e0e9df;border-radius:14px;background:#fff}
+.mobility-clarity-title{color:#1e4b34;font-size:12px;font-weight:900;white-space:nowrap}
+.mobility-clarity ul{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:11px 22px;margin:0;padding:0;list-style:none}
+.mobility-clarity li{display:flex;align-items:center;gap:7px;color:#506d59;font-size:11px;font-weight:750;line-height:1.35}
+.mobility-clarity li span{display:grid;place-items:center;width:17px;height:17px;flex:none;border-radius:50%;background:#e5f3e8;color:#087349;font-size:11px;font-weight:900}
+.mobility-page .mobility-journey{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:24px;align-items:center;padding:28px 29px;margin:0 0 17px;border:1px solid #e2e9df;border-radius:21px;background:#f8faf7}
+.mobility-journey-heading h2{font-size:clamp(25px,2.7vw,35px);line-height:1.14;max-width:22ch;margin:12px 0 10px}
+.mobility-journey-heading h2 em{font-size:.96em}
+.mobility-journey-heading p{max-width:50ch;color:#607564;font-size:12px;line-height:1.55}
+.mobility-journey-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mobility-journey-steps article{padding:0 6px 0 14px;border-left:1px solid #c9d8cc}
+.mobility-step-no{color:#b29558;font-weight:900;font-size:10px;letter-spacing:.13em;margin:0 0 12px}
+.mobility-journey-steps h3{margin:0 0 6px;font-size:15px;color:#1b4533}
+.mobility-journey-steps p{margin:0;font-size:11px;color:#627467;line-height:1.5}
+.mobility-page .mobility-access-layout{gap:15px;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr)}
+.mobility-page .mobility-access-panel,.mobility-page .mobility-driver-panel{padding:clamp(24px,3vw,36px);border-radius:22px}
+.mobility-page .mobility-access-panel{background:#fff;border-color:#d7e5d9;box-shadow:0 12px 28px rgba(13,51,31,.045)}
+.mobility-page .mobility-driver-panel{background:radial-gradient(ellipse at 105% 0%,rgba(61,130,91,.4),transparent 55%),linear-gradient(130deg,#0b3023,#115038);border:1px solid #20543b}
+.mobility-page .mobility-access-panel h2,.mobility-page .mobility-driver-panel h2{max-width:22ch;letter-spacing:-.045em;font-size:clamp(23px,2.4vw,31px)}
+.mobility-page .mobility-access-panel p,.mobility-page .mobility-driver-panel p{font-size:13px;line-height:1.65}
+.mobility-page .mobility-driver-links a{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.26);font-size:13px}
+.mobility-page .mobility-driver-links a:hover{background:rgba(255,255,255,.18)}
+.mobility-page .mobility-support{margin:17px 0 0;text-align:center}
+.mobility-page .mobility-hero-intent .mobility-hero-top,.mobility-page .mobility-hero-account .mobility-hero-top{min-height:270px}
+.mobility-page .mobility-hero-intent .mobility-hero-art,.mobility-page .mobility-hero-account .mobility-hero-art{min-height:270px}
+.mobility-page .mobility-hero-intent .mobility-hero-car,.mobility-page .mobility-hero-account .mobility-hero-car{min-height:270px}
+@media(max-width:1000px){
+ .mobility-page .mobility-hero h1{font-size:clamp(34px,4.1vw,48px)}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:29px}
+ .mobility-page .mobility-hero .mobility-hero-top{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+ .mobility-page .mobility-journey{grid-template-columns:minmax(0,1fr);gap:17px}
+ .mobility-clarity{flex-direction:column;align-items:flex-start;gap:10px}
+ .mobility-clarity ul{justify-content:flex-start}
+}
+@media(max-width:760px){
+ .mobility-page{padding:14px 11px 65px}
+ .mobility-page .mobility-hero{border-radius:21px}
+ .mobility-page .mobility-hero .mobility-hero-top{display:block;min-height:0}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:30px 25px 22px}
+ .mobility-page .mobility-hero h1{margin:17px 0 12px;max-width:17ch;font-size:clamp(33px,6.1vw,43px)}
+ .mobility-page .mobility-hero p{max-width:64ch}
+ .mobility-hero-hint{margin-top:15px}
+ .mobility-page .mobility-hero .mobility-hero-art{display:none}
+ .mobility-page .mobility-hero .mobility-provider-links.mobility-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:11px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{min-height:190px;border-radius:14px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{min-height:190px;max-width:91%;padding:16px 10px 15px 15px;justify-content:flex-end}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image{width:100%;height:49%;inset:0 0 auto 0}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{background:linear-gradient(0deg,#fffefa 0%,rgba(255,254,250,.2) 70%,transparent)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-image:after{background:linear-gradient(0deg,#f8faf7 0%,rgba(248,250,247,.2) 70%,transparent)}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-overline{display:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{font-size:clamp(16px,3.1vw,24px);margin-top:67px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{font-size:10px;margin-top:5px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{font-size:11px;margin-top:7px}
+ .mobility-clarity{margin:11px 0 14px;padding:13px 15px}
+ .mobility-page .mobility-journey{padding:24px 22px;margin-bottom:14px}
+ .mobility-page .mobility-access-layout{grid-template-columns:minmax(0,1fr);gap:13px}
+}
+@media(max-width:490px){
+ .mobility-page{padding-inline:10px}
+ .mobility-page .mobility-hero .mobility-hero-copy{padding:25px 20px 20px}
+ .mobility-page .mobility-hero h1{font-size:clamp(32px,8.5vw,40px);max-width:14ch;margin:14px 0 10px}
+ .mobility-page .mobility-hero p{font-size:12px;line-height:1.55}
+ .mobility-page .mobility-hero .mobility-eyebrow{font-size:9px}
+ .mobility-hero-hint{font-size:11px}
+ .mobility-page .mobility-hero .mobility-provider-links.mobility-choices{gap:8px;padding:9px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{min-height:179px;border-radius:12px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy{min-height:179px;padding:11px 8px 12px 10px;max-width:100%}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy strong{font-size:clamp(15px,4.2vw,19px);line-height:1.14;margin-top:59px;max-width:13ch}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-copy small{display:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-cta{font-size:10px;gap:5px;margin-top:8px}
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image{height:55%}
+ .mobility-clarity-title{font-size:11px}
+ .mobility-clarity li{font-size:10px}
+ .mobility-page .mobility-journey{padding:22px 19px}
+ .mobility-journey-steps{grid-template-columns:minmax(0,1fr);gap:12px}
+ .mobility-step-no{margin-bottom:5px}
+ .mobility-journey-steps p{font-size:11px}
+ .mobility-page .mobility-access-panel,.mobility-page .mobility-driver-panel{padding:22px}
+}
+@media(prefers-reduced-motion:reduce){
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card,
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-cta span,
+ .mobility-page .mobility-hero .mobility-choices .mobility-choice-image img{transition:none}
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover,
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover img,
+ .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover .mobility-choice-cta span{transform:none}
+}
+
+
+/* V1.1141 media resilience: preserve a polished, useful card even before
+   an external editorial photograph finishes downloading. */
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback{position:absolute;z-index:0;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 65% 35%,#d5e9dd,#f2f7ed 70%);color:#367157}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-carro .mobility-choice-fallback{background:radial-gradient(circle at 60% 35%,#dfebe6,#f5f5ed 70%)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback svg{display:block;width:clamp(38px,5vw,64px);height:clamp(38px,5vw,64px)}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image img{position:relative;z-index:1}
+.mobility-page .mobility-hero .mobility-choices .mobility-choice-image:after{z-index:2;pointer-events:none}
+@media(max-width:490px){.mobility-page .mobility-hero .mobility-choices .mobility-choice-fallback svg{width:46px;height:46px}}
