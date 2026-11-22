@@ -95,7 +95,7 @@ try{
   assert.equal(value.clarityCount,3,'Missing clear service, payment and privacy information');
   assert.equal(value.heroPhotoAlt,undefined,'Hero should not impersonate a local photograph');
   assert.deepEqual(value.cardTitles,['Encontrar mototaxista','Encontrar motorista']);
-  assert.equal(value.artDisplay,width<=760?'none':'block','Decorative abstract hero hidden on mobile');
+  assert.equal(value.artDisplay,width<=760?'none':'flex','Informative process panel is visible on desktop and compact on mobile');
   assert.ok(value.firstCardTop<700,'Choices must appear near the first fold at '+width+'px');
   assert.equal(value.linkAccessible,true);
   assert.ok(value.choiceTop<=value.firstCardTop+2);
