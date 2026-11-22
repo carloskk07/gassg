@@ -5,53 +5,43 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
   return shell(`<section class="page tamao-earn-page earn-signature" aria-labelledby="earn-signature-title">
     <header class="earn-hero">
       <div class="earn-hero-copy">
-        <div class="earn-kicker"><span class="earn-kicker-dot" aria-hidden="true"></span> REDE TAMÃO <span class="earn-kicker-divider">/</span> CONEXÕES QUE FAZEM SENTIDO</div>
-        <h1 id="earn-signature-title">Indique com confiança.<br><em>Acompanhe com clareza.</em></h1>
-        <p class="earn-hero-lead">Compartilhe o TAMÃO com quem pode aproveitar seus serviços. Seu convite tem identificação própria, e cada benefício elegível pode ser acompanhado na sua Rede.</p>
+        <div class="earn-kicker"><span class="earn-kicker-dot" aria-hidden="true"></span> REDE TAMÃO <span class="earn-kicker-divider">/</span> INDICAÇÕES & BENEFÍCIOS</div>
+        <h1 id="earn-signature-title">Indique pessoas.<br><em>Veja seus benefícios.</em></h1>
+        <p class="earn-hero-lead">Seu convite tem identidade própria. Compartilhe o TAMÃO, acompanhe as indicações qualificadas e descubra as oportunidades que a Rede oferece.</p>
+        <div class="earn-hero-earning"><span class="earn-hero-earning-mark" aria-hidden="true">✦</span><div><span>COMISSÃO DE INDICAÇÃO DIRETA</span><strong>${rate}</strong><small>sobre a primeira compra qualificada e validada</small></div></div>
         <div class="earn-hero-actions">
           <button type="button" class="earn-action earn-action-primary" onclick="go('refer')">Acessar minha Rede <span aria-hidden="true">↗</span></button>
-          <button type="button" class="earn-action earn-action-secondary" onclick="document.getElementById('earn-process')?.scrollIntoView({behavior:'smooth',block:'start'})">Entender como funciona <span aria-hidden="true">↓</span></button>
+          <button type="button" class="earn-action earn-action-secondary" onclick="document.getElementById('earn-benefits')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver todos os benefícios <span aria-hidden="true">↓</span></button>
         </div>
-        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Seu link e QR Code</span><span><i aria-hidden="true"></i> Resultados verificáveis</span><span><i aria-hidden="true"></i> Extrato por origem</span></div>
+        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Link pessoal e QR Code</span><span><i aria-hidden="true"></i> Extrato com origem</span></div>
       </div>
-      <aside class="earn-stage earn-editorial-scene" aria-label="Seu convite pessoal conectado ao registro de benefícios">
-        <div class="earn-scene-top"><span>SEU ESPAÇO NA REDE TAMÃO</span><span class="earn-scene-seal" aria-hidden="true">T<span>•</span></span></div>
-        <div class="earn-scene-art" aria-hidden="true">
-          <div class="earn-scene-halo earn-scene-halo-one"></div>
-          <div class="earn-scene-halo earn-scene-halo-two"></div>
-          <div class="earn-scene-halo earn-scene-halo-three"></div>
-          <div class="earn-scene-node earn-scene-node-a"><span>01</span></div>
-          <div class="earn-scene-node earn-scene-node-b"><span>02</span></div>
-          <div class="earn-scene-node earn-scene-node-c"><span>03</span></div>
-          <div class="earn-scene-emblem"><span class="earn-scene-emblem-top">TAMÃO</span><span class="earn-scene-emblem-main">REDE</span><small>CONEXÕES COM IDENTIDADE</small></div>
+      <aside class="earn-stage earn-benefit-simulator earn-v1146-preview" aria-label="Simulador de comissões por primeiras compras qualificadas">
+        <div class="earn-simulator-top"><span class="earn-simulator-label"><span class="earn-simulator-live-dot" aria-hidden="true"></span> SIMULADOR DE COMISSÕES</span><span class="earn-simulator-rate">Taxa atual: ${rate}</span></div>
+        <h2>Quanto suas indicações <em>podem representar?</em></h2>
+        <p class="earn-simulator-intro">Simule primeiras compras qualificadas de R$ 120,00 cada, conforme a taxa vigente da Rede.</p>
+        <div class="earn-try-switch" role="group" aria-label="Quantidade hipotética de primeiras compras válidas">
+          <button type="button" data-earn-scenario="1" aria-pressed="true" onclick="earnPremiumScenarioChoose(1)">1 compra</button>
+          <button type="button" data-earn-scenario="5" aria-pressed="false" onclick="earnPremiumScenarioChoose(5)">5 compras</button>
+          <button type="button" data-earn-scenario="10" aria-pressed="false" onclick="earnPremiumScenarioChoose(10)">10 compras</button>
         </div>
-        <div class="earn-scene-bottom">
-          <h2>Uma indicação sua.<br>Um histórico que você entende.</h2>
-          <p>Link pessoal, QR Code, resultados verificados e extrato em um único lugar. Sem números inventados.</p>
-          <div class="earn-scene-steps"><span><b>01</b> Convide</span><i aria-hidden="true">→</i><span><b>02</b> Valide</span><i aria-hidden="true">→</i><span><b>03</b> Acompanhe</span></div>
-        </div>
+        <div class="earn-simulator-total"><span>RESULTADO DA SIMULAÇÃO</span><strong data-earn-scenario-total aria-live="polite">${example}</strong><small data-earn-scenario-description>1 primeira compra válida × R$ 120 × ${rate}</small></div>
+        <div class="earn-simulator-foot"><span aria-hidden="true">✓</span><p>Exemplo ilustrativo, não saldo real nem rendimento garantido. O crédito depende da compra elegível, da conclusão e das validações aplicáveis.</p></div>
+        <div class="earn-simulator-bottom"><span>SEU LINK • SUAS INDICAÇÕES • SEU EXTRATO</span><span class="earn-stage-mark" aria-hidden="true">T<span>•</span></span></div>
       </aside>
     </header>
 
-    <div class="earn-assurance" aria-label="O que você encontra na Rede TAMÃO">
-      <div><span class="earn-assurance-number">01</span><strong>Convite identificado</strong><small>Link e QR Code vinculados à sua conta.</small></div>
-      <div><span class="earn-assurance-number">02</span><strong>Critérios públicos</strong><small>Cadastro sozinho não gera comissão.</small></div>
-      <div><span class="earn-assurance-number">03</span><strong>Valores separados</strong><small>Em validação não significa disponível.</small></div>
-      <div><span class="earn-assurance-number">04</span><strong>Extrato por origem</strong><small>Confira o que foi realmente reconhecido.</small></div>
-    </div>
-
-    <section class="earn-section earn-process" id="earn-process" aria-labelledby="earn-process-title">
-      <div class="earn-section-heading"><div><span class="earn-eyebrow">01 / SIMPLES DE COMEÇAR</span><h2 id="earn-process-title">Você compartilha.<br><em>O TAMÃO registra.</em></h2></div><p>Sem burocracia para indicar. A validação acompanha eventos reais e ajuda a mostrar, com clareza, a origem de cada resultado.</p></div>
-      <div class="earn-step-grid">
-        <article><span class="earn-step-num">01 <span aria-hidden="true">↗</span></span><div class="earn-step-glyph earn-glyph-link" aria-hidden="true"><span></span><span></span></div><h3>Seu link. Sua indicação.</h3><p>Entre na conta e compartilhe seu convite pessoal ou QR Code. A identificação acompanha o novo participante.</p></article>
-        <article><span class="earn-step-num">02 <span aria-hidden="true">↗</span></span><div class="earn-step-glyph earn-glyph-check" aria-hidden="true">✓</div><h3>Uma ação que vale.</h3><p>A comissão de aquisição exige a primeira compra elegível, concluída e validada. Apenas cadastrar não é suficiente.</p></article>
-        <article><span class="earn-step-num">03 <span aria-hidden="true">✓</span></span><div class="earn-step-glyph earn-glyph-ledger" aria-hidden="true"><span></span><span></span><span></span></div><h3>Resultado documentado.</h3><p>Veja seus convites, conquistas e saldos por situação. O extrato identifica a origem dos benefícios reconhecidos.</p></article>
+    <section class="earn-benefit-board" id="earn-benefits" aria-labelledby="earn-benefit-board-title">
+      <div class="earn-benefit-board-heading"><span class="earn-eyebrow">ALÉM DE COMPARTILHAR</span><h2 id="earn-benefit-board-title">Benefícios que fazem valer a pena participar.</h2><p>Conheça as vantagens da Rede e acompanhe os resultados elegíveis e confirmados para sua conta.</p></div>
+      <div class="earn-assurance" aria-label="Benefícios e oportunidades da Rede TAMÃO">
+        <article><span class="earn-assurance-number">01 / INDICAÇÕES</span><strong class="earn-benefit-figure">${rate}</strong><h3>Comissão direta</h3><p>Da primeira compra qualificada de cada novo cliente indicado, após validação.</p><button type="button" onclick="go('refer')">Minhas indicações <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">02 / REDE ATIVA</span><strong class="earn-benefit-figure">Até 10%</strong><h3>Fundo de pacotes</h3><p>Do valor líquido de pacotes elegíveis pode ser distribuído entre participantes com visitas verificadas nas últimas 24 horas. Cupons não entram.</p><button type="button" onclick="go('refer')">Ver participação <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">03 / COMPRAS</span><strong class="earn-benefit-symbol" aria-hidden="true">✳</strong><h3>Clube TAMÃO</h3><p>Cupons, cashback elegível e outras vantagens disponíveis para suas compras.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button></article>
+        <article><span class="earn-assurance-number">04 / SUA IDENTIDADE</span><strong class="earn-benefit-symbol" aria-hidden="true">↗</strong><h3>Sua página pessoal</h3><p>Link de convite, QR Code, conquistas e extrato com origem, tudo na sua Rede.</p><button type="button" onclick="go('refer')">Acessar minha página <span aria-hidden="true">↗</span></button></article>
       </div>
-      <div class="earn-process-action"><span>Seu histórico fica na conta.</span><button type="button" onclick="go('refer')">Ver meus convites e benefícios <span aria-hidden="true">→</span></button></div>
     </section>
 
     <section class="earn-section earn-value" aria-labelledby="earn-value-title">
-      <div class="earn-value-top"><div><span class="earn-eyebrow">02 / PARA CADA TIPO DE PARTICIPANTE</span><h2 id="earn-value-title">Mais maneiras de participar.<br><em>Uma única Rede.</em></h2></div><p>Você pode compartilhar oportunidades, descobrir vantagens para comprar ou apresentar seu negócio. Cada modalidade tem regras e condições próprias.</p></div>
+      <div class="earn-value-top"><div><span class="earn-eyebrow">01 / PARA CADA TIPO DE PARTICIPANTE</span><h2 id="earn-value-title">Mais maneiras de participar.<br><em>Uma única Rede.</em></h2></div><p>Você pode compartilhar oportunidades, descobrir vantagens para comprar ou apresentar seu negócio. Cada modalidade tem regras e condições próprias.</p></div>
       <div class="earn-value-grid">
         <article class="earn-value-feature">
           <span class="earn-value-tag">01 / QUEM INDICA</span>
@@ -67,28 +57,18 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
       </section>
     </section>
 
-    <section class="earn-section earn-economics earn-v1146-preview" aria-labelledby="earn-economics-title">
-      <div class="earn-economics-copy">
-        <span class="earn-eyebrow">03 / NÚMEROS SEM PROMESSAS</span>
-        <h2 id="earn-economics-title">O benefício tem regra.<br><em>E tem origem.</em></h2>
-        <p>A comissão de indicação direta considera ${rate} sobre a primeira compra qualificada. É preciso concluir e validar a compra. O exemplo abaixo é apenas um cálculo, não representa ganho real.</p>
-        <div class="earn-economics-proof"><span aria-hidden="true">✓</span><strong>O saldo em validação é separado do saldo disponível.</strong></div>
-        <button type="button" class="earn-economics-link" onclick="go('refer')">Consultar o meu extrato <span aria-hidden="true">↗</span></button>
+    <section class="earn-section earn-process" id="earn-process" aria-labelledby="earn-process-title">
+      <div class="earn-section-heading"><div><span class="earn-eyebrow">02 / SIMPLES DE COMEÇAR</span><h2 id="earn-process-title">Você compartilha.<br><em>O TAMÃO registra.</em></h2></div><p>Sem burocracia para indicar. A validação acompanha eventos reais e ajuda a mostrar, com clareza, a origem de cada resultado.</p></div>
+      <div class="earn-step-grid">
+        <article><span class="earn-step-num">01 <span aria-hidden="true">↗</span></span><div class="earn-step-glyph earn-glyph-link" aria-hidden="true"><span></span><span></span></div><h3>Seu link. Sua indicação.</h3><p>Entre na conta e compartilhe seu convite pessoal ou QR Code. A identificação acompanha o novo participante.</p></article>
+        <article><span class="earn-step-num">02 <span aria-hidden="true">↗</span></span><div class="earn-step-glyph earn-glyph-check" aria-hidden="true">✓</div><h3>Uma ação que vale.</h3><p>A comissão de aquisição exige a primeira compra elegível, concluída e validada. Apenas cadastrar não é suficiente.</p></article>
+        <article><span class="earn-step-num">03 <span aria-hidden="true">✓</span></span><div class="earn-step-glyph earn-glyph-ledger" aria-hidden="true"><span></span><span></span><span></span></div><h3>Resultado documentado.</h3><p>Veja seus convites, conquistas e saldos por situação. O extrato identifica a origem dos benefícios reconhecidos.</p></article>
       </div>
-      <div class="earn-stage earn-try" aria-label="Calculadora ilustrativa de comissões">
-        <div class="earn-try-heading"><div><span>EXEMPLO MATEMÁTICO, NÃO SALDO REAL</span><strong>Quanto representam primeiras compras elegíveis?</strong></div><span class="earn-try-star" aria-hidden="true">✳</span></div>
-        <div class="earn-try-switch" role="group" aria-label="Quantidade hipotética de primeiras compras válidas">
-          <button type="button" data-earn-scenario="1" aria-pressed="true" onclick="earnPremiumScenarioChoose(1)">1 compra</button>
-          <button type="button" data-earn-scenario="5" aria-pressed="false" onclick="earnPremiumScenarioChoose(5)">5 compras</button>
-          <button type="button" data-earn-scenario="10" aria-pressed="false" onclick="earnPremiumScenarioChoose(10)">10 compras</button>
-        </div>
-        <div class="earn-try-result"><div><span>Exemplo matemático</span><small data-earn-scenario-description>1 primeira compra válida × R$ 120 × ${rate}</small></div><strong data-earn-scenario-total aria-live="polite">${example}</strong></div>
-        <p>Valores hipotéticos. Só há comissão quando a indicação e a compra cumprem os critérios e são validadas. Não representa saldo ou renda garantida.</p>
-      </div>
+      <div class="earn-process-action"><span>Seu histórico fica na conta.</span><button type="button" onclick="go('refer')">Ver meus convites e benefícios <span aria-hidden="true">→</span></button></div>
     </section>
 
     <section class="earn-section earn-clarity" aria-labelledby="earn-clarity-title">
-      <div class="earn-clarity-intro"><span class="earn-eyebrow">04 / AS REGRAS IMPORTAM</span><h2 id="earn-clarity-title">Tudo às claras.<br><em>Inclusive as regras.</em></h2><p>Informação acessível, condições transparentes e acompanhamento dentro da sua conta. Tire suas dúvidas antes de compartilhar.</p><button type="button" class="earn-outline" onclick="go('refer')">Acessar meu extrato <span aria-hidden="true">↗</span></button></div>
+      <div class="earn-clarity-intro"><span class="earn-eyebrow">03 / AS REGRAS IMPORTAM</span><h2 id="earn-clarity-title">Tudo às claras.<br><em>Inclusive as regras.</em></h2><p>Informação acessível, condições transparentes e acompanhamento dentro da sua conta. Tire suas dúvidas antes de compartilhar.</p><button type="button" class="earn-outline" onclick="go('refer')">Acessar meu extrato <span aria-hidden="true">↗</span></button></div>
       <div class="earn-faq">
         <details><summary><span>01</span> Apenas cadastrar alguém gera comissão?<b aria-hidden="true">+</b></summary><p>Não. A comissão de aquisição depende da primeira compra qualificada de um novo cliente indicado, da conclusão do pedido e das validações aplicáveis.</p></details>
         <details><summary><span>02</span> Como a comissão é calculada?<b aria-hidden="true">+</b></summary><p>A taxa de referência atual é ${rate} sobre a primeira compra elegível. O exemplo de R$ 120 geraria ${example}, se todos os critérios fossem cumpridos. Alterações e campanhas seguem as regras vigentes.</p></details>
@@ -109,7 +89,7 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
 /* Purely explanatory calculator: the existing commission policy remains the sole source of truth. */
 function earnPremiumScenarioChoose(quantity){
  const n=[1,5,10].includes(Number(quantity))?Number(quantity):1;
- const host=document.querySelector('.earn-economics.earn-v1146-preview');
+ const host=document.querySelector('.earn-hero .earn-v1146-preview');
  if(!host)return false;
  host.querySelectorAll('[data-earn-scenario]').forEach(button=>{
    button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-earn-scenario'))===n));
