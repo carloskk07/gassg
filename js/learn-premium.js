@@ -6,8 +6,9 @@ learnPremiumFaqState.query='';
 return shell(`<section class="page learn-premium">
   <section class="learn-hero" aria-labelledby="learn-hero-title">
     <div class="learn-hero-copy">
-      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / GUIA DE COMPRA</span>
-      <h1 id="learn-hero-title">Simples para pedir. <em>Claro para acompanhar.</em></h1>
+      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / PARA O SEU DIA A DIA</span>
+      <h1 id="learn-hero-title">O essencial para sua casa. <em>Com tudo mais simples.</em></h1>
+      <span class="learn-hero-signature">Simples para pedir. Claro para acompanhar.</span>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
       <p>Encontre gás, água e itens essenciais nas revendas da sua região. Confira o valor e as condições antes de solicitar. A revenda confirma o atendimento; você acompanha cada etapa informada.</p>
       <div class="learn-hero-actions">
@@ -20,9 +21,30 @@ return shell(`<section class="page learn-premium">
         <span><i aria-hidden="true">✓</i> Revenda confirma o aceite</span>
       </div>
     </div>
-    <figure class="learn-cover-visual">
-      <img src="./assets/learn-essentials-signature-v1133.svg" width="860" height="640" decoding="async" fetchpriority="high" alt="Composição ilustrada de gás, água e produtos essenciais." />
-      <figcaption class="learn-cover-caption"><span>ESSENCIAIS DO DIA A DIA</span><strong>Da sua região para a sua rotina.</strong></figcaption>
+    <figure class="learn-merchandise" aria-labelledby="learn-merchandise-title">
+      <figcaption class="learn-merchandise-heading">
+        <span>UMA VITRINE PARA SUA ROTINA</span>
+        <strong id="learn-merchandise-title">O que importa, em primeiro lugar.</strong>
+      </figcaption>
+      <div class="learn-merchandise-grid" aria-label="Exemplos de categorias de produtos">
+        <div class="learn-merchandise-card">
+          <span class="learn-merchandise-photo learn-photo-gas" aria-hidden="true"></span>
+          <span class="learn-merchandise-card-label"><strong>Gás</strong><small>Para sua casa</small></span>
+        </div>
+        <div class="learn-merchandise-card">
+          <span class="learn-merchandise-photo learn-photo-water" aria-hidden="true"></span>
+          <span class="learn-merchandise-card-label"><strong>Água</strong><small>Para o dia a dia</small></span>
+        </div>
+        <div class="learn-merchandise-card">
+          <span class="learn-merchandise-photo learn-photo-coal" aria-hidden="true"></span>
+          <span class="learn-merchandise-card-label"><strong>Carvão</strong><small>Itens essenciais</small></span>
+        </div>
+        <div class="learn-merchandise-card">
+          <span class="learn-merchandise-photo learn-photo-firewood" aria-hidden="true"></span>
+          <span class="learn-merchandise-card-label"><strong>Lenha</strong><small>Quando precisar</small></span>
+        </div>
+      </div>
+      <div class="learn-merchandise-footer"><span class="learn-merchandise-accent" aria-hidden="true"></span>Produtos ilustrativos; confira a disponibilidade para sua região.</div>
     </figure>
   </section>
 
@@ -31,20 +53,20 @@ return shell(`<section class="page learn-premium">
       <span class="learn-label">CONHEÇA A EXPERIÊNCIA</span>
       <h2 id="learn-tour-title">Cada escolha, <em>com mais clareza.</em></h2>
       <p>Veja o caminho do pedido, da consulta às informações da revenda. Escolha uma etapa para entender os detalhes.</p>
-      <div class="learn-guide-ornament" aria-hidden="true"><span>01</span><i></i><span>02</span><i></i><span>03</span><i></i><span>04</span></div>
+      
       <p class="learn-guide-footnote">O pedido depende da disponibilidade e do aceite da revenda.</p>
     </div>
     <div class="learn-visual" data-step="1" aria-label="Guia interativo de quatro etapas">
-      <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>SUA JORNADA, SEM SURPRESAS</span><span class="learn-visual-star" aria-hidden="true">✳</span></div>
+      <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>SUA JORNADA, SEM SURPRESAS</span><span class="learn-visual-star" aria-hidden="true">—</span></div>
       <div class="learn-visual-intro"><span data-learn-step-count>01 / 04</span><strong data-learn-step-heading>O que você precisa hoje?</strong><small data-learn-step-caption>Você começa escolhendo, sem compromisso.</small></div>
 
       <div class="learn-visual-scenes" aria-hidden="true">
         <div class="learn-visual-scene" data-learn-scene="1">
           <span class="learn-scene-title">Escolha por categoria</span>
           <div class="learn-scene-products learn-scene-products-art" aria-hidden="true">
-            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><rect x="15" y="14" width="28" height="35" rx="7" fill="#DCEFE3" stroke="#187755" stroke-width="2"/><path d="M24 14V8h10v6m-12-6h14M22 24h14M24 36h10" stroke="#187755" stroke-width="2" stroke-linecap="round"/><path d="M18 43h22" stroke="#A2C6AB" stroke-width="1.5"/></svg><b>Gás</b></span>
-            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><path d="M22 9h14v8l5 7v19c0 4-4 6-12 6s-12-2-12-6V24l5-7V9Z" fill="#DDEDF2" stroke="#247C88" stroke-width="2"/><path d="M22 17h14M18 27h22M21 36h16" stroke="#6FB1B6" stroke-width="2" stroke-linecap="round"/></svg><b>Água</b></span>
-            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><path d="M12 22 29 13l17 9v19L29 50 12 41V22Z" fill="#FFF0D7" stroke="#A87935" stroke-width="2"/><path d="m12 22 17 9 17-9M29 31v19M20 18l18 9" stroke="#B48D56" stroke-width="1.8" stroke-linejoin="round"/></svg><b>Essenciais</b></span>
+            <span class="learn-product-tile"><span class="learn-product-photo learn-photo-gas"></span><b>Gás</b></span>
+            <span class="learn-product-tile"><span class="learn-product-photo learn-photo-water"></span><b>Água</b></span>
+            <span class="learn-product-tile"><span class="learn-product-photo learn-photo-coal"></span><b>Essenciais</b></span>
           </div>
         </div>
         <div class="learn-visual-scene" data-learn-scene="2" hidden>
@@ -155,7 +177,7 @@ return shell(`<section class="page learn-premium">
         <div><span class="learn-timeline-mark">2</span><span><strong>Depois de solicitar</strong><small>A revenda ainda precisa aceitar para que o pedido seja confirmado.</small></span></div>
         <div><span class="learn-timeline-mark">3</span><span><strong>No momento da entrega</strong><small>Confira os itens e só então informe o código de recebimento.</small></span></div>
       </div>
-      <img class="learn-confidence-art" src="./assets/learn-delivery-signature-v1133.svg" width="780" height="265" loading="lazy" decoding="async" alt="Ilustração de uma entrega de itens essenciais em direção a uma casa." />
+      
       <p class="learn-panel-footnote">Disponibilidade, horários e atualizações dependem das revendas que atendem sua região.</p>
     </aside>
   </section>
