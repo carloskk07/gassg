@@ -6,7 +6,7 @@ learnPremiumFaqState.query='';
 return shell(`<section class="page learn-premium">
   <section class="learn-hero" aria-labelledby="learn-hero-title">
     <div class="learn-hero-copy">
-      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / PARA O SEU DIA A DIA</span>
+      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / GUIA DE COMPRA</span>
       <h1 id="learn-hero-title">O essencial para sua casa. <em>Com tudo mais simples.</em></h1>
       <span class="learn-hero-signature">Simples para pedir. Claro para acompanhar.</span>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
