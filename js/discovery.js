@@ -797,13 +797,12 @@ function discoveryRidesHero(){
  return `<header class="rides-hero rides-signature-hero rides-atelier-hero" aria-labelledby="rides-hero-heading">
   <div class="rides-hero-copy">
     <div class="rides-hero-eyebrow"><span class="rides-eyebrow-mark" aria-hidden="true"></span>TAMÃO CARONAS <span class="rides-eyebrow-divider">/</span> CAMINHOS COMPARTILHADOS</div>
-    <h1 id="rides-hero-heading">Temos um caminho.<br><em>Encontre a sua carona.</em></h1>
-    <p>Pesquise viagens anunciadas pelo trajeto, conheça os detalhes publicados e converse com quem vai dirigir. A escolha é sempre sua.</p>
+    <h1 id="rides-hero-heading">Seu destino.<br><em>Sua carona.</em></h1>
+    <p>Encontre viagens anunciadas para o seu trajeto. Veja a saída, confira as vagas e converse com quem vai dirigir antes de combinar.</p>
     <div class="rides-hero-actions">
       <button type="button" class="rides-hero-primary" onclick="document.getElementById('discovery-origin')?.focus()">Pesquisar caronas <span aria-hidden="true">↗</span></button>
       <button class="rides-hero-secondary" type="button" onclick="go('advertise')">Oferecer uma carona <span aria-hidden="true">→</span></button>
     </div>
-    <div class="rides-hero-points" aria-label="Como encontrar caronas"><span><i aria-hidden="true"></i> Viagens anunciadas</span><span><i aria-hidden="true"></i> Informações claras</span><span><i aria-hidden="true"></i> Contato direto</span></div>
   </div>
   <div class="rides-hero-visual">
     <img src="https://images.unsplash.com/photo-1633230329626-f0fddf6e1154?auto=format&amp;fit=crop&amp;w=1400&amp;q=84" alt="Fotografia ilustrativa de uma estrada sinuosa entre montanhas ao pôr do sol" width="1400" height="940" decoding="async" fetchpriority="high">
