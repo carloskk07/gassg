@@ -270,6 +270,18 @@ assert.match(body,/Seu link\. Sua indicação\./);
 assert.match(body,/Fundo de pacotes/);
 assert.match(body,/fundo coletivo/);
 assert.match(await evaluate("document.querySelector('.earn-fund-clarity')?.textContent||''"),/R\$ 10,00 irão para o fundo coletivo/);
+
+assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 10,00');
+assert.equal(await evaluate("document.querySelector('.earn-fund-clarity')?.tagName"),'DIV');
+await evaluate("earnPremiumFundChoose(500)");
+assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 50,00');
+assert.equal(await evaluate("document.querySelector('[data-earn-fund-preset=500]')?.getAttribute('aria-pressed')"),'true');
+assert.match(await evaluate("document.querySelector('[data-earn-fund-description]')?.textContent||''"),/não para cada participante/);
+await evaluate("earnPremiumFundChoose(250)");
+assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 25,00');
+await evaluate("earnPremiumFundChoose(100)");
+assert.equal(await evaluate("document.querySelector('[data-earn-fund-total]')?.textContent"),'R$ 10,00');
+
 assert.match(body,/SIMULADOR DE COMISSÕES/);
 assert.equal(await evaluate("document.querySelectorAll('.earn-benefit-board .earn-assurance>article').length"),4);
 assert.equal(await evaluate("document.querySelector('.earn-hero .earn-benefit-simulator')!==null"),true);
