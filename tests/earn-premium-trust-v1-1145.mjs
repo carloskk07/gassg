@@ -11,7 +11,7 @@ const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 12,00'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
 for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato por origem',
- 'primeira compra elegível','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
+ 'compras válidas','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
@@ -24,8 +24,8 @@ assert.match(page,/SIMULADOR DE COMISSÕES/);
 assert.match(page,/Não é só indicar/);
 assert.match(page,/data-earn-ticket/);
 assert.equal((page.match(/data-earn-ticket-preset="/g)||[]).length,3);
-assert.match(page,/Personalizar valor da primeira compra/);
-assert.match(page,/5 primeiras compras válidas/);
+assert.match(page,/Personalizar valor de cada compra/);
+assert.match(page,/5 compras válidas/);
 assert.match(page,/data-earn-scenario="5" aria-pressed="true"/);
 assert.ok(page.indexOf('earn-benefit-simulator')<page.indexOf('earn-benefit-board'));
 assert.ok(page.indexOf('earn-benefit-board')<page.indexOf('earn-section earn-value'));
