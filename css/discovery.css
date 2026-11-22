@@ -644,7 +644,7 @@
 .discovery-rides .rides-hero h1 em{display:inline;color:#e3cd9d;font-family:Georgia,'Times New Roman',serif;font-size:.95em;font-weight:400;letter-spacing:-.04em}
 .discovery-rides .rides-hero-copy>p{max-width:55ch;margin:0;color:#d0e2d7;font-size:15px;line-height:1.78}
 .discovery-rides .rides-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin:32px 0 0}
-.discovery-rides .rides-hero-actions :is(a,button){display:inline-flex;align-items:center;justify-content:center;gap:13px;min-height:51px;padding:13px 20px;border:1px solid transparent;border-radius:11px;font:800 13px/1.3 inherit;text-decoration:none;cursor:pointer;transition:background .2s,border-color .2s,transform .2s}
+.discovery-rides .rides-hero-actions :is(a,button){display:inline-flex;align-items:center;justify-content:center;gap:13px;min-height:51px;padding:13px 20px;border:1px solid transparent;border-radius:11px;font-family:inherit;font-size:13px;font-weight:800;line-height:1.3;text-decoration:none;cursor:pointer;transition:background .2s,border-color .2s,transform .2s}
 .discovery-rides .rides-hero-actions :is(a,button):hover{transform:translateY(-2px)}
 .discovery-rides .rides-hero-primary{color:#183d30;background:#e8cf99;border-color:#e8cf99!important}
 .discovery-rides .rides-hero-primary:hover{background:#f0deb6}
