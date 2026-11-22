@@ -732,7 +732,7 @@ function mobilityPage(){
      <small>Veja os anúncios de moto e escolha com quem combinar.</small>
      <span class="mobility-choice-cta">Explorar opções <span aria-hidden="true">→</span></span>
     </span>
-    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="46" r="9"></circle><circle cx="49" cy="46" r="9"></circle><path d="M15 46h14l8-17h9l5 17M28 46l-9-19H9M30 23h13l5 6M37 30l-5 16"></path></svg></span></span>
+    <span class="mobility-choice-image" aria-hidden="true"><span class="mobility-choice-fallback"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="47" r="9"></circle><circle cx="50" cy="47" r="9"></circle><path d="M14 47l10-14h16l10 14"></path><path d="M24 33l-5-8h-8M32 31h12l5-9h7M26 25h12l6 6"></path><path d="M24 39h14l4 8H25l-4-4Z" fill="currentColor" fill-opacity=".18"></path><path d="M30 39v8M43 29l7 18M49 22l-3-7h-8"></path></svg></span></span>
    </a>
    <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — consultar anúncios de carro">
     <span class="mobility-choice-copy">
