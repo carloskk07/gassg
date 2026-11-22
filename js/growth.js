@@ -404,17 +404,39 @@ return typeof globalThis.tamaoNetworkPageCurrentLink==='function'
 // A verified participation event requires an explicit visit to Rede,
  // a permanent account and the authenticated customer-summary Edge route.
  // No background heartbeat or marketing impression ever qualifies.
+// Only a server-acknowledged, identified Rede visit earns the ten-minute
+// coalescing window. A network failure must not silently consume it.
+// The 15-second failure cooldown is event-driven (on explicit Rede visits),
+// never a background heartbeat and never an award.
 let tamaoNetworkLastVisitAt=0;
+let tamaoNetworkLastVisitAttemptAt=0;
+let tamaoNetworkVisitInFlight=false;
+let tamaoNetworkVisitActor='';
 async function tamaoNetworkVisitFromUi(){
-const now=Date.now();
-if(!globalThis.liveReady?.()||now-tamaoNetworkLastVisitAt<10*60*1000)return;
-if(!['refer','earn'].includes(String(route())))return;
+if(!globalThis.liveReady?.()||!['refer','earn'].includes(String(route())))return;
 const actor=globalThis.liveRuntime?.session?.user?.id;
 if(!actor)return;
-tamaoNetworkLastVisitAt=now;
+if(tamaoNetworkVisitActor!==actor){
+  tamaoNetworkVisitActor=actor;
+  tamaoNetworkLastVisitAt=0;
+  tamaoNetworkLastVisitAttemptAt=0;
+}
+const now=Date.now();
+if(tamaoNetworkVisitInFlight||
+  (tamaoNetworkLastVisitAt>0&&now-tamaoNetworkLastVisitAt<10*60*1000)||
+  (tamaoNetworkLastVisitAttemptAt>0&&now-tamaoNetworkLastVisitAttemptAt<15*1000))return;
+tamaoNetworkLastVisitAttemptAt=now;
+tamaoNetworkVisitInFlight=true;
 try{
 const data=await liveInvoke('customer-summary',{networkVisit:true});
-if(!globalThis.liveReady?.()||globalThis.liveRuntime?.session?.user?.id!==actor)return;
+if(!globalThis.liveReady?.()||globalThis.liveRuntime?.session?.user?.id!==actor||
+  tamaoNetworkVisitActor!==actor)return;
+if(data?.networkVisit?.source==='network_visit_v1_1030'&&
+  data.networkVisit.recorded===true&&data.networkVisit.moneyGranted===false){
+  tamaoNetworkLastVisitAt=Date.now();
+}else{
+  console.warn('Atividade da Rede ainda não confirmada; nova visita poderá repetir o registro.');
+}
 const network=data?.networkPackage;
 if(network?.source==='network_fee_package_user_v1_1030'&&
 network.available===true&&network.readOnly===true&&
@@ -430,6 +452,8 @@ import('/js/growth-celebra.js').then(render).catch(()=>{});
 }
 }catch(e){
 console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
+}finally{
+tamaoNetworkVisitInFlight=false;
 }
 }
 // V1.1034 — Manual payout UI is deferred to protect startup budgets.
