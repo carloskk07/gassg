@@ -8,22 +8,34 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
       <div class="earn-hero-copy">
         <div class="earn-kicker"><span class="earn-kicker-dot" aria-hidden="true"></span> REDE TAMÃO <span class="earn-kicker-divider">/</span> INDICAÇÕES & BENEFÍCIOS</div>
         <h1 id="earn-signature-title">Indique pessoas.<br><em>Acompanhe cada conquista.</em></h1>
-        <p class="earn-hero-lead">O valor de uma boa indicação começa pela confiança. Compartilhe seu link pessoal, acompanhe os resultados da sua Rede e saiba exatamente de onde vêm seus benefícios.</p>
+        <p class="earn-hero-lead">Um convite pessoal, uma Rede que reconhece suas conexões e um histórico que mostra de onde vem cada benefício. <strong>Compartilhe com tranquilidade. Acompanhe com clareza.</strong></p>
         <div class="earn-hero-actions">
           <button type="button" class="earn-action earn-action-primary" onclick="go('refer')">Acessar minha Rede <span aria-hidden="true">↗</span></button>
           <button type="button" class="earn-action earn-action-secondary" onclick="document.getElementById('earn-process')?.scrollIntoView({behavior:'smooth',block:'start'})">Entender como funciona <span aria-hidden="true">↓</span></button>
         </div>
-        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Link com seu código</span><span><i aria-hidden="true"></i> Eventos verificados</span><span><i aria-hidden="true"></i> Extrato com origem</span></div>
+        <div class="earn-hero-trust"><span><i aria-hidden="true"></i> Seu link e QR Code</span><span><i aria-hidden="true"></i> Resultados verificáveis</span><span><i aria-hidden="true"></i> Extrato por origem</span></div>
       </div>
-      <aside class="earn-stage" aria-label="Etapas de uma indicação e cálculo explicativo">
-        <div class="earn-stage-head"><span>SEU CONVITE, COM TRANSPARÊNCIA</span><span class="earn-stage-mark" aria-hidden="true">T<span>•</span></span></div>
-        <div class="earn-stage-label">O caminho de uma indicação</div>
-        <ol class="earn-stage-progress">
-          <li><span class="earn-stage-index">01</span><span><strong>Compartilhamento identificado</strong><small>Seu código acompanha o convite.</small></span><b aria-hidden="true">↗</b></li>
-          <li><span class="earn-stage-index">02</span><span><strong>Primeira compra elegível</strong><small>Acontecimento real, não só cadastro.</small></span><b aria-hidden="true">↗</b></li>
-          <li><span class="earn-stage-index">03</span><span><strong>Validação e extrato</strong><small>Origem e liberação conforme as regras.</small></span><b aria-hidden="true">✓</b></li>
-        </ol>
-        <div class="earn-stage-example"><span>COMISSÃO DE AQUISIÇÃO • EXEMPLO ILUSTRATIVO</span><div class="earn-stage-math"><strong>R$ 120,00 <small>× ${rate}</small></strong><b>${example}</b></div><p>Uma primeira compra qualificada de R$ 120. Não é saldo real nem promessa de rendimento.</p></div>
+      <aside class="earn-stage earn-v1146-preview" aria-label="Conheça seu espaço de divulgação e entenda o cálculo de uma comissão">
+        <div class="earn-stage-head"><span>UM CONVITE COM A SUA IDENTIDADE</span><span class="earn-stage-mark" aria-hidden="true">T<span>•</span></span></div>
+        <div class="earn-profile">
+          <div class="earn-profile-eyebrow"><span class="earn-profile-online" aria-hidden="true"></span> SEU ESPAÇO NA REDE TAMÃO</div>
+          <div class="earn-profile-header">
+            <div class="earn-profile-avatar" aria-hidden="true"><span>T</span></div>
+            <div><strong>Uma página para chamar de sua.</strong><small>Seu convite, seu código e seus benefícios reunidos em um único lugar.</small></div>
+          </div>
+          <div class="earn-profile-features" aria-label="Funcionalidades da área de participante"><span><b aria-hidden="true">↗</b> Link pessoal</span><span><b aria-hidden="true">▦</b> QR Code</span><span><b aria-hidden="true">≡</b> Extrato</span></div>
+          <div class="earn-profile-footer"><span>PERSONALIZAÇÃO E ACOMPANHAMENTO</span><strong aria-hidden="true">↗</strong></div>
+        </div>
+        <div class="earn-try" aria-label="Calculadora ilustrativa de comissões">
+          <div class="earn-try-heading"><div><span>FAÇA AS CONTAS</span><strong>Quanto representam primeiras compras elegíveis?</strong></div><span class="earn-try-star" aria-hidden="true">✳</span></div>
+          <div class="earn-try-switch" role="group" aria-label="Quantidade hipotética de primeiras compras válidas">
+            <button type="button" data-earn-scenario="1" aria-pressed="true" onclick="earnPremiumScenarioChoose(1)">1 compra</button>
+            <button type="button" data-earn-scenario="5" aria-pressed="false" onclick="earnPremiumScenarioChoose(5)">5 compras</button>
+            <button type="button" data-earn-scenario="10" aria-pressed="false" onclick="earnPremiumScenarioChoose(10)">10 compras</button>
+          </div>
+          <div class="earn-try-result"><div><span>Exemplo matemático</span><small data-earn-scenario-description>1 primeira compra válida × R$ 120 × ${rate}</small></div><strong data-earn-scenario-total aria-live="polite">${example}</strong></div>
+          <p>Valores hipotéticos. Só há comissão quando a indicação e a compra cumprem os critérios e são validadas. Não representa saldo ou renda garantida.</p>
+        </div>
       </aside>
     </header>
 
@@ -55,7 +67,11 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
         <article class="earn-value-simple"><span class="earn-value-mini">01 / CLUBE</span><h3>Benefícios também nas suas compras.</h3><p>Confira cupons, cashback elegível e vantagens disponíveis na sua região. Esses benefícios não são a mesma coisa que comissões de indicação.</p><button type="button" onclick="go('club')">Explorar o Clube <span aria-hidden="true">↗</span></button><span class="earn-corner-symbol" aria-hidden="true">✳</span></article>
         <article class="earn-value-simple"><span class="earn-value-mini">02 / NEGÓCIOS</span><h3>Sua empresa em uma Rede local.</h3><p>Revendas e outros participantes podem divulgar suas páginas, organizar oportunidades e conhecer as condições comerciais de cada serviço.</p><button type="button" onclick="go('merchants')">Conhecer a parceria <span aria-hidden="true">↗</span></button><span class="earn-corner-symbol" aria-hidden="true">↗</span></article>
       </div>
-      <div class="earn-fund-note"><span aria-hidden="true" class="earn-fund-icon">+</span><div><strong>Participação em outras modalidades</strong><p>A Rede também registra conquistas em serviços e pode contemplar distribuições de pacotes comerciais elegíveis, somente quando houver habilitação, participação verificada e valores confirmados. Consulte as regras e o extrato na sua conta.</p></div><button type="button" onclick="go('refer')">Ver modalidades <span aria-hidden="true">→</span></button></div>
+      <div class="earn-fund-note"><span aria-hidden="true" class="earn-fund-icon">+</span><div><strong>Conquistas em vários serviços, sem misturar benefícios.</strong><p>A Rede acompanha convites e eventos elegíveis em diferentes módulos. As campanhas financeiras e eventuais distribuições dos pacotes têm condições próprias e dependem de habilitação e validação.</p></div><button type="button" onclick="go('refer')">Ver modalidades <span aria-hidden="true">→</span></button></div>
+      <section class="earn-verticals" aria-labelledby="earn-verticals-title">
+        <div class="earn-verticals-heading"><div><span class="earn-eyebrow">CONECTE O QUE FAZ SENTIDO</span><h3 id="earn-verticals-title">Uma Rede que acompanha suas conexões além das compras.</h3></div><p>Sete frentes com registros próprios de participação. Nem toda conquista é comissão em dinheiro.</p></div>
+        <div class="earn-verticals-list" aria-label="Modalidades com registro de conquistas"><span><i>01</i> Produtos</span><span><i>02</i> Revendas</span><span><i>03</i> Moto e carro</span><span><i>04</i> Profissionais</span><span><i>05</i> Caronas</span><span><i>06</i> Clube</span><span><i>07</i> Publicidade</span></div>
+      </section>
     </section>
 
     <section class="earn-section earn-clarity" aria-labelledby="earn-clarity-title">
@@ -66,6 +82,7 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
         <details><summary><span>03</span> Onde vejo o que foi reconhecido?<b aria-hidden="true">+</b></summary><p>Na área Minha Rede você encontra código pessoal, indicados, conquistas, saldo em validação e valores disponíveis. O extrato detalha as origens verificadas.</p></details>
         <details><summary><span>04</span> Posso sacar imediatamente?<b aria-hidden="true">+</b></summary><p>Não. Valores precisam ser validados e liberados; saques disponíveis seguem conferência, limites e o processo manual informado na sua conta. Um crédito em apuração não é saldo sacável.</p></details>
         <details><summary><span>05</span> Preciso pagar para indicar pessoas?<b aria-hidden="true">+</b></summary><p>Não há compra de pacote exigida para compartilhar o seu convite pessoal. Compras de cupons, pacotes comerciais e outros serviços possuem regras próprias e não garantem rendimento.</p></details>
+        <details><summary><span>06</span> Posso ter uma página pessoal no TAMÃO?<b aria-hidden="true">+</b></summary><p>Sim. Sua área da Rede permite acessar seu convite identificado, QR Code e opções de personalização da divulgação. Recursos disponíveis dependem da sua conta e da modalidade.</p></details>
       </div>
     </section>
 
@@ -74,4 +91,19 @@ function earnPremiumPage({rateLabel,exampleAmount}={}){
       <div class="earn-finale-actions"><button type="button" onclick="go('refer')">Entrar na minha Rede <span aria-hidden="true">→</span></button><button type="button" onclick="go('contact')">Preciso de ajuda</button></div>
     </footer>
   </section>`);
+}
+
+/* Purely explanatory calculator: the existing commission policy remains the sole source of truth. */
+function earnPremiumScenarioChoose(quantity){
+ const n=[1,5,10].includes(Number(quantity))?Number(quantity):1;
+ const host=document.querySelector('.earn-v1146-preview');
+ if(!host)return false;
+ host.querySelectorAll('[data-earn-scenario]').forEach(button=>{
+   button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-earn-scenario'))===n));
+ });
+ const total=host.querySelector('[data-earn-scenario-total]');
+ const descriptor=host.querySelector('[data-earn-scenario-description]');
+ if(total)total.textContent=BRL.format(referralExample(120,n));
+ if(descriptor)descriptor.textContent=n+' '+(n===1?'primeira compra válida':'primeiras compras válidas')+' × R$ 120 × '+policyPercent(referralPilotRate());
+ return true;
 }
