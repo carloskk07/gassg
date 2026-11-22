@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261122213000_network_ads_shared_pool_v1_1154.sql');
+const sql=read('supabase/migrations/20261122204832_network_ads_shared_pool_v1_1154.sql');
 const isolated=read('tests/sql/network-ads-pool-v1-1154.sql');
 const earn=read('js/earn-premium.js');
 const growth=read('js/growth.js');
