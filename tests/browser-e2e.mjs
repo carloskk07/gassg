@@ -273,7 +273,11 @@ assert.match(body,/Sua empresa em uma Rede local/);
 assert.match(body,/primeira compra qualificada/);
 assert.match(body,/não gera comissão/i);
 assert.equal(await evaluate("document.querySelectorAll('.earn-step-grid article').length"),3);
-assert.equal(await evaluate("document.querySelectorAll('.earn-faq details').length"),5);
+assert.equal(await evaluate("document.querySelectorAll('.earn-faq details').length"),6);
+assert.equal(await evaluate("document.querySelectorAll('[data-earn-scenario]').length"),3);
+await evaluate("earnPremiumScenarioChoose(10)");
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"10\"]')?.getAttribute('aria-pressed')"),'true');
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(120,10))"));
 assert.equal(await evaluate("document.querySelector('.earn-action-primary')?.getAttribute('onclick')"),"go('refer')");
 await auditDom('earn');
 
