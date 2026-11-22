@@ -10,7 +10,7 @@ return shell(`<section class="page learn-premium">
       <h1 id="learn-hero-title">O essencial para sua casa. <em>Com tudo mais simples.</em></h1>
       <span class="learn-hero-signature">Simples para pedir. Claro para acompanhar.</span>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
-      <p>Encontre gás, água e itens essenciais nas revendas da sua região. Confira o valor e as condições antes de solicitar. A revenda confirma o atendimento; você acompanha cada etapa informada.</p>
+      <p>Encontre gás, água e essenciais para sua região. Confira preço e condições antes de solicitar. A revenda confirma o atendimento e informa as etapas.</p>
       <div class="learn-hero-actions">
         <button type="button" class="learn-button learn-button-primary" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button>
         <button type="button" class="learn-button learn-button-outline" onclick="learnPremiumJump('learn-guided-tour')">Ver como funciona <span aria-hidden="true">↘</span></button>

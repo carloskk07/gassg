@@ -32,4 +32,7 @@ assert.match(css,/@media\(max-width:430px\)/);
 assert.match(css,/prefers-reduced-motion:reduce/);
 assert.doesNotMatch(html,/mais de \d+ clientes|entrega garantida|5 estrelas|R\$\s?\d+[,\.]\d\d/i);
 assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|localStorage|sendBeacon/);
+assert.match(css,/font-size:clamp\(37px,3\.45vw,51px\);line-height:1\.045/,'short desktop hero type scale must remain compact');
+assert.match(css,/height:clamp\(90px,9\.7vw,130px\)/,'product images must not push purchase CTA below the fold');
+assert.match(html,/A revenda confirma o atendimento e informa as etapas/);
 console.log('TAMÃO V1.1134 PASS: authentic first-party catalogue imagery, cohesive editorial design, responsive navigation and unchanged commerce');
