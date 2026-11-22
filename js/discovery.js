@@ -708,7 +708,7 @@ function discoveryProfessionalsHero(shortcut){
  const heading=shortcut?.title||'O profissional certo faz toda a diferença.';
  const description=shortcut?.summary||'Encontre especialidades anunciadas na sua região e converse diretamente com quem pode ajudar.';
  return '<header class="pros-hero">'+
-  '<div class="pros-hero-copy"><span class="pros-eyebrow">✦ &nbsp; TAMÃO / PROFISSIONAIS</span>'+
+  '<div class="pros-hero-copy"><span class="pros-eyebrow">✦ &nbsp; TAMÃO PROFISSIONAIS</span>'+
   '<h1>'+esc(heading)+' <em>'+(shortcut?'Perto de você.':'Perto de você.')+'</em></h1>'+
   '<p class="pros-hero-lead">'+esc(description)+'</p>'+
   '<div class="pros-hero-actions"><button type="button" class="pros-hero-primary" onclick="document.getElementById(\'pros-search\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Encontrar profissionais <span aria-hidden="true">↗</span></button>'+
