@@ -481,7 +481,7 @@ const valid=raw?.source==='network_fee_package_user_v1_1030'&&
 raw.readOnly===true&&raw.payoutsEnabled===false&&raw.available===true&&
 ['pendingCents','validatedCents','awardSources'].every(k=>
 Number.isSafeInteger(Number(raw[k]))&&Number(raw[k])>=0);
-if(!valid)return '<section class="card flat"><h3>Participação nos pacotes de taxas</h3>'+
+if(!valid)return '<section class="card flat"><h3>Fundo coletivo da Rede</h3>'+
 '<p class="muted tiny">O extrato desta modalidade ainda não está disponível. Nenhum ganho foi presumido.</p></section>';
 const pending=BRL.format(Number(raw.pendingCents)/100);
 const validated=BRL.format(Number(raw.validatedCents)/100);
@@ -495,7 +495,7 @@ return '<section class="card flat network-fee-package-statement" aria-label="Par
 '<div class="merchant-kpis network-package-kpis"><div class="kpi"><span class="label">Em apuração</span><strong>'+pending+'</strong>'+
 '<small>Depende da validação da origem financeira</small></div>'+
 '<div class="kpi"><span class="label">Validado</span><strong>'+validated+'</strong>'+
-'<small>Disponibilidade conforme limite e conferência</small></div>'+
+'<small>Resgate por origem exige condições aprovadas, limite e conferência</small></div>'+
 '<div class="kpi"><span class="label">Fontes com participação</span><strong>'+sources+'</strong>'+
 '<small>Somente fontes financeiras comprovadas</small></div></div>'+
 (!raw.accrualEnabled?'<div class="notice">A participação nos pacotes aguarda aprovação das condições comerciais. A reserva sobre publicidade segue regras próprias, sem saque automático.</div>':'')+
