@@ -655,6 +655,8 @@ jobs:
         run: node tests/network-fee-package-pool-policy-v1-493.mjs
       - name: Rede canonical Auth Edge SQL and UI integration V1.1030
         run: node tests/network-fee-package-integration-v1-1030.mjs
+      - name: V1.1157 Rede verified visit proof, transient retry and session isolation
+        run: node tests/network-visit-ack-v1-1157.mjs
       - name: Rede V1.1031 payout reservation safety and idempotency contract
         run: node tests/network-fee-payout-reservation-contract-v1-1031.mjs
       - name: Rede V1.1032 verified bonus offset and partial Pix settlement contract
