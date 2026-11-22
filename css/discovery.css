@@ -993,3 +993,143 @@
  .discovery-rides .rides-search-primary .rides-search-place:nth-of-type(2){grid-column:1!important;grid-row:2}
  .discovery-rides .rides-search-primary .rides-search-submit{grid-column:1/-1;grid-row:3}
 }
+
+
+/* TAMÃO Caronas / Atelier — trust-first editorial treatment, scoped to #rides. */
+.discovery-rides.discovery-page{max-width:1250px}
+.discovery-rides .rides-signature-hero.rides-atelier-hero{
+  background:#f5f3ec;border:1px solid #e2e2d8;box-shadow:0 23px 61px rgba(20,49,37,.085);
+  grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);overflow:hidden
+}
+.discovery-rides .rides-atelier-hero .rides-hero-copy{
+  background:radial-gradient(circle at 0 0,rgba(216,191,134,.12),transparent 48%),#f7f6f0;
+  padding:clamp(29px,3.5vw,53px) clamp(27px,3.3vw,49px) 50px;justify-content:center
+}
+.discovery-rides .rides-atelier-hero .rides-hero-eyebrow{color:#6c775f;font-size:10px;letter-spacing:.13em}
+.discovery-rides .rides-atelier-hero .rides-eyebrow-mark{background:#b79150;box-shadow:0 0 0 4px #efe8d8}
+.discovery-rides .rides-atelier-hero .rides-eyebrow-divider{color:#b8ad95}
+.discovery-rides .rides-atelier-hero h1{color:#153d30;font-size:clamp(40px,4vw,56px);line-height:1.075;letter-spacing:-.056em;margin:24px 0 18px;max-width:16ch}
+.discovery-rides .rides-atelier-hero h1 em{color:#a47c45;font-size:.92em;display:inline;font-weight:400;letter-spacing:-.04em}
+.discovery-rides .rides-atelier-hero .rides-hero-copy>p{color:#596c5e;font-size:14px;line-height:1.75;max-width:49ch}
+.discovery-rides .rides-atelier-hero .rides-hero-actions{margin-top:27px;gap:10px}
+.discovery-rides .rides-atelier-hero .rides-hero-actions :is(button){min-height:48px;padding:12px 19px;border-radius:9px;font-size:12px}
+.discovery-rides .rides-atelier-hero .rides-hero-primary{background:#176345;border-color:#176345!important;color:#fff}
+.discovery-rides .rides-atelier-hero .rides-hero-primary:hover{background:#0e5137;color:#fff}
+.discovery-rides .rides-atelier-hero .rides-hero-secondary{background:transparent;border:1px solid #ccd9cb!important;color:#28503b}
+.discovery-rides .rides-atelier-hero .rides-hero-secondary:hover{background:#e7eee5;color:#214b35}
+.discovery-rides .rides-atelier-hero .rides-hero-points{border-top:1px solid #e1e4d9;margin-top:28px;padding-top:16px;gap:10px 18px}
+.discovery-rides .rides-atelier-hero .rides-hero-points span{color:#687c6e;font-size:10px}
+.discovery-rides .rides-atelier-hero .rides-hero-points i{background:#b38c4c;width:5px;height:5px}
+.discovery-rides .rides-atelier-hero .rides-hero-visual{min-height:415px;background:#72826d}
+.discovery-rides .rides-atelier-hero .rides-hero-visual>img{object-position:53% 56%;filter:saturate(.89) contrast(1.03)}
+.discovery-rides .rides-atelier-hero .rides-photo-shade{background:linear-gradient(90deg,rgba(10,49,34,.035),transparent 52%),linear-gradient(0deg,rgba(10,37,26,.24),transparent 31%)}
+.discovery-rides .rides-atelier-hero .rides-photo-credit{font-size:9px;color:#fff;background:rgba(18,46,37,.63);top:15px;right:15px}
+.discovery-rides .rides-search-panel{background:#fff;border-color:#e4e6da;border-radius:19px;box-shadow:0 19px 49px rgba(19,63,42,.12);margin-top:-46px}
+.discovery-rides .rides-search-panel .rides-search-heading h2{color:#163d2d;letter-spacing:-.045em}
+.discovery-rides .rides-search-primary .rides-search-place{background:#f8f9f6;border-color:#e0e7df}
+.discovery-rides .rides-search-primary .rides-search-place:focus-within{background:#fff;border-color:#4e9974}
+.discovery-rides .rides-search-primary .rides-search-submit{background:#176747;border-color:#176747;box-shadow:0 8px 19px rgba(25,95,62,.13)}
+.discovery-rides .rides-search-primary .rides-search-submit:hover{background:#10583b}
+.discovery-rides .rides-assurance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:0;margin:18px 31px 0;padding:15px 6px;border:1px solid #e3e8df;background:#f8f9f5;border-radius:14px}
+.discovery-rides .rides-assurance-item{display:flex;align-items:center;gap:12px;min-width:0;padding:8px 21px}
+.discovery-rides .rides-assurance-item+.rides-assurance-item{border-left:1px solid #e0e6de}
+.discovery-rides .rides-assurance-symbol{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;background:#e5f1e7;border:1px solid #d1e4d4;border-radius:11px;color:#2a6e4b;font-size:20px}
+.discovery-rides .rides-assurance-item strong{display:block;color:#264c39;font-size:12px;line-height:1.3;letter-spacing:-.015em}
+.discovery-rides .rides-assurance-item p{color:#7a8a7b;font-size:10px;line-height:1.5;margin:3px 0 0}
+.discovery-rides .rides-results-heading{margin-top:39px;align-items:end;padding-top:0;padding-bottom:18px;border-bottom:1px solid #dfe6dc}
+.discovery-rides .rides-results-heading h2{font:760 clamp(30px,3.45vw,42px)/1.12 inherit;font-family:inherit;letter-spacing:-.05em;color:#173e2d}
+.discovery-rides .rides-results-heading>p{color:#758276;font-size:12px;max-width:43ch}
+.discovery-rides .discovery-count{font-size:11px;color:#687a6c}
+.discovery-rides .discovery-disclaimer{font-size:10px!important;color:#899789!important}
+.discovery-rides .rides-result{border-color:#e1e6dc;border-radius:20px;background:#fff;box-shadow:0 10px 26px rgba(18,55,37,.055)}
+.discovery-rides .rides-result:hover{border-color:#c8d9ca;box-shadow:0 15px 34px rgba(16,60,37,.09)}
+.discovery-rides .rides-card-top{border-color:#e9ebe2}
+.discovery-rides .rides-result .rides-card-route{background:#f9faf6;border-color:#e6e9df}
+.discovery-rides .rides-result .rides-route-arrow{color:#b89657}
+.discovery-rides .rides-result .rides-card-actions{border:1px solid #e4e5d9;background:#f9f8f2;border-radius:15px}
+.discovery-rides .rides-result .rides-card-contact{background:#176647;border-radius:9px}
+.discovery-rides .rides-result .rides-card-actions :is(.discovery-save,.discovery-pick,.discovery-direct-link,.rides-share){border-radius:9px;background:white;color:#416c50}
+.discovery-rides .rides-atelier-empty{display:grid!important;grid-template-columns:minmax(0,1.13fr) minmax(280px,.87fr);gap:30px;align-items:center;justify-items:stretch!important;padding:clamp(24px,4vw,45px)!important;border-radius:23px!important;background:#fff!important;border:1px solid #e0e7dc!important;box-shadow:0 16px 39px rgba(20,52,36,.06)!important}
+.discovery-rides .rides-empty-copy{min-width:0}
+.discovery-rides .rides-atelier-empty h3{max-width:15ch;font-size:clamp(29px,3.15vw,41px);line-height:1.12;letter-spacing:-.048em;margin:12px 0 14px}
+.discovery-rides .rides-atelier-empty p{font-size:13px;line-height:1.8;color:#6c7d6e;max-width:57ch}
+.discovery-rides .rides-empty-actions{margin-top:24px}
+.discovery-rides .rides-empty-actions button{border-radius:10px;font-size:12px;min-height:46px}
+.discovery-rides .rides-empty-actions button:first-child{background:#176348;border-color:#176348}
+.discovery-rides .rides-empty-journey{display:grid;position:relative;align-content:center;gap:0;min-height:265px;padding:26px 29px;border-radius:20px;background:linear-gradient(150deg,#184d3b,#103528);overflow:hidden;color:#fff}
+.discovery-rides .rides-empty-journey::after{content:"";position:absolute;right:-76px;top:-48px;width:240px;height:240px;border:1px solid rgba(228,210,168,.17);border-radius:50%;pointer-events:none}
+.discovery-rides .rides-empty-journey-kicker{color:#e0c793;font-size:9px;letter-spacing:.13em;font-weight:850;margin-bottom:28px}
+.discovery-rides .rides-empty-journey-stop{display:flex;align-items:center;gap:15px;position:relative;z-index:1}
+.discovery-rides .rides-empty-journey-stop i{width:15px;height:15px;flex:0 0 15px;border-radius:50%;border:3px solid #d8bd88;background:#184d3b;box-shadow:0 0 0 5px rgba(222,197,146,.1)}
+.discovery-rides .rides-empty-journey-stop small{display:block;color:#adcbbb;font-size:9px;font-weight:850;letter-spacing:.13em}
+.discovery-rides .rides-empty-journey-stop strong{display:block;max-width:250px;color:#fff9ea;font-size:17px;line-height:1.3;overflow-wrap:anywhere;margin-top:4px}
+.discovery-rides .rides-empty-journey-line{display:block;width:1px;height:35px;margin:6px 0 8px 7px;background:repeating-linear-gradient(to bottom,#d8bd88 0 5px,transparent 5px 9px)}
+.discovery-rides .rides-empty-journey-note{font-size:10px;color:#bbd4c5;margin-top:25px;line-height:1.4}
+.discovery-rides .rides-guide{margin:48px 0 0;padding:0}
+.discovery-rides .rides-guide-heading{display:flex;justify-content:space-between;align-items:end;gap:26px;margin-bottom:23px}
+.discovery-rides .rides-guide-heading h2{font-size:clamp(30px,3.9vw,46px);letter-spacing:-.055em;line-height:1.14;color:#174030;margin:12px 0 0}
+.discovery-rides .rides-guide-heading h2 em{font:italic .95em/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#9f7d47}
+.discovery-rides .rides-guide-heading>p{font-size:13px;line-height:1.7;color:#718176;max-width:36ch;margin:0 0 4px}
+.discovery-rides .rides-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.discovery-rides .rides-guide-item{position:relative;padding:25px 23px 28px;background:#fdfdfa;border:1px solid #e3e6dd;border-radius:17px;min-width:0;overflow:hidden}
+.discovery-rides .rides-guide-item:hover{border-color:#cadbc9}
+.discovery-rides .rides-guide-number{display:block;color:#b79d69;font:italic 23px/1 Georgia,serif}
+.discovery-rides .rides-guide-glyph{position:absolute;right:24px;top:23px;color:#c3ceb9;font:normal 34px/1 Georgia,serif}
+.discovery-rides .rides-guide-item h3{font-size:18px;line-height:1.2;color:#23503a;letter-spacing:-.025em;margin:40px 0 11px}
+.discovery-rides .rides-guide-item p{font-size:12px;line-height:1.78;color:#687c6d;margin:0;max-width:42ch}
+.discovery-rides .rides-guide-foot{display:flex;align-items:center;gap:18px;margin-top:15px;padding:19px 23px;background:#eff6ef;border:1px solid #dfebdf;border-radius:14px}
+.discovery-rides .rides-guide-foot>span{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;background:#dfeee1;border-radius:13px;color:#286e47;font-size:25px}
+.discovery-rides .rides-guide-foot p{font-size:12px;line-height:1.75;color:#607966;margin:0}
+.discovery-rides .rides-guide-foot strong{color:#27533b}
+.discovery-rides .rides-atelier-partner{background:linear-gradient(110deg,#123c2d,#12392d);border:1px solid #2b5e48;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);padding:clamp(30px,4vw,52px);margin-top:34px}
+.discovery-rides .rides-atelier-partner h2{font-size:clamp(33px,4vw,48px)}
+.discovery-rides .rides-atelier-partner h2 em{color:#e5c78c}
+.discovery-rides .rides-atelier-partner .rides-overline{color:#e4c791}
+.discovery-rides .rides-atelier-partner p{color:#caddcc}
+.discovery-rides .rides-atelier-art{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:220px;border:1px solid rgba(220,196,144,.22);border-radius:140px;padding:24px 17px;background:radial-gradient(circle,rgba(223,195,142,.09),transparent 65%);text-align:center}
+.discovery-rides .rides-atelier-art-kicker{color:#dcc58e;font-size:10px;letter-spacing:.15em;font-weight:850}
+.discovery-rides .rides-atelier-art-route{display:flex;align-items:center;gap:0;width:73%;height:25px;justify-content:center}
+.discovery-rides .rides-atelier-art-dot{width:13px;height:13px;flex:0 0 13px;border:3px solid #e7c78a;border-radius:50%}
+.discovery-rides .rides-atelier-art-stem{flex:1;border-top:1px dashed #e7c78a}
+.discovery-rides .rides-atelier-art-label{font:italic 19px/1.35 Georgia,serif;color:#f2e4c3;max-width:13ch}
+@media(max-width:1060px){
+ .discovery-rides .rides-atelier-hero h1{font-size:clamp(37px,4vw,50px)}
+ .discovery-rides .rides-atelier-hero .rides-hero-copy{padding:28px 25px 45px}
+ .discovery-rides .rides-atelier-hero .rides-hero-visual{min-height:420px}
+ .discovery-rides .rides-assurance{margin-left:19px;margin-right:19px}
+ .discovery-rides .rides-assurance-item{padding:7px 11px;gap:8px}
+ .discovery-rides .rides-assurance-symbol{flex-basis:31px;width:31px;height:31px;font-size:18px}
+ .discovery-rides .rides-guide-heading h2{font-size:clamp(30px,3.7vw,39px)}
+}
+@media(max-width:760px){
+ .discovery-rides .rides-signature-hero.rides-atelier-hero{grid-template-columns:1fr}
+ .discovery-rides .rides-atelier-hero .rides-hero-copy{padding:37px 26px 28px}
+ .discovery-rides .rides-atelier-hero h1{font-size:clamp(39px,7vw,53px);margin:18px 0 16px}
+ .discovery-rides .rides-atelier-hero .rides-hero-visual{min-height:270px}
+ .discovery-rides .rides-atelier-hero .rides-hero-points{margin-top:22px}
+ .discovery-rides .rides-search-panel{margin-top:-13px}
+ .discovery-rides .rides-assurance{grid-template-columns:1fr;margin:14px 13px 0;padding:5px 14px}
+ .discovery-rides .rides-assurance-item{padding:12px 4px;gap:12px}
+ .discovery-rides .rides-assurance-item+.rides-assurance-item{border-left:0;border-top:1px solid #e0e6de}
+ .discovery-rides .rides-results-heading{margin-top:30px}
+ .discovery-rides .rides-atelier-empty{grid-template-columns:1fr;gap:22px}
+ .discovery-rides .rides-empty-journey{min-height:220px}
+ .discovery-rides .rides-guide-heading{align-items:start;flex-direction:column;gap:11px}
+ .discovery-rides .rides-guide-heading>p{max-width:64ch}
+ .discovery-rides .rides-guide-grid{grid-template-columns:1fr;gap:10px}
+ .discovery-rides .rides-guide-item{padding:21px 22px}
+ .discovery-rides .rides-guide-item h3{margin:20px 0 7px}
+ .discovery-rides .rides-atelier-partner{grid-template-columns:1fr}
+ .discovery-rides .rides-atelier-art{display:none}
+}
+@media(max-width:520px){
+ .discovery-rides .rides-atelier-hero .rides-hero-copy{padding:31px 21px 28px}
+ .discovery-rides .rides-atelier-hero h1{font-size:clamp(37px,9.25vw,46px);max-width:15ch}
+ .discovery-rides .rides-atelier-hero .rides-hero-actions{margin-top:23px}
+ .discovery-rides .rides-atelier-hero .rides-hero-visual{min-height:218px}
+ .discovery-rides .rides-atelier-empty{padding:21px!important}
+ .discovery-rides .rides-empty-journey{padding:24px 21px}
+ .discovery-rides .rides-assurance{margin-left:8px;margin-right:8px}
+ .discovery-rides .rides-guide-foot{align-items:flex-start;padding:16px}
+ .discovery-rides .rides-guide-foot>span{flex-basis:34px;width:34px;height:34px;font-size:20px}
+}
