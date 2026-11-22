@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261122223000_network_pool_redemption_terms_gates_v1_1155.sql');
+const sql=read('supabase/migrations/20261122224144_network_pool_redemption_terms_gates_v1_1155.sql');
 const smoke=read('tests/sql/network-redemption-terms-v1-1155.sql');
 const admin=read('js/admin.js');
 const edge=read('supabase/functions/admin-ops/index.ts');
