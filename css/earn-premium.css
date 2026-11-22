@@ -277,3 +277,15 @@
  .earn-signature .earn-try-result>strong{font-size:27px}
 }
 @media(prefers-reduced-motion:reduce){.earn-signature .earn-try-switch button{transition:none}}
+
+
+/* V1.1147 — Keep the real Rede action in sight on short desktop viewports. */
+@media(min-width:991px){
+ .earn-signature .earn-hero{align-items:start;padding-block:clamp(28px,3vw,42px)}
+ .earn-signature .earn-hero-copy{align-self:start;padding-top:0}
+ .earn-signature .earn-hero-copy:before{margin-bottom:18px}
+ .earn-signature .earn-hero h1{font-size:clamp(35px,4vw,55px);line-height:1.065;margin:19px 0 14px}
+ .earn-signature .earn-hero-lead{font-size:14px;line-height:1.62;max-width:48ch}
+ .earn-signature .earn-hero-actions{margin-top:21px}
+ .earn-signature .earn-hero-trust{margin-top:17px}
+}
