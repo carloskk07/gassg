@@ -766,8 +766,8 @@ function mobilityPage(){
     <h1>${intent?'Continue seu atendimento com tranquilidade.':'Moto ou carro. <em>Você escolhe quem te leva.</em>'}</h1>
     <p>${intent?'Entre na sua conta para continuar com o profissional escolhido. Uma solicitação só é enviada depois da sua confirmação.':'Encontre mototaxistas e motoristas anunciados na sua região. Veja as opções, escolha quem contatar e combine diretamente o atendimento.'}</p>
     <div class="mobility-hero-actions">
-     ${intent?'':`<button class="mobility-hero-explore" type="button" onclick="document.querySelector('.mobility-choices')?.scrollIntoView({behavior:'smooth',block:'start'})">Conhecer as opções <span aria-hidden="true">↓</span></button>`}
-     <span class="mobility-hero-access-note">Consultar anúncios não exige login</span>
+     ${intent?'':`<button class="mobility-hero-explore" type="button" onclick="document.querySelector('.mobility-choices')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})">Conhecer as opções <span aria-hidden="true">↓</span></button>`}
+     <span class="mobility-hero-access-note">${intent?'Acesse sua conta para continuar':'Consultar anúncios não exige login'}</span>
     </div>
     <div class="mobility-hero-points" aria-label="O que você pode esperar">
      <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>Profissional escolhido por você</span>
