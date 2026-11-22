@@ -32,6 +32,8 @@ on:
       - 'tests/ads-cta-browser-v1-984.mjs'
       - 'tests/sponsors-premium-browser-v1-1090.mjs'
       - 'tests/professionals-photo-premium-browser-v1138.mjs'
+      - 'tests/mobility-premium-browser-v1139.mjs'
+      - 'js/mobility.js'
       - 'js/sponsors-premium.js'
       - 'js/ads-planner.js'
       - 'tests/desktop-nav-browser-v1-985.mjs'
@@ -119,6 +121,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/professionals-photo-premium-browser-v1138.mjs
+
+      - name: V1.1139 TAMÃO Mobility — real Chrome 320–1440px and real discovery links
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/mobility-premium-browser-v1139.mjs
 
       - name: Verify desktop navigation is compact and functional in real Chrome (PR only)
         env:
