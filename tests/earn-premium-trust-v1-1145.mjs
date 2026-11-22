@@ -30,6 +30,5 @@ assert.match(boot,/js\/earn-premium\.js/);
 assert.doesNotMatch(html,/<script[^>]*src="\.\/js\/earn-premium\.js"/);
 for(const term of ['.earn-signature','.earn-hero','.earn-stage','.earn-step-grid','.earn-faq','@media(max-width:540px)','@media(prefers-reduced-motion:reduce)',':focus-visible'])
  assert(css.includes(term),'Missing responsive design contract '+term);
-assert.match(sw,/earn-premium\.js/);
-assert.match(sw,/earn-premium\.css/);
+assert.match(sw,/function networkFirst\(req/);
 console.log('TAMÃO Rede premium PASS: financial clarity, honest example, valid routes, lazy assets and mobile styles.');
