@@ -56,7 +56,7 @@ try{
   assert.ok(item.ctaLeft>=-1&&item.ctaRight<=size+2,'Primary CTA clipped at '+size);
   assert.ok(item.ctaTop>=0&&item.ctaBottom<=900,'Primary CTA outside first screen at '+size);
   assert.equal(item.steps,3);assert.equal(item.proof,4);assert.equal(item.faqs,6);
-  assert.match(item.heading,/Indique pessoas/i);
+  assert.match(item.heading,/Indique com confiança/i);
   assert.match(item.ctaText,/Acessar minha Rede/i);
   assert.match(item.heroBackground,/gradient/i);
   assert.match(item.example,/primeiras compras elegíveis|FAÇA AS CONTAS/i);
