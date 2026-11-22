@@ -10,7 +10,7 @@ vm.runInContext(pageJs+'\nthis.page=earnPremiumPage;',ctx);
 const page=ctx.page({rateLabel:'2%',exampleAmount:'R$ 12,00'});
 for(const id of ['earn-signature-title','earn-process','earn-process-title','earn-value-title','earn-clarity-title'])
  assert(page.includes(id),'Missing landmark '+id);
-for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato com origem',
+for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fundo de pacotes','Extrato por origem',
  'primeira compra elegível','não saldo disponível','Apenas cadastrar alguém','Posso sacar imediatamente'])
  assert(page.includes(label),'Missing clear trust copy '+label);
 assert.match(page,/R\$ 120/);
