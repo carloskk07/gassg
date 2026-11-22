@@ -723,13 +723,16 @@ function mobilityPage(){
  // V1.1143 — Editorial trust design: no invented places, stock faces or fictitious availability.
  // Keep live listing routes, authentication, fees, requests and location sharing unchanged.
  const motoIcon='<svg viewBox="0 0 160 100" fill="none" aria-hidden="true" focusable="false">'+
-  '<circle cx="30" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
-  '<circle cx="129" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
-  '<path d="M30 77 54 51h27l19 26h29l-19-38h-9" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
-  '<path d="m54 51-7-16H31m45 2h32l-8 16H69Z" fill="currentColor" fill-opacity=".95"/>'+
-  '<path d="M62 39h-6l-5-5m28 18h18l-7 25H61l-9-14Z" fill="currentColor" fill-opacity=".48"/>'+
-  '<path d="M102 39 112 24h15M117 24h18M67 77l16-24m26 7 18 17" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>'+
-  '<path d="M38 32h-9M67 30h26" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>'+
+  '<circle cx="28" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
+  '<circle cx="130" cy="77" r="17" stroke="currentColor" stroke-width="5"/>'+
+  '<path d="M28 77 57 48h48l25 29" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+  '<path d="M62 40h38c8 0 14 6 19 15l-19 12-36-5-9-10 7-12Z" fill="currentColor" fill-opacity=".82"/>'+
+  '<path d="M69 38h35l10 12H65Z" fill="currentColor" />'+
+  '<path d="M60 39H43l-9-10H18" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+  '<path d="M111 41 127 21h12M126 21l6-6" stroke="currentColor" stroke-width="5" stroke-linecap="round" />'+
+  '<rect x="68" y="59" width="31" height="18" rx="5" fill="currentColor" fill-opacity=".56"/>'+
+  '<path d="m71 77-13 9h38l14-16M114 55l16 22" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+  '<circle cx="121" cy="40" r="6" fill="currentColor" fill-opacity=".92"/>'+
   '</svg>';
  const carIcon='<svg viewBox="0 0 160 100" fill="none" aria-hidden="true" focusable="false">'+
   '<path d="m19 66 10-24 20-6 16-17h39l22 23 15 6 6 18v16H19V66Z" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" fill="currentColor" fill-opacity=".13"/>'+
