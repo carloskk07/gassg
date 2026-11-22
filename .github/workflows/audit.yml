@@ -95,6 +95,8 @@ jobs:
         run: node tests/cloudflare-pages-functions-v1-1074.mjs
       - name: V1.1155 module-scoped redemption terms, payout gates and Admin verification
         run: node tests/network-redemption-terms-v1-1155.mjs
+      - name: V1.1156 Ads frozen balances and refunded campaign holds are not redeemable
+        run: node tests/network-ads-dispute-v1-1156.mjs
       - name: V1.1154 Ads 10 percent shared network fund sources, accounting, lifecycle and transparency
         run: node tests/network-ads-fund-v1-1154.mjs
       - name: V1.1145 trust-first Rede TAMÃO landing, accurate commission policies and routes
