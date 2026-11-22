@@ -725,13 +725,13 @@ function mobilityPage(){
  const mobilityCarPhoto='https://images.unsplash.com/photo-1651933701501-e58cd2b3ba4e?auto=format&fit=crop&w=1300&q=82';
  const discover=intent?'':`
   <nav class="mobility-provider-links mobility-choices" aria-label="Escolher moto ou carro">
-   <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals">
+   <a class="mobility-provider-card mobility-choice-moto" href="/?servico=moto#professionals" aria-label="Encontrar mototaxista — explorar anúncios na região">
     <span class="mobility-choice-copy"><span class="mobility-choice-overline">01 / EM DUAS RODAS</span>
      <strong>Encontre um mototaxista.</strong><small>Conheça anúncios da sua região e escolha o profissional com quem falar.</small>
      <span class="mobility-choice-cta">Explorar mototaxistas <span aria-hidden="true">↗</span></span>
     </span><span class="mobility-choice-image"><img src="${mobilityMotoPhoto}" alt="" loading="lazy" decoding="async" width="640" height="720"></span>
    </a>
-   <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals">
+   <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — explorar anúncios na região">
     <span class="mobility-choice-copy"><span class="mobility-choice-overline">02 / EM QUATRO RODAS</span>
      <strong>Encontre um motorista.</strong><small>Explore opções de carro anunciadas e combine o atendimento diretamente.</small>
      <span class="mobility-choice-cta">Explorar motoristas <span aria-hidden="true">↗</span></span>
