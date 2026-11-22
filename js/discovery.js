@@ -945,6 +945,8 @@ function discoveryRidesCard(item){
   (description?'<p class="rides-card-description">'+description+'</p>':'')+
   '<p class="rides-card-declared">Informações fornecidas pelo anunciante; confirme antes de combinar.</p></div>'+
   '<div class="discovery-actions rides-card-actions">'+
+   '<span class="rides-action-overline">PRÓXIMO PASSO</span><h3 class="rides-action-heading">'+(available?'Gostou deste trajeto?':'Esta saída não está disponível')+'</h3>'+
+   '<p class="rides-action-explain">'+(available?'Converse com o anunciante e confirme o encontro, as condições e as vagas.':'Procure outra data ou pesquise um novo trajeto.')+'</p>'+
    (contact&&available?'<a class="rides-card-contact" href="'+esc(contact)+'" target="_blank" rel="noopener noreferrer"'+(canSave?' data-listing-id="'+esc(id)+'" onclick="return discoveryConfirmRideContact(this)"':'')+'>Consultar vagas pelo WhatsApp <span aria-hidden="true">↗</span></a>':'<p class="rides-card-unavailable" role="status">Saída encerrada ou sem vagas disponíveis para consulta.</p>')+
    (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
    (saved?'<button type="button" class="discovery-pick" data-id="'+esc(id)+'" aria-pressed="'+compared+'" onclick="discoveryPickForComparison(this.dataset.id)">'+(compared?'✓ Comparando':'⇄ Comparar')+'</button>':'')+
