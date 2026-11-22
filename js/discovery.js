@@ -705,43 +705,91 @@ function discoveryCard(item,kind){
 
 /* Premium editorial layer for professionals — real listings and existing search only. */
 function discoveryProfessionalsHero(shortcut){
- const heading=shortcut?.title||'O profissional certo faz toda a diferença.';
- const description=shortcut?.summary||'Encontre especialidades anunciadas na sua região e converse diretamente com quem pode ajudar.';
+ const special=Boolean(shortcut);
+ const heading=special?shortcut.title:'Bons serviços começam com boas escolhas.';
+ const lead=special?shortcut.summary:'Encontre profissionais e serviços anunciados na sua região. Conheça o trabalho, tire dúvidas e combine diretamente com quem atende.';
  return '<header class="pros-hero">'+
-  '<div class="pros-hero-copy"><span class="pros-eyebrow">✦ &nbsp; TAMÃO PROFISSIONAIS</span>'+
-  '<h1>'+esc(heading)+' <em>'+(shortcut?'Perto de você.':'Perto de você.')+'</em></h1>'+
-  '<p class="pros-hero-lead">'+esc(description)+'</p>'+
-  '<div class="pros-hero-actions"><button type="button" class="pros-hero-primary" onclick="document.getElementById(\'pros-search\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Encontrar profissionais <span aria-hidden="true">↗</span></button>'+
-  '<button type="button" class="pros-hero-secondary" onclick="go(\'advertise\')">Anunciar meus serviços <span aria-hidden="true">→</span></button></div>'+
-  '<div class="pros-hero-assurances"><span>Busca por região</span><span>Contato direto</span><span>Escolha com liberdade</span></div></div>'+
-  '<div class="pros-hero-visual" aria-hidden="true"><div class="pros-visual-frame">'+
-   '<div class="pros-visual-meta"><span>O VALOR DO TRABALHO BEM-FEITO</span><span>TAMÃO.01</span></div>'+
-   '<svg class="pros-visual-art" viewBox="0 0 420 355" xmlns="http://www.w3.org/2000/svg" fill="none">'+
-    '<circle cx="230" cy="156" r="136" stroke="#c5a575" stroke-width="1" opacity=".65"/>'+
-    '<circle cx="230" cy="156" r="109" stroke="#c5a575" stroke-width="1" opacity=".35"/>'+
-    '<path d="M89 280V125L210 35L331 125V280" stroke="#e5d2ac" stroke-width="4" stroke-linejoin="round"/>'+
-    '<path d="M143 280V150H277V280M210 150V280M143 215H277" stroke="#e5d2ac" stroke-width="3"/>'+
-    '<path d="M54 284H365M77 302H345" stroke="#e5d2ac" stroke-width="2" stroke-linecap="round"/>'+
-    '<circle cx="330" cy="79" r="17" fill="#d9b875"/>'+
-    '<path d="M66 274v-42m-19 17 19-26 19 26m264 25v-50m-21 18 21-26 21 26" stroke="#9eaf9d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
-   '</svg>'+
-   '<div class="pros-visual-caption"><span>SERVIÇOS • SUA CIDADE</span><strong>Feito com cuidado.</strong></div>'+
-  '</div><div class="pros-visual-stamp">CONHEÇA <b>✳</b> ESCOLHA</div></div></header>';
+  '<div class="pros-hero-copy">'+
+    '<span class="pros-eyebrow"><span class="pros-eyebrow-dot" aria-hidden="true"></span> TAMÃO PROFISSIONAIS <span class="pros-eyebrow-sep">/</span> SUA REGIÃO</span>'+
+    '<h1>'+esc(heading)+(special?' <em>Do seu jeito.</em>':' <em>Comece por aqui.</em>')+'</h1>'+
+    '<p class="pros-hero-lead">'+esc(lead)+'</p>'+
+    '<div class="pros-hero-actions">'+
+      '<button type="button" class="pros-hero-primary" onclick="document.getElementById(\'pros-search\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">Encontrar um profissional <span aria-hidden="true">↗</span></button>'+
+      '<button type="button" class="pros-hero-secondary" onclick="go(\'advertise\')">Anunciar meus serviços <span aria-hidden="true">→</span></button>'+
+    '</div>'+
+    '<div class="pros-hero-assurances"><span>Busca por cidade</span><span>Contato direto</span><span>Você escolhe</span></div>'+
+  '</div>'+
+  '<div class="pros-hero-visual" aria-label="Fotografias ilustrativas de profissionais em atividade">'+
+   '<figure class="pros-photo pros-photo-main">'+
+    '<img src="https://images.unsplash.com/photo-1756736668275-ac5d9171763b?auto=format&amp;fit=crop&amp;w=900&amp;q=82" width="900" height="1100" decoding="async" fetchpriority="high" alt="Profissional trabalhando com madeira em uma oficina; imagem ilustrativa">'+
+    '<figcaption><span>O talento transforma</span><strong>o dia a dia.</strong></figcaption></figure>'+
+   '<figure class="pros-photo pros-photo-barber">'+
+    '<img src="https://images.unsplash.com/photo-1768363646793-d58847947aec?auto=format&amp;fit=crop&amp;w=560&amp;q=80" width="560" height="650" decoding="async" loading="lazy" alt="Barbeiro atendendo um cliente; imagem ilustrativa"></figure>'+
+   '<figure class="pros-photo pros-photo-electric">'+
+    '<img src="https://images.unsplash.com/photo-1741388222137-c0d3007ec173?auto=format&amp;fit=crop&amp;w=560&amp;q=80" width="560" height="650" decoding="async" loading="lazy" alt="Eletricista realizando um serviço; imagem ilustrativa"></figure>'+
+   '<span class="pros-photo-note">Fotografias ilustrativas · Unsplash</span>'+
+  '</div></header>';
 }
-function discoveryProfessionalsCategories(active){
- return '<nav class="pros-categories" aria-label="Explorar categorias de serviços">'+
- '<div class="pros-categories-heading"><span class="pros-overline">ESCOLHA POR NECESSIDADE</span><strong>Do dia a dia às ocasiões especiais.</strong></div>'+
- discoveryServiceLinks(active)+'</nav>';
+const DISCOVERY_PRO_SPECIALTIES=Object.freeze([
+ ['Eletricista','Elétrica','⚡'],['Encanador','Hidráulica','◈'],
+ ['Pedreiro','Obras & reparos','▤'],['Pintor','Pintura','◒'],
+ ['Diarista','Limpeza','✧'],['Jardineiro','Jardins','✿']
+]);
+function discoveryProfessionalsPickSpecialty(value){
+ if(discoveryKind()!=='professionals')return false;
+ if(!DISCOVERY_PRO_SPECIALTIES.some(item=>item[0]===value))return false;
+ const s=discoveryState('professionals');
+ const uf=document.getElementById('discovery-uf');
+ const city=document.getElementById('discovery-city');
+ if(uf)s.state=String(uf.value||'').slice(0,2);
+ if(city)s.city=String(city.value||'').trim().slice(0,120);
+ s.sharedId='';s.occupation=value;s.service='';
+ discoveryForgetServiceUrl();
+ s.savedOnly=false;
+ discoveryFetch();
+ document.getElementById('pros-search')?.scrollIntoView?.({behavior:'smooth',block:'start'});
+ return false;
+}
+function discoveryProfessionalsCategories(active,occupation){
+ return '<section class="pros-categories" aria-labelledby="pros-categories-heading">'+
+  '<div class="pros-categories-top"><div><span class="pros-overline">EXPLORE POR ESPECIALIDADE</span>'+
+  '<h2 id="pros-categories-heading">Precisa de ajuda com o quê?</h2></div>'+
+  '<p>Escolha um tipo de serviço ou faça sua própria pesquisa.</p></div>'+
+  '<div class="pros-specialty-grid">'+
+   DISCOVERY_PRO_SPECIALTIES.map(([value,label,symbol])=>'<button type="button" class="pros-specialty"'+
+     (occupation===value?' aria-pressed="true"':' aria-pressed="false"')+
+     ' onclick="discoveryProfessionalsPickSpecialty(\''+value+'\')">'+
+     '<span class="pros-specialty-icon" aria-hidden="true">'+symbol+'</span>'+
+     '<span class="pros-specialty-name">'+value+'<small>'+label+'</small></span>'+
+     '<span class="pros-specialty-arrow" aria-hidden="true">↗</span></button>').join('')+
+  '</div>'+
+  '<div class="pros-mobility"><div class="pros-mobility-head"><span class="pros-overline">TAMBÉM NO TAMÃO</span><strong>Transporte e serviços de mobilidade</strong></div>'+
+  discoveryServiceLinks(active)+'</div></section>';
 }
 function discoveryProfessionalsAfterSearch(){
- return '<section class="pros-how" aria-labelledby="pros-how-heading">'+
- '<div class="pros-how-lead"><span class="pros-overline">COMO FUNCIONA</span><h2 id="pros-how-heading">Encontre. Converse. Combine.</h2><p>Uma experiência simples para escolher com tranquilidade — sem prometer disponibilidade ou contratar por você.</p></div>'+
- '<ol class="pros-how-steps"><li><span>01</span><strong>Encontre</strong><p>Pesquise profissionais e serviços por região.</p></li>'+
- '<li><span>02</span><strong>Conheça</strong><p>Veja especialidades e informações do anúncio.</p></li>'+
- '<li><span>03</span><strong>Converse</strong><p>Confirme orçamento, prazo e atendimento diretamente.</p></li></ol></section>'+
- '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true">✳</div>'+
- '<div><span class="pros-overline">TAMÃO AGENDA</span><strong>Precisa marcar um horário?</strong><p>Descubra páginas profissionais com serviços e opções de reserva.</p></div>'+
- '<a href="/agenda/">Ver agendas disponíveis <span aria-hidden="true">↗</span></a></aside>';
+ return '<div class="pros-below-search">'+
+  '<section class="pros-how" aria-labelledby="pros-how-heading">'+
+   '<div class="pros-how-lead"><span class="pros-overline">SEM COMPLICAÇÃO</span><h2 id="pros-how-heading">Encontre. Converse. Combine.</h2>'+
+   '<p>Escolha com informação e tranquilidade. A contratação e os detalhes do atendimento são combinados diretamente com o anunciante.</p></div>'+
+   '<ol class="pros-how-steps">'+
+    '<li><span>01</span><strong>Busque</strong><p>Pesquise pela região e especialidade.</p></li>'+
+    '<li><span>02</span><strong>Conheça</strong><p>Veja os detalhes que o profissional publicou.</p></li>'+
+    '<li><span>03</span><strong>Combine</strong><p>Converse e confirme orçamento e horários.</p></li>'+
+   '</ol></section>'+
+  '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true">✳</div>'+
+   '<div><span class="pros-overline">TAMÃO AGENDA</span><strong>Prefere marcar um horário?</strong>'+
+    '<p>Encontre páginas profissionais que oferecem agenda e reservas.</p></div>'+
+   '<a href="/agenda/">Ver agendas disponíveis <span aria-hidden="true">↗</span></a></aside>'+
+ '</div>';
+}
+function discoveryProfessionalsFooter(){
+ return '<section class="pros-partner" aria-labelledby="pros-partner-title">'+
+  '<div class="pros-partner-copy"><span class="pros-overline">PARA QUEM FAZ ACONTECER</span>'+
+    '<h2 id="pros-partner-title">Seu trabalho merece ser encontrado.</h2>'+
+    '<p>Apresente seus serviços, compartilhe suas especialidades e facilite o contato com novos interessados na sua região.</p>'+
+    '<div class="pros-partner-actions"><button type="button" onclick="go(\'advertise\')">Quero anunciar meus serviços <span aria-hidden="true">↗</span></button>'+
+    '<a href="/agenda/">Conhecer a TAMÃO Agenda</a></div></div>'+
+  '<div class="pros-partner-symbol" aria-hidden="true"><span>O próximo contato pode começar aqui.</span><b>✳</b></div></section>';
 }
 
 function discoveryPage(){
@@ -782,7 +830,7 @@ function discoveryPage(){
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
     (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
     '</header>')+
-    (kind==='professionals'?discoveryProfessionalsCategories(s.service):'')+
+    (kind==='professionals'?discoveryProfessionalsCategories(s.service,s.occupation):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
@@ -834,6 +882,7 @@ function discoveryPage(){
     '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
     (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
     (s.status==='ready'&&s.error?'<p role="alert">Não foi possível trazer mais anúncios. Tente novamente.</p>':'')+
+    (kind==='professionals'?discoveryProfessionalsFooter():'')+
     '</section>');
 }
 function discoverySearchFromUi(event){
