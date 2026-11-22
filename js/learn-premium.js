@@ -24,7 +24,7 @@ return shell(`<section class="page learn-premium">
     <figure class="learn-merchandise" aria-labelledby="learn-merchandise-title">
       <figcaption class="learn-merchandise-heading">
         <span>UMA VITRINE PARA SUA ROTINA</span>
-        <strong id="learn-merchandise-title">O que importa, em primeiro lugar.</strong>
+        <strong id="learn-merchandise-title">Essenciais, com outro olhar.</strong>
       </figcaption>
       <div class="learn-merchandise-grid" aria-label="Exemplos de categorias de produtos">
         <div class="learn-merchandise-card">
@@ -52,7 +52,7 @@ return shell(`<section class="page learn-premium">
     <div class="learn-guide-intro">
       <span class="learn-label">CONHEÇA A EXPERIÊNCIA</span>
       <h2 id="learn-tour-title">Cada escolha, <em>com mais clareza.</em></h2>
-      <p>Veja o caminho do pedido, da consulta às informações da revenda. Escolha uma etapa para entender os detalhes.</p>
+      <p>Explore as etapas no seu tempo: da consulta às condições da revenda, do aceite ao acompanhamento.</p>
       
       <p class="learn-guide-footnote">O pedido depende da disponibilidade e do aceite da revenda.</p>
     </div>

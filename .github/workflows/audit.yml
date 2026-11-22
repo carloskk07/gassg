@@ -295,6 +295,8 @@ jobs:
         run: node tests/learn-visual-signature-v1-1133.mjs
       - name: Editorial photographic storefront and responsive buyer guide V1.1134
         run: node tests/learn-editorial-photo-v1-1134.mjs
+      - name: Art-directed photo mosaic and real buyer journey V1.1136
+        run: node tests/learn-art-directed-v1-1136.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
