@@ -10,7 +10,7 @@ for(const needle of [
 "network_fee_payout_reservations_v1_1031","network_manual_payout_requests_v1_1034",
 "network_fee_package_offsets_v1_1032","network_payout_jobs_v1_1033",
 "network_ads_pool_dispute_guard_trg_v1_1156",
-"when state='pending' and ads_hold_reason='FINANCIAL_REVIEW'",
+"where state='pending' and ads_hold_reason='FINANCIAL_REVIEW'",
 "'heldForReview',held_count","'heldMicrocents',held_amount"
 ])assert.ok(sql.includes(needle),'Missing dispute protection: '+needle);
 for(const needle of [
