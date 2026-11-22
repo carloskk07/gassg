@@ -293,6 +293,8 @@ jobs:
         run: node tests/learn-trust-center-v1-1132.mjs
       - name: Original premium imagery and customer education V1.1133
         run: node tests/learn-visual-signature-v1-1133.mjs
+      - name: Editorial photographic storefront and responsive buyer guide V1.1134
+        run: node tests/learn-editorial-photo-v1-1134.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
