@@ -160,7 +160,7 @@
  .mobility-choice-overline{font-size:9px;margin-bottom:9px}
  .mobility-page .mobility-choice-copy strong{font-size:clamp(21px,6vw,28px)}
  .mobility-page .mobility-choice-copy small{font-size:11px;max-width:24ch}
- .mobility-choice-image{width:43%}
+ .mobility-page .mobility-choices .mobility-choice-image{width:43%}
  .mobility-choice-cta{font-size:11px;white-space:normal;padding:10px 12px;margin-top:13px}
  .mobility-journey-steps{grid-template-columns:1fr;gap:14px}
  .mobility-journey-steps article{padding:0 0 0 15px}
@@ -207,7 +207,7 @@
 .mobility-page .mobility-choice-copy strong{font-size:clamp(25px,2.45vw,32px);letter-spacing:-.04em;color:#133b2c;line-height:1.13;max-width:12ch}
 .mobility-page .mobility-choice-copy small{max-width:30ch;font-size:12px;line-height:1.55;margin-top:10px;color:#566e5d}
 .mobility-choice-cta{min-height:39px;box-sizing:border-box;background:#12663f;border-radius:10px;font-size:12px;font-weight:900;padding:11px 15px;margin-top:15px}
-.mobility-choice-image{width:45%}
+.mobility-page .mobility-choices .mobility-choice-image{width:45%}
 .mobility-choice-image img{filter:saturate(.94) contrast(1.02);object-position:54% 45%}
 .mobility-choice-image::after{background:linear-gradient(90deg,#f9faf7 0%,rgba(249,250,247,.72) 20%,transparent 60%),linear-gradient(0deg,rgba(17,59,38,.05),transparent)}
 .mobility-choice-carro .mobility-choice-image::after{background:linear-gradient(90deg,#f8f6ed 0%,rgba(248,246,237,.68) 20%,transparent 60%)}
