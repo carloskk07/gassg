@@ -553,24 +553,48 @@
  letter-spacing:-.025em;line-height:1.15;font-variant-numeric:tabular-nums;
  overflow-wrap:anywhere;
 }
+/* V1.1152: honest, visible collective-pool simulation; no individual payout estimate. */
 .earn-signature .earn-fund-clarity{
- width:100%;margin:-1px 0 15px;padding:0 0 11px;
- border-bottom:1px solid #dfe9de;min-width:0;
+ display:grid;gap:9px;width:100%;min-width:0;margin:0 0 16px;
+ padding:13px 11px 12px;border:1px solid #e5d5ad;border-radius:13px;
+ background:linear-gradient(155deg,#fffdf6,#f6f1e5);
+ box-shadow:inset 0 1px #fff;
 }
-.earn-signature .earn-fund-clarity summary{
- display:flex;justify-content:space-between;align-items:center;gap:7px;
- padding:8px 0;list-style:none;color:#926924;font-size:11px;line-height:1.4;
- font-weight:850;cursor:pointer;
+.earn-signature .earn-fund-kicker{
+ display:block;color:#8b6b36;font-size:9px;font-weight:900;letter-spacing:.09em;line-height:1.4;
 }
-.earn-signature .earn-fund-clarity summary::-webkit-details-marker{display:none}
-.earn-signature .earn-fund-clarity summary>span{font-size:16px;color:#b38642}
-.earn-signature .earn-fund-clarity[open] summary>span{transform:rotate(45deg)}
+.earn-signature .earn-fund-presets{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;min-width:0;
+}
+.earn-signature .earn-benefit-board .earn-assurance .earn-fund-presets button{
+ display:grid;place-items:center;min-width:0;width:100%;margin:0;
+ padding:9px 2px;border:1px solid #d7d3c2;border-radius:8px;
+ background:#fffdf7;color:#5d644f;font-size:10px;font-weight:850;line-height:1.25;
+ text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+.earn-signature .earn-benefit-board .earn-assurance .earn-fund-presets button[aria-pressed="true"]{
+ border-color:#926e35;background:#0e6246;color:#fff5d7;box-shadow:0 2px 8px #164d3521;
+}
+.earn-signature .earn-benefit-board .earn-assurance .earn-fund-presets button:hover{text-decoration:none;border-color:#a7824a}
+.earn-signature .earn-benefit-board .earn-assurance .earn-fund-presets button:focus-visible{
+ outline:3px solid #d2ac63;outline-offset:2px;
+}
+.earn-signature .earn-fund-result{
+ display:flex;align-items:center;justify-content:space-between;gap:7px;
+ border-top:1px solid #e0d6c1;padding-top:9px;
+}
+.earn-signature .earn-fund-result span{
+ max-width:13ch;color:#665c48;font-size:10px;font-weight:750;line-height:1.3;
+}
+.earn-signature .earn-fund-result strong{
+ color:#0b6646;font-size:clamp(21px,2.2vw,27px);font-weight:900;
+ letter-spacing:-.035em;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
 .earn-signature .earn-benefit-board .earn-assurance .earn-fund-clarity p{
- padding:9px 11px;margin:0;border-radius:9px;background:#f8f3e9;
- color:#685d46;font-size:11px;line-height:1.62;
+ margin:0;color:#625d50;font-size:10px;line-height:1.45;
 }
-.earn-signature .earn-fund-clarity summary:focus-visible{
- outline:3px solid #cfa05c;outline-offset:3px;border-radius:5px;
+.earn-signature .earn-fund-clarity small{
+ display:block;color:#776d59;font-size:9px;line-height:1.5;
 }
 @media(max-width:990px){
  .earn-signature .earn-simulator-breakdown>div{padding:10px 8px}
@@ -586,9 +610,6 @@
 @media(max-width:350px){
  .earn-signature .earn-simulator-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
  .earn-signature .earn-simulator-breakdown strong{font-size:13px}
-}
-@media(prefers-reduced-motion:reduce){
- .earn-signature .earn-fund-clarity summary>span{transition:none}
 }
 
 
