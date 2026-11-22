@@ -3780,6 +3780,14 @@ async function adminNetworkFeePackageRefresh(){
            'validatedAwards','reversedAwards'].every(k=>
              Number.isSafeInteger(c[k])&&c[k]>=0)))
       throw Error('Campanhas especiais ainda sem verificação.');
+    if(result.adsPool?.source!=='network_ads_pool_admin_v1_1154'||
+       result.adsPool.readOnly!==true||result.adsPool.payoutsEnabled!==false||
+       result.adsPool.poolBps!==1000||
+       typeof result.adsPool.redemptionTermsApproved!=='boolean'||
+       !Array.isArray(result.adsPool.sources)||
+       !result.adsPool.sources.every(x=>Number.isSafeInteger(Number(x.receipts))&&
+         Number.isSafeInteger(Number(x.poolMicrocents))))
+      throw Error('O relatório do fundo de publicidade não foi validado.');
     adminNetworkFeePackageState=result;
   }catch(e){
     adminNetworkFeePackageState={error:String(e?.message||e)};
@@ -3807,6 +3815,68 @@ async function adminNetworkFeePackageToggle(enabled){
       'Novas apurações suspensas; histórico preservado.');
   }catch(e){toast(String(e?.message||e))}
   finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+
+async function adminNetworkAdsPoolTermsToggle(approved){
+  if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy)return;
+  const d=adminNetworkFeePackageState?.adsPool;
+  if(d?.source!=='network_ads_pool_admin_v1_1154'||d.readOnly!==true||
+     d.payoutsEnabled!==false)return toast('Conferência da publicidade indisponível.');
+  const termsReference=approved?
+    String(document.getElementById('network-ads-pool-terms-ref')?.value||'').trim():'';
+  if(approved&&!/^[^<>]{12,160}$/.test(termsReference))
+    return toast('Informe uma referência real da versão publicada e juridicamente revisada dos termos.');
+  if(!confirm(approved?
+     'Confirma a aprovação de termos já publicados e revisados para o resgate MANUAL das parcelas elegíveis de publicidade? Esta decisão não cria pagamento nem autoriza Pix automático.':
+     'Suspender novas solicitações baseadas exclusivamente na publicidade? O histórico será preservado.'))
+    return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const x=await adminPerform('network-ads-pool-terms-set',{approved,termsReference});
+    if(x?.source!=='network_ads_pool_terms_v1_1155'||
+      x.termsApproved!==approved||x.moneyMoved!==false||x.automaticPayouts!==false)
+      throw Error('A decisão sobre os termos não foi comprovada.');
+    toast(approved?'Termos publicitários aprovados; somente saldo validado pode solicitar retirada manual.':
+      'Novas solicitações publicitárias sem autorização; apuração e histórico preservados.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+function adminNetworkAdsPoolPanel(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const d=adminNetworkFeePackageState?.adsPool;
+  if(d?.source!=='network_ads_pool_admin_v1_1154')return '';
+  const moneyMicro=(n)=>BRL.format(Math.floor(Math.max(0,Number(n)||0)/1000000)/100);
+  const kind=(k)=>d.sources?.find(x=>x.kind===k)||{};
+  const views=kind('ads_verified_view'),fixed=kind('ads_fixed_campaign');
+  const pool=(Number(views.poolMicrocents)||0)+(Number(fixed.poolMicrocents)||0);
+  const pending=(Number(views.pendingMicrocents)||0)+(Number(fixed.pendingMicrocents)||0);
+  const validated=(Number(views.validatedMicrocents)||0)+(Number(fixed.validatedMicrocents)||0);
+  const unallocated=(Number(views.unallocatedMicrocents)||0)+(Number(fixed.unallocatedMicrocents)||0);
+  return '<section class="section admin-network-ads-pool" aria-label="Fundo publicitário da Rede">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE • PUBLICIDADE REALIZADA</span>'+
+    '<h3>10% dos anúncios para o fundo coletivo</h3>'+
+    '<p>Créditos de visualização efetivamente consumidos e campanhas por período entregues, sempre com comprovantes e proteção contra estornos. Recargas ainda não gastas não entram.</p></div></div>'+
+    '<div class="card flat">'+
+    '<p><strong>'+(d.accrualEnabled?'Apuração de publicidade ativa':'Apuração pausada')+
+    '</strong> · '+(d.redemptionTermsApproved?'Termos de retirada aprovados':'Retirada pendente de termos aprovados')+'</p>'+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Visualizações cobradas</span><strong>'+Number(views.receipts||0)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Campanhas concluídas</span><strong>'+Number(fixed.receipts||0)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Total reservado ao fundo</span><strong>'+moneyMicro(pool)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Em conferência</span><strong>'+moneyMicro(pending)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Validado (sem saque automático)</span><strong>'+moneyMicro(validated)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Sem participantes elegíveis</span><strong>'+moneyMicro(unallocated)+'</strong></div>'+
+    '</div>'+
+    '<p class="tiny muted">A regra de 10% conserva frações de centavo. A apuração funciona mesmo antes da liberação de retiradas. Saldo disponível depende de termos publicados, identidade, maturação, mínimo de R$ 50 e conferência manual. Nenhum Pix é realizado por esta tela.</p>'+
+    (adminCurrentRole()==='superadmin'?
+      (d.redemptionTermsApproved?
+        '<p class="tiny muted">Termos registrados: '+esc(d.termsReference||'referência não exibida')+'</p>'+
+        '<button type="button" class="secondary small" onclick="adminNetworkAdsPoolTermsToggle(false)">Suspender novas retiradas publicitárias</button>':
+        '<label>Referência real dos termos publicados e aprovados'+
+        '<input class="input" id="network-ads-pool-terms-ref" maxlength="160" placeholder="Identificador da versão final aprovada"></label>'+
+        '<button type="button" class="primary small" onclick="adminNetworkAdsPoolTermsToggle(true)" '+
+        (adminNetworkFeePackageBusy?'disabled':'')+'>Aprovar condições de retirada manual</button>'):'')+
+    '</div></section>';
 }
 async function adminNetworkAdsBonusToggle(enabled){
   if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy)return;
@@ -3966,11 +4036,11 @@ function adminNetworkFeePackagePanel(){
     return BRL.format(Math.floor((Number.isSafeInteger(n)&&n>=0?n:0)/1000000)/100);
   };
   const label=d?.error?'Diagnóstico indisponível':
-    !d?'Ainda não consultado':d.accrualEnabled?'Apuração habilitada':'Apuração pausada';
+    !d?'Ainda não consultado':d.accrualEnabled?'Pacotes habilitados':(d.adsPool?.accrualEnabled?'Pacotes pendentes • anúncios em apuração':'Apuração pausada');
   return '<section class="section admin-network-fee-packages">'+
     '<div class="section-head"><div><span class="section-kicker">REDE TAMÃO • FINANCEIRO</span>'+
-    '<h3>Pacotes de taxas reduzidas</h3>'+
-    '<p>10% do líquido confirmado: participação nas últimas 24h e incentivo à revenda verificada, dentro do mesmo limite. Não inclui cupons.</p></div>'+
+    '<h3>Fundo coletivo: pacotes e publicidade</h3>'+
+    '<p>10% do líquido verificado de pacotes e 10% da publicidade efetivamente cobrada. Os totais incluem ambas as modalidades; o detalhamento de anúncios aparece abaixo. Cupons e receitas de terceiros não entram.</p></div>'+
     '<button type="button" class="secondary small" onclick="adminNetworkFeePackageRefresh()" '+
     (adminNetworkFeePackageBusy?'disabled':'')+'>Conferir valores</button></div>'+
     '<div class="card flat"><p><strong>'+esc(label)+'</strong></p>'+
@@ -3999,6 +4069,7 @@ function adminNetworkFeePackagePanel(){
          (d.conservation?.balanced!==true?'disabled':'')+
          '>Ativar apuração para vendas futuras</button></div>'):''):'')+
     '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>'+ 
+    adminNetworkAdsPoolPanel()+
     adminNetworkAdsBonusPanel()+
     adminNetworkDirectBonusPanel()+
     (globalThis.adminCelebraPanel?.()||
