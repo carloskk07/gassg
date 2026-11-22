@@ -560,3 +560,6 @@
  .mobility-page .mobility-hero .mobility-choices .mobility-provider-card{transition:none}
  .mobility-page .mobility-hero .mobility-choices .mobility-provider-card:hover{transform:none}
 }
+
+/* SPA-safe jump control is a button, not a hash link. */
+.mobility-page .mobility-hero .mobility-hero-quicklink{border:0;border-bottom:1px solid #2d7051;border-radius:0;background:transparent;cursor:pointer;font-family:inherit;text-align:left}
