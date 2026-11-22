@@ -741,7 +741,7 @@ function discoveryProfessionalsAfterSearch(){
  '<li><span>03</span><strong>Converse</strong><p>Confirme orçamento, prazo e atendimento diretamente.</p></li></ol></section>'+
  '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true">✳</div>'+
  '<div><span class="pros-overline">TAMÃO AGENDA</span><strong>Precisa marcar um horário?</strong><p>Descubra páginas profissionais com serviços e opções de reserva.</p></div>'+
- '<a href="/agenda/">Explorar agendas <span aria-hidden="true">↗</span></a></aside>';
+ '<a href="/agenda/">Ver agendas disponíveis <span aria-hidden="true">↗</span></a></aside>';
 }
 
 function discoveryPage(){
