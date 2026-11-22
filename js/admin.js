@@ -3786,7 +3786,9 @@ async function adminNetworkFeePackageRefresh(){
        typeof result.adsPool.redemptionTermsApproved!=='boolean'||
        !Array.isArray(result.adsPool.sources)||
        !result.adsPool.sources.every(x=>Number.isSafeInteger(Number(x.receipts))&&
-         Number.isSafeInteger(Number(x.poolMicrocents))))
+         Number.isSafeInteger(Number(x.poolMicrocents))&&
+         Number.isSafeInteger(Number(x.heldForReview))&&
+         Number.isSafeInteger(Number(x.heldMicrocents))))
       throw Error('O relatório do fundo de publicidade não foi validado.');
     adminNetworkFeePackageState=result;
   }catch(e){
@@ -3852,6 +3854,8 @@ function adminNetworkAdsPoolPanel(){
   const pending=(Number(views.pendingMicrocents)||0)+(Number(fixed.pendingMicrocents)||0);
   const validated=(Number(views.validatedMicrocents)||0)+(Number(fixed.validatedMicrocents)||0);
   const unallocated=(Number(views.unallocatedMicrocents)||0)+(Number(fixed.unallocatedMicrocents)||0);
+  const held=(Number(views.heldMicrocents)||0)+(Number(fixed.heldMicrocents)||0);
+  const heldCount=(Number(views.heldForReview)||0)+(Number(fixed.heldForReview)||0);
   return '<section class="section admin-network-ads-pool" aria-label="Fundo publicitário da Rede">'+
     '<div class="section-head"><div><span class="section-kicker">REDE • PUBLICIDADE REALIZADA</span>'+
     '<h3>10% dos anúncios para o fundo coletivo</h3>'+
@@ -3864,6 +3868,7 @@ function adminNetworkAdsPoolPanel(){
       '<div class="kpi"><span class="label">Campanhas concluídas</span><strong>'+Number(fixed.receipts||0)+'</strong></div>'+
       '<div class="kpi"><span class="label">Total reservado ao fundo</span><strong>'+moneyMicro(pool)+'</strong></div>'+
       '<div class="kpi"><span class="label">Em conferência</span><strong>'+moneyMicro(pending)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Bloqueado por contestação</span><strong>'+moneyMicro(held)+'</strong><small>'+heldCount+' fonte(s) sob revisão</small></div>'+
       '<div class="kpi"><span class="label">Validado (sem saque automático)</span><strong>'+moneyMicro(validated)+'</strong></div>'+
       '<div class="kpi"><span class="label">Sem participantes elegíveis</span><strong>'+moneyMicro(unallocated)+'</strong></div>'+
     '</div>'+
