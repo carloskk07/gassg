@@ -37,6 +37,7 @@ on:
       - 'tests/mobility-premium-browser-v1141.mjs'
       - 'tests/mobility-authentic-v1142.mjs'
       - 'tests/mobility-editorial-premium-v1143.mjs'
+      - 'tests/mobility-service-first-v1144.mjs'
       - 'js/mobility.js'
       - 'js/sponsors-premium.js'
       - 'js/ads-planner.js'
@@ -126,12 +127,12 @@ jobs:
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/professionals-photo-premium-browser-v1138.mjs
 
-      - name: V1.1143 TAMÃO Mobility — premium editorial real Chrome 320–1440px
+      - name: V1.1144 TAMÃO Mobility — service-first responsive Chrome 320–1440px
         env:
           TAMAO_VISUAL_BASE: http://127.0.0.1:4179
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
-        run: node tests/mobility-editorial-premium-v1143.mjs
+        run: node tests/mobility-service-first-v1144.mjs
 
       - name: Verify desktop navigation is compact and functional in real Chrome (PR only)
         env:
