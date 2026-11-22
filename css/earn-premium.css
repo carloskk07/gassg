@@ -529,3 +529,5 @@
 @media(prefers-reduced-motion:reduce){
  .earn-signature .earn-benefit-board .earn-assurance>article,.earn-signature .earn-simulator-settings-toggle{transition:none}
 }
+
+.earn-signature .earn-simulator-settings-body input[aria-invalid="true"]{border-color:#efb6a4;box-shadow:0 0 0 2px #f1ae9633}
