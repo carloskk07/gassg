@@ -95,7 +95,7 @@ assert.equal((earnHtml.match(/class="opportunity-card /g)||[]).length,2);
 assert.equal((earnHtml.match(/tamao-benefit-guide-card/g)||[]).length,0);
 assert.doesNotMatch(earnHtml,/growth-network-intro|SUAS VANTAGENS, DO SEU JEITO/);
 assert.match(earnHtml,/habilitação comercial/);
-assert.match(earnHtml,/primeira compra qualificada/);
+assert.match(earnHtml,/em cada compra qualificada/);
 assert.match(earnHtml,/go\('refer'\)/);
 assert.match(earnHtml,/go\('club'\)/);
 assert.match(earnHtml,/go\('merchants'\)/);
