@@ -707,7 +707,7 @@ return shell(`<section class="page">
 <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
 <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
 <div class="earn-balance-card"><span>Indicados</span><strong>${referredCount}</strong><small>novos usuários vinculados</small></div>
-<div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com 1ª compra qualificada</small></div>
+<div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com ao menos uma compra qualificada</small></div>
 </div>
 ${referralCard}
 ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
