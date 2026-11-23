@@ -312,3 +312,5 @@
  .tamao-club-premium .club-premium-entry-card .tamao-club-access>.input{font-size:16px}
  .tamao-club-premium .club-premium-benefits{margin-top:34px}
 }
+
+.tamao-club-premium .club-premium-register-details:not([open])>.club-premium-register-fields{display:none}
