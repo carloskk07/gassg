@@ -1,3 +1,5 @@
+// V1.1158 — saques manuais com aceite verificável do regulamento vigente.
+const TAMAO_NETWORK_REDEMPTION_TERMS_URL='https://tamao.com.br/rede-regulamento-2026-11-22.html';
 // V1.1034 — one-click, user-scoped manual withdrawal request. No PSP call.
 const tamaoManualWithdrawal={userId:null,status:null,error:null,pending:false,key:null,generation:0};
 // A different authenticated participant must never inherit a pending request,
@@ -65,13 +67,17 @@ async function tamaoManualPayoutRequest(){
   const {user,generation}=tamaoManualPayoutSession();
   const s=tamaoManualWithdrawal;
   if(!user||s.pending||s.status?.canRequest!==true)return;
+  if(globalThis.document?.getElementById('network-manual-terms-accept')?.checked!==true){
+    toast('Leia e aceite o Regulamento da Rede para solicitar o saque.');
+    return;
+  }
   const min=BRL.format(Number(s.status.minimumCents)/100);
   if(!confirm('Solicitar saque manual do saldo validado? O mínimo é '+min+
     '. O TAMÃO conferirá os dados antes de aprovar; após a aprovação, o prazo é de até 3 dias corridos.'))return;
   if(!s.key)s.key='NETMANUAL'+crypto.randomUUID().replaceAll('-','');
   s.pending=true;
   try{
-    const result=await tamaoManualPayoutInvoke({action:'manual-request'},s.key);
+    const result=await tamaoManualPayoutInvoke({action:'manual-request',termsAccepted:true,termsReference:TAMAO_NETWORK_REDEMPTION_TERMS_URL},s.key);
     if(!tamaoManualPayoutIsCurrent(user,generation))return;
     if(result?.source!=='network_manual_request_v1_1034'||
        result?.state!=='requested'||result?.moneyMoved!==false)
@@ -126,6 +132,7 @@ function tamaoNetworkManualPayoutDetailsPanel(){
       (d.minimumConfigured&&!d.accrualEnabled?
         '<p class="notice">A apuração de receitas pode estar ativa, mas a retirada exige termos aprovados para cada modalidade, saldo maduro e verificação de identidade.</p>':'')+
       (d.canRequest===true?
+        '<label class="check-row lead-consent"><input type="checkbox" id="network-manual-terms-accept"><span>Li e concordo com o <a href="'+TAMAO_NETWORK_REDEMPTION_TERMS_URL+'" target="_blank" rel="noopener noreferrer">Regulamento da Rede TAMÃO (22/11/2026)</a> e entendo que o pagamento depende de aprovação e comprovação financeira.</span></label>'+
         '<button type="button" class="primary small" onclick="tamaoManualPayoutRequest()" '+
         disabled+'>Solicitar saque manual</button>':
         (!req||!['requested','approved','review'].includes(req.state)?
