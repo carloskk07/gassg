@@ -1133,3 +1133,80 @@
  .discovery-rides .rides-guide-foot{align-items:flex-start;padding:16px}
  .discovery-rides .rides-guide-foot>span{flex-basis:34px;width:34px;height:34px;font-size:20px}
 }
+
+
+/* V1.1166: Finished professional specialty iconography and Caronas trust.
+   Decorative marks never represent verified providers or unavailable capacity. */
+.discovery-professionals{
+ --pros-bolt:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'm13.5%202-8%2011h6l-1%209%208-12h-6l1-8Z'%2F%3E%3C%2Fsvg%3E");
+ --pros-droplet:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M12%202s-7%208-7%2013a7%207%200%200%200%2014%200c0-5-7-13-7-13Z'%2F%3E%3Cpath%20d%3D'M9%2016a3%203%200%200%200%203%203'%2F%3E%3C%2Fsvg%3E");
+ --pros-construction:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M5%2012c0-4.2%203.1-7.5%207-7.5s7%203.3%207%207.5M3%2012h18v3H3zM8%205v4m8-4v4M7%2015v4h10v-4'%2F%3E%3C%2Fsvg%3E");
+ --pros-paint:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D'3'%20y%3D'4'%20width%3D'14'%20height%3D'7'%20rx%3D'1.5'%2F%3E%3Cpath%20d%3D'M17%207.5h3v6h-8v8M12%2021h4M3%207h14'%2F%3E%3C%2Fsvg%3E");
+ --pros-clean:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M8%203h8l-1.2%205H9.2L8%203ZM10%208h4v3h-4zM9%2011h6l2%2010H7l2-10Z'%2F%3E%3Cpath%20d%3D'M17%203l1%202m2-1v3m2-1-2%202'%2F%3E%3C%2Fsvg%3E");
+ --pros-leaf:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M20.7%203.2c-9.1%200-15%203.2-15.3%2010.1a6%206%200%200%200%206.4%206.4C18.6%2019.4%2022%2012.1%2020.7%203.2ZM4%2021c3-5%207-8%2013-11'%2F%3E%3C%2Fsvg%3E");
+}
+.discovery-professionals .pros-specialty-icon{
+ font-size:0!important;color:#1c7652;background:#edf6ee;
+ border-color:#d4e4d7;box-shadow:0 5px 13px #103f2c0b
+}
+.discovery-professionals .pros-specialty-icon::before,
+.discovery-professionals .pros-agenda-icon::before,
+.discovery-rides .rides-assurance-symbol::before{
+ content:"";display:block;width:23px;height:23px;flex:none;
+ background:currentColor;
+ -webkit-mask:var(--pros-icon,var(--vf-shield)) center/contain no-repeat;
+ mask:var(--pros-icon,var(--vf-shield)) center/contain no-repeat
+}
+.discovery-professionals .pros-specialty:nth-child(1) .pros-specialty-icon{--pros-icon:var(--pros-bolt)}
+.discovery-professionals .pros-specialty:nth-child(2) .pros-specialty-icon{--pros-icon:var(--pros-droplet)}
+.discovery-professionals .pros-specialty:nth-child(3) .pros-specialty-icon{--pros-icon:var(--pros-construction)}
+.discovery-professionals .pros-specialty:nth-child(4) .pros-specialty-icon{--pros-icon:var(--pros-paint)}
+.discovery-professionals .pros-specialty:nth-child(5) .pros-specialty-icon{--pros-icon:var(--pros-clean)}
+.discovery-professionals .pros-specialty:nth-child(6) .pros-specialty-icon{--pros-icon:var(--pros-leaf)}
+.discovery-professionals .pros-specialty[aria-pressed="true"] .pros-specialty-icon{
+ color:white;background:#1d694d;border-color:#1d694d
+}
+.discovery-professionals .pros-specialty:focus-visible,
+.discovery-professionals .pros-agenda a:focus-visible,
+.discovery-rides .rides-photo-credit:focus-visible{
+ outline:3px solid #c9a05f;outline-offset:3px
+}
+.discovery-professionals .pros-agenda-icon{
+ --pros-icon:var(--vf-calendar);font-size:0!important;border:1px solid #cde2d4
+}
+.discovery-professionals .pros-agenda-icon::before{width:25px;height:25px}
+.discovery-professionals .pros-partner-symbol b{
+ display:grid;place-items:center;width:93px;height:93px;
+ border:1px solid #ddc8946b;border-radius:24px;
+ background:linear-gradient(135deg,#e8d3a82b,#ffffff08);
+ box-shadow:0 11px 30px #001b1521;font-size:0!important
+}
+.discovery-professionals .pros-partner-symbol b::before{
+ content:"T";display:block;color:#e9d19e;
+ font:900 60px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ letter-spacing:-.11em;padding-right:8px
+}
+.discovery-rides .rides-assurance-symbol{
+ color:#256c4d;font-size:0!important;box-shadow:0 4px 12px #173f270c
+}
+.discovery-rides .rides-assurance-item:nth-child(1) .rides-assurance-symbol{--pros-icon:var(--vf-shield)}
+.discovery-rides .rides-assurance-item:nth-child(2) .rides-assurance-symbol{--pros-icon:var(--vf-link)}
+.discovery-rides .rides-assurance-item:nth-child(3) .rides-assurance-symbol{--pros-icon:var(--vf-hand)}
+.discovery-rides .rides-assurance-symbol::before{width:21px;height:21px}
+.discovery-rides .rides-hero-visual>img{object-position:center 49%}
+.discovery-rides .rides-photo-credit{
+ display:inline-flex;align-items:center;justify-content:flex-end;
+ max-width:calc(100% - 30px);padding:7px 10px;border:1px solid #ffffff55;
+ border-radius:8px;background:#071f1bd1;color:#f8f5e9;
+ font-size:10px;font-weight:700;line-height:1.35;text-decoration:none;text-align:right;
+ text-shadow:none;z-index:2;transition:background .18s ease,border-color .18s ease
+}
+.discovery-rides .rides-photo-credit:hover{background:#103d31;border-color:#ffffff8a;text-decoration:underline}
+@media(max-width:630px){
+ .discovery-rides .rides-photo-credit{right:11px;bottom:11px;max-width:calc(100% - 22px);font-size:9px;padding:6px 8px}
+ .discovery-professionals .pros-partner-symbol b{width:69px;height:69px;border-radius:19px}
+ .discovery-professionals .pros-partner-symbol b::before{font-size:45px;padding-right:6px}
+}
+@media(prefers-reduced-motion:reduce){
+ .discovery-rides .rides-photo-credit{transition:none}
+}

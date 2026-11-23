@@ -54,7 +54,7 @@ function homeQuoteBasketMarkup(cart){
  const units=selected.reduce((total,[,qty])=>total+Number(qty),0);
  const items=selected.slice(0,4).map(([code,qty])=>
   '<span class="city-price-basket-chip">'+Number(qty)+'× '+esc(customerProductName(code,products[code]))+'</span>').join('');
- return '<div class="city-price-basket-copy"><span class="city-price-basket-label">🧺 SUA CESTA</span>'+
+ return '<div class="city-price-basket-copy"><span class="city-price-basket-label">SUA CESTA</span>'+
   '<strong>'+(units?units+' '+(units===1?'unidade selecionada':'unidades selecionadas'):'Escolha um produto para começar')+'</strong>'+
   '<span>'+(units?'Consulte o total com entrega e descontos aplicáveis no próximo passo.':'Selecione os itens acima para começar.')+'</span>'+
   (items?'<div class="city-price-basket-items">'+items+'</div>':'')+'</div>'+

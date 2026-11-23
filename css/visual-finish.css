@@ -161,3 +161,26 @@
 @media(prefers-reduced-motion:reduce){
  .tamao-benefit-tile,.tamao-visitor-paths .visitor-path{transition:none!important}
 }
+
+/* V1.1166 — final icon parity in Home benefits, Clube/Rede panels and price basket. */
+:where(.tamao-value-grid .tamao-value-icon,.tamao-perks-top .tamao-perks-symbol){
+ --vf-symbol:var(--vf-shield);display:grid;place-items:center;flex:none;
+ color:#176d4c;font-size:0!important
+}
+:where(.tamao-value-grid .tamao-value-icon,.tamao-perks-top .tamao-perks-symbol)::before{
+ content:"";display:block;width:25px;height:25px;background:currentColor;
+ -webkit-mask:var(--vf-symbol) center/contain no-repeat;
+ mask:var(--vf-symbol) center/contain no-repeat
+}
+.tamao-value-grid article:nth-child(1) .tamao-value-icon{--vf-symbol:var(--vf-search)}
+.tamao-value-grid article:nth-child(2) .tamao-value-icon{--vf-symbol:var(--vf-shield)}
+.tamao-value-grid article:nth-child(3) .tamao-value-icon{--vf-symbol:var(--vf-link)}
+.tamao-perks-club .tamao-perks-symbol{--vf-symbol:var(--vf-ticket)}
+.tamao-perks-network .tamao-perks-symbol{--vf-symbol:var(--vf-link)}
+.tamao-perks-top .tamao-perks-symbol::before{width:21px;height:21px}
+.city-price-basket-label{display:inline-flex;align-items:center;gap:7px}
+.city-price-basket-label::before{
+ content:"";display:block;width:18px;height:18px;flex:none;background:currentColor;
+ -webkit-mask:var(--vf-bag) center/contain no-repeat;
+ mask:var(--vf-bag) center/contain no-repeat
+}

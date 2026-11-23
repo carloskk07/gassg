@@ -184,7 +184,7 @@ function mobilityListCard(item){
  if(!mobilityId.test(String(item?.id||'')))return '';
  const isDriver=item.role==='driver',open=['requested','accepted','en_route','arrived'].includes(item.status);
  return '<article class="mobility-list-card"><strong>'+mobilityLabel(item)+'</strong>'+
-  '<small>'+esc(item.service==='moto'?'🏍️ Moto':'🚕 Carro')+
+  '<small>'+esc(item.service==='moto'?'Moto':'Carro')+
   ' · '+esc(mobilityStatus(item))+' · '+(isDriver?'Recebida':'Enviada')+'</small>'+
   '<p>'+esc(String(item.origin||'').slice(0,120))+' → '+esc(String(item.destination||'').slice(0,120))+'</p>'+
   '<button type="button" onclick="mobilityFocus(\''+item.id+'\')">Ver '+(open?'andamento':'detalhes')+'</button></article>';

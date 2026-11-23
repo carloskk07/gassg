@@ -292,3 +292,18 @@ body:has(.agenda-standalone-profile){background:#f5f6f3}
  .agenda-premium-symbol{width:58px;height:58px;font-size:30px}
  .agenda-premium-photo-fallback::before{width:41px;height:41px}
 }
+
+/* V1.1166: professional differentiators use a consistent brand marker, not a sketch star. */
+.agenda-design-live-benefits>span{display:flex;align-items:flex-start;gap:9px}
+.agenda-design-live-benefits>span::before{
+ content:"";display:block;flex:0 0 7px;width:7px;height:7px;margin-top:5px;
+ border-radius:50%;background:var(--ap-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ap-accent) 16%,transparent)
+}
+.agenda-premium-highlights div>span{
+ display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;
+ border-radius:9px;background:color-mix(in srgb,var(--ap-accent) 14%,white);
+ border:1px solid color-mix(in srgb,var(--ap-accent) 29%,white);font-size:0!important
+}
+.agenda-premium-highlights div>span::before{
+ content:"";display:block;width:8px;height:8px;border-radius:50%;background:var(--ap-accent)
+}
