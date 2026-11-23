@@ -45,6 +45,6 @@
 - `tests/sql/operator-cnpj-transition-v1-1159.sql` — rejeição de CNPJ inválido, bloqueio do público ao cadastro privativo e proibição de ação sem superadmin.
 - Migração: `supabase/migrations/20261123040000_platform_operator_cnpj_transition_v1_1159.sql`.
 - Endpoint restrito: `operator-transition-ops` (não relacionado ao executor de transferências Pix).
-- Dados públicos: `platform_operator_public_identity_v1_1159()` retorna **somente** entidade PJ efetivamente ativada, jamais rascunho.
+- Dados públicos: Edge `operator-public-identity` consulta `platform_operator_public_identity_v1_1159()` **somente no servidor** e retorna apenas a PJ efetivamente ativada, jamais o rascunho. A RPC privilegiada NÃO é executável por `anon` ou `authenticated`.
 
 > Esta preparação é técnica e operacional. O registro do CNPJ, autorização fiscal, contratos, verificação cadastral do PSP e eventual revisão jurídica exigem atos reais quando a empresa existir.
