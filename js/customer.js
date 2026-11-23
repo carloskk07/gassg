@@ -2261,6 +2261,8 @@ function liveTracking(){
              Date.parse(String(onlinePayment.expiresAt||''))>Date.now()+60000
             ? '<section class="notice" aria-label="Pix do pedido"><h3>Pix para a revenda</h3>'+
               '<p>'+esc(BRL.format(Number(onlinePayment.amountCents)/100))+'</p>'+
+              (globalThis.tamaoPixRecipientHtml?.({scope:'merchant',
+                merchantName:o.merchantName||o.merchant_name||''})||'')+
               (globalThis.tamaoPixMarkup?.(onlinePayment.pixCode,{amountCents:Number(o.totalCents)})||'')+
               '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(onlinePayment.pixCode)+'</textarea></label>'+
               '<button type="button" class="primary" data-order-id="'+esc(o.orderId)+'" onclick="liveCopyOrderPix(this.dataset.orderId)">Copiar código Pix</button>'+
