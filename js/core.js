@@ -1075,11 +1075,11 @@ if(globalThis.__CHAMA_TEST__){
  }
  function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
   if(!valid(code,amountCents))return '';
-  if(typeof document!=='undefined'&&!globalThis.tamaoPixRecipientHtml&&!globalThis._pId){
-   globalThis._pId=1;const tag=document.createElement('script');
-   tag.src='./js/pix-recipient-trust.js?v=1162';
-   tag.onload=()=>globalThis.render?.();tag.onerror=()=>{globalThis._pId=0};
-   document.head.appendChild(tag);
+  if(!globalThis._pId&&typeof document!=='undefined'){
+   globalThis._pId=1;const t=document.createElement('script');
+   t.src='./js/pix-recipient-trust.js?v=1162';
+   t.onload=()=>globalThis.render?.();t.onerror=()=>{globalThis._pId=0};
+   document.head.appendChild(t);
   }
   let body='';
   if(typeof globalThis.qrcode==='function'){
