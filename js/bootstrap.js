@@ -50,6 +50,8 @@ function tamaoPublicEntryIntent(){
     return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube','pedido'].includes(value)?value:'';
   }catch{return ''}
 }
+// V1.1072: a merchant's page can preselect one real catalogue product.
+// Never overwrite an existing buyer basket or create an order on URL entry.
 let tamaoDirectSellerCartEntrySeen=false;
 function tamaoDirectSellerCartEntry(){
  if(tamaoDirectSellerCartEntrySeen)return false;
@@ -179,6 +181,7 @@ function mobilityRequestModule(){
 }
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;
+// Preserve the route hint while OTP temporarily owns the URL fragment.
 function discoveryOwnerReturnPending(){
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
   try{return new URLSearchParams(location.search).get('advertise')==='1';}
@@ -225,6 +228,7 @@ function tamaoEnsurePublicExperienceStyles(page){
   link.href='./css/public-ux.css'+version;
   document.head.appendChild(link);
 }
+// The premium buyer guide loads only on #learn, preserving first-paint budgets.
 let tamaoLearnPremiumRequested=false;
 function tamaoEnsureLearnPremium(page){
   if(page!=='learn'||globalThis.adminPortalRequested?.()||
@@ -246,6 +250,7 @@ function tamaoEnsureLearnPremium(page){
   script.onerror=()=>{tamaoLearnPremiumRequested=false;};
   document.head.appendChild(script);
 }
+// The Rede editorial landing loads only on #earn, keeping other routes lightweight.
 let tamaoEarnPremiumRequested=false;
 function tamaoEnsureEarnPremium(page){
   if(page!=='earn'||globalThis.adminPortalRequested?.()||
@@ -290,7 +295,6 @@ function render(){
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
     tamaoEnsurePublicExperienceStyles(r);
-    if(r==='club'&&!globalThis.clubPremiumPage&&!globalThis.__clubLoading)globalThis.__clubLoading=import('/js/club-premium.js?v=1164').then(()=>render(),()=>{globalThis.__clubLoading=null;});
     tamaoEnsureLearnPremium(r);
     tamaoEnsureEarnPremium(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
