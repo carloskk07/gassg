@@ -105,6 +105,8 @@ jobs:
         run: node tests/operator-cnpj-finance-entry-v1-1160.mjs
       - name: V1.1154 Ads 10 percent shared network fund sources, accounting, lifecycle and transparency
         run: node tests/network-ads-fund-v1-1154.mjs
+      - name: V1.1167 unobstructed support, honest ad creative and Club clarity
+        run: node tests/ux-trust-finish-v1-1167.mjs
       - name: V1.1166 RS photo attribution, specialist icons and Caronas trustworthy UI
         run: node tests/discovery-visual-integrity-v1-1166.mjs
       - name: V1.1165 global site visual finish, Agenda real monograms and sponsor trust

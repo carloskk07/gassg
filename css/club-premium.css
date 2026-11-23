@@ -261,3 +261,16 @@
  .tamao-club-premium .club-premium-statistics article{padding:18px 14px}
 }
 @media(prefers-reduced-motion:reduce){.tamao-club-premium *{scroll-behavior:auto!important;transition:none!important}}
+
+/* V1.1167 — the Club's value proposition is legible above the first fold on desktop. */
+@media(min-width:741px){
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{
+  max-width:18ch;font-size:clamp(38px,4vw,54px);line-height:1.08
+ }
+}
+.tamao-club-premium .club-premium-entry-card>p{font-size:13px;line-height:1.67}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access label{font-size:12px}
+.tamao-club-premium .club-premium-hero .club-premium-hero-copy .club-premium-lead{font-size:15px}
+@media(max-width:540px){
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy .club-premium-lead{font-size:14px}
+}

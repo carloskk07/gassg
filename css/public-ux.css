@@ -841,3 +841,40 @@
 @media(prefers-reduced-motion:reduce){
  .sponsor-premium-v1090 .sponsor-demo-plans button{transition:none}
 }
+
+/* V1.1167 — the sponsor preview describes placements, not a fake loading skeleton. */
+.sponsor-premium-v1090 .sponsor-preview-pills{
+ display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:9px
+}
+.sponsor-premium-v1090 .sponsor-preview-pills span,
+.sponsor-premium-v1090 .sponsor-preview-pills span:first-child{
+ display:inline-flex;align-items:center;justify-content:center;
+ width:auto;height:auto;min-height:25px;padding:5px 9px;border-radius:7px;
+ border:1px solid #dae8dd;background:#eef5ee;
+ color:#39634a;font-size:10px;line-height:1.2;font-weight:780;
+ letter-spacing:0;white-space:normal
+}
+.sponsor-premium-v1090 .sponsor-preview-pills span:first-child{
+ background:#e4f0e6;border-color:#cbded0
+}
+.sponsor-premium-v1090 .sponsor-preview-after{
+ display:flex;flex-wrap:wrap;gap:7px;margin:11px 2px 0
+}
+.sponsor-premium-v1090 .sponsor-preview-after span,
+.sponsor-premium-v1090 .sponsor-preview-after span:nth-child(2),
+.sponsor-premium-v1090 .sponsor-preview-after span:nth-child(3){
+ display:inline-flex;align-items:center;
+ min-height:29px;height:auto;flex:0 1 auto;
+ padding:6px 9px;border:1px solid #d8e4da;border-radius:8px;
+ background:#f2f6f2;color:#526d59;font-size:9px;font-weight:750;line-height:1.25
+}
+.sponsor-premium-v1090 .sponsor-preview-after span:nth-child(3){
+ border-color:#e6d9b9;background:#faf4e5;color:#785f31
+}
+.sponsor-premium-v1090 .sponsor-premium-visual[data-demo-placement="brands"] .sponsor-preview-pills span:first-child{
+ background:#edf2f9;border-color:#d1deef;color:#415e76
+}
+@media(max-width:540px){
+ .sponsor-premium-v1090 .sponsor-preview-pills span,
+ .sponsor-premium-v1090 .sponsor-preview-after span{font-size:9px}
+}

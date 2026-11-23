@@ -245,7 +245,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-preview-context" aria-hidden="true">
      <small data-sponsor-demo="caption">${sponsorDemoEscape(demo.caption)}</small>
      <strong data-sponsor-demo="context">${sponsorDemoEscape(demo.context)}</strong>
-     <div class="sponsor-preview-pills"><span></span><span></span><span></span></div>
+     <div class="sponsor-preview-pills"><span>Região</span><span>Produtos</span><span>Serviços</span></div>
    </div>
    <div class="sponsor-premium-ad-mock">
     <span class="sponsor-premium-ad-tag">PUBLICIDADE IDENTIFICADA</span>
@@ -255,7 +255,7 @@ function sponsorsLandingPremium(){
     <p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p>
     <span class="sponsor-premium-ad-action">Conhecer a empresa <span aria-hidden="true">↗</span></span>
    </div>
-   <div class="sponsor-preview-after" aria-hidden="true"><span></span><span></span><span></span></div>
+   <div class="sponsor-preview-after" aria-hidden="true"><span>Marca identificada</span><span>Condições transparentes</span><span>Revisão antes de publicar</span></div>
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
   </aside>
  </div>
