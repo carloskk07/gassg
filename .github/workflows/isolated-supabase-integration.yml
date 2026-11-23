@@ -211,6 +211,11 @@ jobs:
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
             --username=postgres --dbname=postgres --no-psqlrc \
             --set=ON_ERROR_STOP=1 --file=tests/sql/network-redemption-terms-v1-1155.sql
+      - name: V1.1159 PF-PJ operator identity, alpha CNPJ, private ACL and no fictitious activation (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/operator-cnpj-transition-v1-1159.sql
       - name: V1.1154 Ads 10pct pool — real PostgreSQL view debit, fixed receipt, subcent, maturity, refund and ACL (ROLLBACK)
         run: |
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
