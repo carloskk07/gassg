@@ -657,6 +657,8 @@ jobs:
         run: node tests/network-fee-package-integration-v1-1030.mjs
       - name: V1.1157 Rede verified visit proof, transient retry and session isolation
         run: node tests/network-visit-ack-v1-1157.mjs
+      - name: V1.1158 public network rules and verified manual withdrawal acceptance
+        run: node tests/network-manual-terms-v1-1158.mjs
       - name: Rede V1.1031 payout reservation safety and idempotency contract
         run: node tests/network-fee-payout-reservation-contract-v1-1031.mjs
       - name: Rede V1.1032 verified bonus offset and partial Pix settlement contract
