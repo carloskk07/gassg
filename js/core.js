@@ -1075,6 +1075,14 @@ if(globalThis.__CHAMA_TEST__){
  }
  function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
   if(!valid(code,amountCents))return '';
+  // Load the trust note only with a valid BR Code; startup stays lightweight.
+  if(typeof document!=='undefined'&&!globalThis.tamaoPixRecipientHtml&&!globalThis._pixIdentityLoading){
+   globalThis._pixIdentityLoading=1;
+   const tag=document.createElement('script');
+   tag.src='./js/pix-recipient-trust.js?v=1162';tag.async=true;
+   tag.onload=()=>globalThis.render?.();tag.onerror=()=>{globalThis._pixIdentityLoading=0};
+   document.head.appendChild(tag);
+  }
   let body='';
   if(typeof globalThis.qrcode==='function'){
    try{
@@ -1090,35 +1098,6 @@ if(globalThis.__CHAMA_TEST__){
   if(!body)return '<p role="status">'+(failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>';
   return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>';
  }
- // V1.1162 — identification shown only beside a payable, caller-verified Pix.
- // Never rewrite a BR Code, assert a CPF without provider proof or name a
- // platform operator as the beneficiary of a direct-to-merchant order.
- function recipientHtml({scope='platform',merchantName='',sellerName=''}={}){
-  if(!['platform','merchant','seller'].includes(scope))return '';
-  const name=scope==='platform'?'Carlos Alberto dos Santos Freitas':
-    String(scope==='merchant'?merchantName:sellerName).trim();
-  const official=scope==='platform'
-   ?'RESPONSÁVEL TÉCNICO TAMÃO'
-   :scope==='merchant'?'RECEBIMENTO DIRETO À REVENDA':'VENDEDOR DO PACOTE';
-  const subtitle=scope==='platform'
-   ?'Responsável indicado pelo TAMÃO para a operação de recebimento'
-   :scope==='merchant'
-     ?'Esta compra é recebida pela revenda, não pelo TAMÃO.'
-     :'Vendedor identificado no registro da compra; confira o recebedor bancário.';
-  // Never derive CPF digits from user-supplied text or an unverified seller.
-  // Banking identity remains subject to the actual payment institution.
-  return '<aside class="tamao-pix-trust" aria-label="Identificação do pagamento Pix">'+
-   '<span class="tamao-pix-trust-kicker">'+official+'</span>'+
-   (name?'<strong class="tamao-pix-trust-name">'+escape(name)+'</strong>':'')+
-   '<p class="tamao-pix-trust-sub">'+subtitle+'</p>'+
-   '<p class="tamao-pix-trust-proof">Cobrança gerada pelo sistema oficial do TAMÃO.</p>'+
-   '<p class="tamao-pix-trust-check">Antes de pagar, confira no aplicativo do banco o nome e a identificação do recebedor. Em caso de divergência, não conclua o pagamento e contate o suporte do TAMÃO.</p>'+
-   (scope==='platform'?
-    '<small>CPF: os dígitos finais não são divulgados sem conferência da titularidade bancária. O nome acima é a identificação administrativa informada pelo TAMÃO.</small>':'')+
-   '</aside>';
- }
-
- globalThis.tamaoPixRecipientHtml=recipientHtml;
  globalThis.tamaoPixCodeValid=valid;
  globalThis.tamaoPixMarkup=markup;
  globalThis.tamaoPixLoadEncoder=load;
