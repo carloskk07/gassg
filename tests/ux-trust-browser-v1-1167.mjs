@@ -86,7 +86,7 @@ try{
     if(width===1280)assert.ok(status.clubHeight<230,'Desktop Club headline still consumes the entire screen');
    }
    if(route==='home'&&status.emptyStorefront){
-    assert.match(status.emptyStorefront,/Ainda sem ofertas confirmadas/);
+    assert.match(status.emptyStorefront,/Sem ofertas confirmadas/);
     assert.match(status.emptyStorefront,/O pedido só avança com uma revenda e um preço confirmados/);
    }
    if(['home','sponsors','club'].includes(route)){
