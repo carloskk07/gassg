@@ -122,7 +122,7 @@ function adminOperatorPanel(){
   return '<section class="section admin-operator-pj" aria-label="Transição TAMÃO para CNPJ">'+
     '<div class="section-head"><div><span class="section-kicker">ADMIN • IDENTIDADE JURÍDICA</span>'+
     '<h3>Preparar migração para CNPJ</h3>'+
-    '<p>Dados de empresa, conciliação e operação em uma jornada. Nada muda para os clientes até a virada comprovada.</p>'+
+    '<p>Dados de empresa e 12 verificações documentais. Nada muda para os clientes até a virada comprovada.</p>'+
     '</div><button type="button" class="secondary small" onclick="adminOperatorRefresh()" '+busy+'>Atualizar</button></div>'+
     (adminOperatorState.error?'<p class="notice danger">'+safe(adminOperatorState.error)+'</p>':'')+
     '<div class="card flat"><div class="merchant-kpis">'+
