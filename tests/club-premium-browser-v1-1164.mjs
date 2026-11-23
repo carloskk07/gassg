@@ -59,7 +59,7 @@ try{
   assert.match(item.heading,/Suas compras podem render muito mais no Clube TAMÃO/);
   assert.equal(item.error,null);
   // Do not issue an OTP, payment or request: only native disclosure and safe scroll action.
-  const disclosure=await send('Runtime.evaluate',{expression:'(()=>{const d=document.querySelector(".club-premium-faq-items details");d.querySelector("summary").click();return d.open})()',returnByValue:true});
+  const disclosure=await send('Runtime.evaluate',{expression:'(()=>{const d=document.querySelector(".club-premium-faq-items details");d.open=false;d.querySelector("summary").click();return d.open})()',returnByValue:true});
   assert.equal(disclosure.result.value,true,'Native FAQ does not work at '+size);
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(output,'club-premium-'+size+'.png'),Buffer.from(shot.data,'base64'));
