@@ -127,7 +127,7 @@ jobs:
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/club-premium-browser-v1-1164.mjs
 
-      - name: V1.1165 premium finish: Home, Learn, Sponsors, Rede, Clube in 360/1280 Chrome
+      - name: "V1.1165 premium finish — Home, Learn, Sponsors, Rede, Clube in 360/1280 Chrome"
         env:
           TAMAO_VISUAL_BASE: http://127.0.0.1:4179
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
