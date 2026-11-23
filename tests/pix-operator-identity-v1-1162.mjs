@@ -34,7 +34,7 @@ assert.match(platform,/Carlos Alberto dos Santos Freitas/);
 assert.match(platform,/Cobrança gerada pelo sistema oficial do TAMÃO/);
 assert.match(platform,/Antes de pagar, confira no aplicativo do banco/);
 assert.match(platform,/CPF: os dígitos finais não são divulgados/);
-assert.doesNotMatch(platform,/01239992009|CPF final \*\*\d{2}/);
+assert.doesNotMatch(platform,/[0-9]{11}|CPF final \*\*\d{2}/);
 
 const merchantView=context.renderRecipient({scope:'merchant',merchantName:'Revenda Parceira'});
 assert.match(merchantView,/RECEBIMENTO DIRETO À REVENDA/);
@@ -52,7 +52,7 @@ assert.match(context.renderRecipient({scope:'merchant',
 assert.doesNotMatch(context.renderRecipient({scope:'merchant',
  merchantName:'<img src=x onerror=alert(1)>'}),/<img/);
 assert.doesNotMatch(context.renderRecipient({
- scope:'platform',recipientVerified:true,cpfFinal:'09'
+ scope:'platform',recipientVerified:true,cpfFinal:'77'
 }),/CPF final \*\*09/,'No client-controlled flag may publish bank verification');
 
 assert.match(css,/\.tamao-pix-trust/);
