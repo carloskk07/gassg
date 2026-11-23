@@ -28,7 +28,7 @@ for(const kind of ['bolt','droplet','construction','paint','clean','leaf']){
 }
 for(let i=1;i<=6;i++)assert.ok(css.includes('.pros-specialty:nth-child('+i+')'),'Professional icon '+i+' mapping missing');
 assert.match(discovery,/class="pros-specialty-icon" aria-hidden="true"><\/span>/,'Specialty name is text; icon itself must be graphic');
-assert.doesNotMatch(discovery,/pros-specialty-icon" aria-hidden="true">['+String.raw`⚡◈▤◒✧✿`+']/);
+assert.doesNotMatch(discovery,/pros-specialty-icon" aria-hidden="true">(?:⚡|◈|▤|◒|✧|✿)/);
 assert.match(css,/\.discovery-professionals \.pros-specialty\[aria-pressed="true"\] \.pros-specialty-icon/);
 assert.match(css,/\.discovery-professionals \.pros-specialty:focus-visible/);
 assert.match(css,/\.discovery-rides \.rides-assurance-item:nth-child\(3\)/);
