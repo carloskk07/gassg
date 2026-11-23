@@ -15,9 +15,11 @@ on:
 permissions:
   contents: read
 
+# Port 54322 is bound by the disposable Supabase stack. Serialize runs
+# across PR refs to prevent shared runner collisions during rapid releases.
 concurrency:
-  group: tamao-isolated-supabase-${{ github.ref }}
-  cancel-in-progress: true
+  group: tamao-isolated-supabase-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   local-integration:
