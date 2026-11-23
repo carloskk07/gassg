@@ -429,7 +429,7 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .merchant-driver-local-receipt button{min-height:44px}
 
 /* V1.1167: Support in page flow, not over customer controls. */
-.tamao-help-shortcut{position:relative;display:inline-flex;align-items:center;gap:8px;width:fit-content;max-width:calc(100% - 32px);min-height:42px;margin:18px max(16px,calc((100vw - 1190px)/2)) 9px auto;padding:9px 13px;border:1px solid #c5dfcd;border-radius:99px;background:#f5faf5;color:#205c41!important;font-size:12px;font-weight:800;text-decoration:none}
+.tamao-help-shortcut{position:relative;display:flex;align-items:center;gap:8px;width:fit-content;min-height:42px;margin:18px max(16px,calc((100vw - 1190px)/2)) 9px auto;padding:9px 13px;border:1px solid #c5dfcd;border-radius:99px;background:#f5faf5;color:#205c41!important;font-size:12px;font-weight:800;text-decoration:none}
 .tamao-help-shortcut::before{content:"?";display:grid;place-items:center;width:19px;height:19px;flex:none;border:1px solid currentColor;border-radius:50%}
 .tamao-help-shortcut:hover{background:#eaf4ec}
 .tamao-help-shortcut:focus-visible{outline:3px solid #d69d2c;outline-offset:3px}
