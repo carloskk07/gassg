@@ -55,7 +55,7 @@ assert.match(clubCSS,/club-premium-entry-card \.tamao-club-access label\{font-si
 
 // No fabricated prices, merchants, counts or live availability in a known empty state.
 assert.match(home,/Disponibilidade em '\+esc\(place\)\+': ainda sem ofertas confirmadas/);
-assert.match(home,/O pedido só avança quando houver revenda e preço confirmados/);
+assert.match(home,/O pedido só avança com uma revenda e um preço confirmados/);
 assert.match(home,/No indicative prices without verified supply/);
 assert.match(boot,/function render\(/);
 
