@@ -141,3 +141,13 @@ verify_jwt = false
 # Public read-only tariff catalogue, with key/origin/quota checks in the handler.
 [functions.merchant-public-plans]
 verify_jwt = false
+
+# PF→PJ migration preparation: user JWT is validated explicitly inside Edge,
+# with superadmin permission and no payment side effects.
+[functions.operator-transition-ops]
+verify_jwt = false
+
+# Public profile only after PJ activation, protected by origin, publishable key
+# and a server-side rate limit. The privileged database RPC stays service-only.
+[functions.operator-public-identity]
+verify_jwt = false
