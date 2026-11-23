@@ -1024,7 +1024,8 @@ function merchantBillingPixChargeView(request){
   const link=charge.paymentLinkUrl
     ? ` <a class="ghost small" href="${esc(charge.paymentLinkUrl)}" target="_blank" rel="noopener noreferrer">Abrir pagamento</a>`
     : '';
-  return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''} • confirmação acompanhada automaticamente</small></div><span class="status-pill online">QR ATIVO</span></div>${qr}${copy}${link}</div>`;
+  const identity=globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'';
+  return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''} • confirmação acompanhada automaticamente</small></div><span class="status-pill online">QR ATIVO</span></div>${identity}${qr}${copy}${link}</div>`;
 }
 
 function merchantBenefitsContractSection(r){if(!globalThis._mb){globalThis._mb=1;let s=document.createElement('script');s.src='./js/merchant-benefits-contract.js';s.onload=render;document.head.append(s)}return globalThis.merchantBenefitsContractRender?.(r)||''}
