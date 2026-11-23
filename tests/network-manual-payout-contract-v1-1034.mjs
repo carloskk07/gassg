@@ -77,7 +77,7 @@ assert.ok(edge.indexOf('if(action==="manual-request")')<
   'Self-request must be user-scoped and separate from Admin-only actions');
 assert.ok(edge.includes('await actor(req)'));
 const termsMigration=read('supabase/migrations/20261123015500_network_manual_terms_acceptance_v1_1158.sql');
-assert.match(termsMigration,/public\\.network_manual_payout_request_v1_1034\\(p_user,p_key\\)/,
+assert.ok(termsMigration.includes('public.network_manual_payout_request_v1_1034(p_user,p_key)'),
   'V1.1158 must still reserve via unchanged V1.1034 financial checks');
 assert.ok(edge.includes('body.termsAccepted!==true||body.termsReference!==expectedTerms'),
   'withdrawal must have explicit user consent matching exact published terms');
