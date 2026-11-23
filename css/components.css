@@ -471,12 +471,3 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 
 @media(min-width:951px){.admin-finance-primary.has-operator{grid-template-columns:repeat(5,minmax(0,1fr))}}
 
-/* V1.1162 — cobrança Pix: identificação legível e distinta de banco/PSP. */
-.tamao-pix-trust{margin:14px 0;padding:18px 20px;border:1px solid #b8d8ce;border-radius:16px;background:linear-gradient(128deg,#f5faf7,#eaf4f0);color:#173f32;box-shadow:0 8px 22px #163f300b}
-.tamao-pix-trust-kicker{display:block;font-size:11px;font-weight:850;letter-spacing:.075em;color:#176d50}
-.tamao-pix-trust-name{display:block;margin:7px 0 3px;font-size:clamp(16px,2.2vw,19px);font-weight:800;line-height:1.3;overflow-wrap:anywhere}
-.tamao-pix-trust p{margin:6px 0;line-height:1.52}
-.tamao-pix-trust-sub{font-size:13px}
-.tamao-pix-trust-proof{padding-top:9px;margin-top:11px!important;border-top:1px solid #cadfd7;font-weight:750;font-size:13px}
-.tamao-pix-trust-check{font-size:13px}
-.tamao-pix-trust small{display:block;color:#44665b;line-height:1.45;font-size:11px}
