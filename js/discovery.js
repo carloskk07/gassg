@@ -760,7 +760,7 @@ function discoveryProfessionalsCategories(active,occupation){
    DISCOVERY_PRO_SPECIALTIES.map(([value,label,symbol])=>'<button type="button" class="pros-specialty"'+
      (occupation===value?' aria-pressed="true"':' aria-pressed="false"')+
      ' onclick="discoveryProfessionalsPickSpecialty(\''+value+'\')">'+
-     '<span class="pros-specialty-icon" aria-hidden="true">'+symbol+'</span>'+
+     '<span class="pros-specialty-icon" aria-hidden="true"></span>'+
      '<span class="pros-specialty-name">'+value+'<small>'+label+'</small></span>'+
      '<span class="pros-specialty-arrow" aria-hidden="true">↗</span></button>').join('')+
   '</div>'+
@@ -777,7 +777,7 @@ function discoveryProfessionalsAfterSearch(){
     '<li><span>02</span><strong>Conheça</strong><p>Veja os detalhes que o profissional publicou.</p></li>'+
     '<li><span>03</span><strong>Combine</strong><p>Converse e confirme orçamento e horários.</p></li>'+
    '</ol></section>'+
-  '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true">✳</div>'+
+  '<aside class="pros-agenda"><div class="pros-agenda-icon" aria-hidden="true"></div>'+
    '<div><span class="pros-overline">TAMÃO AGENDA</span><strong>Prefere marcar um horário?</strong>'+
     '<p>Encontre páginas profissionais que oferecem agenda e reservas.</p></div>'+
    '<a href="/agenda/">Ver agendas disponíveis <span aria-hidden="true">↗</span></a></aside>'+
@@ -790,7 +790,7 @@ function discoveryProfessionalsFooter(){
     '<p>Apresente seus serviços, compartilhe suas especialidades e facilite o contato com novos interessados na sua região.</p>'+
     '<div class="pros-partner-actions"><button type="button" onclick="go(\'advertise\')">Quero anunciar meus serviços <span aria-hidden="true">↗</span></button>'+
     '<a href="/agenda/">Conhecer a TAMÃO Agenda</a></div></div>'+
-  '<div class="pros-partner-symbol" aria-hidden="true"><span>O próximo contato pode começar aqui.</span><b>✳</b></div></section>';
+  '<div class="pros-partner-symbol" aria-hidden="true"><span>O próximo contato pode começar aqui.</span><b></b></div></section>';
 }
 
 function discoveryRidesHero(){
@@ -805,18 +805,18 @@ function discoveryRidesHero(){
     </div>
   </div>
   <div class="rides-hero-visual">
-    <img src="https://images.unsplash.com/photo-1633230329626-f0fddf6e1154?auto=format&amp;fit=crop&amp;w=1400&amp;q=84" alt="Fotografia ilustrativa de uma estrada sinuosa entre montanhas ao pôr do sol" width="1400" height="940" decoding="async" fetchpriority="high">
+    <img src="https://images.unsplash.com/photo-1673528218483-cc37fb93b2fe?auto=format&amp;fit=crop&amp;w=1400&amp;q=82" alt="Rodovia entre campos em Arroio Grande, Rio Grande do Sul; fotografia ilustrativa da região" width="1400" height="940" decoding="async" fetchpriority="high">
     <div class="rides-photo-shade" aria-hidden="true"></div>
-    <span class="rides-photo-credit">Imagem ilustrativa · Unsplash</span>
+    <a class="rides-photo-credit" href="https://unsplash.com/photos/a-highway-with-a-car-driving-down-the-middle-of-it-J5HTafFYXL8" target="_blank" rel="noopener noreferrer" aria-label="Fotografia ilustrativa em Arroio Grande, RS, por Pedro Fritsch no Unsplash; abrir crédito original">Foto: Pedro Fritsch · Arroio Grande/RS · Unsplash</a>
   </div>
 </header>`;
 }
 
 function discoveryRidesTrustBar(){
  return `<section class="rides-assurance" aria-label="Como funcionam as caronas no TAMÃO">
- <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true">✓</span><div><strong>Anúncios revisados</strong><p>Antes de entrar na busca pública</p></div></div>
- <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true">↗</span><div><strong>Contato direto</strong><p>Você conversa com quem anunciou</p></div></div>
- <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true">◎</span><div><strong>Você decide</strong><p>Confirme o trajeto e as condições</p></div></div>
+ <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true"></span><div><strong>Anúncios revisados</strong><p>Antes de entrar na busca pública</p></div></div>
+ <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true"></span><div><strong>Contato direto</strong><p>Você conversa com quem anunciou</p></div></div>
+ <div class="rides-assurance-item"><span class="rides-assurance-symbol" aria-hidden="true"></span><div><strong>Você decide</strong><p>Confirme o trajeto e as condições</p></div></div>
  </section>`;
 }
 
