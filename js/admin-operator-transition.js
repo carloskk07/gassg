@@ -59,7 +59,15 @@ async function adminOperatorRefresh(){
   try{
     const data=await adminOperatorInvoke({action:'read'});
     if(data.readOnly!==true||!Array.isArray(data.gates)||
-      !Number.isSafeInteger(data.revision)||data.currentEntityKind==null)
+      !Number.isSafeInteger(data.revision)||data.currentEntityKind==null||
+      data.financialPreflight?.source!=='platform_operator_financial_preflight_v1_1161'||
+      data.financialPreflight?.readOnly!==true||
+      data.financialPreflight?.moneyMoved!==false||
+      data.financialPreflight?.pspChanged!==false||
+      !Number.isSafeInteger(data.financialPreflight?.blockerCount)||
+      !Array.isArray(data.financialPreflight?.checks)||
+      data.financialPreflight.checks.length!==7||
+      (data.readyToActivate===true&&data.financialPreflight.blockerCount!==0))
       throw Error('Conferência do cadastro PJ indisponível.');
     if(actor!==adminOperatorSession())return;
     adminOperatorState.data=data;adminOperatorState.error=null;
@@ -149,6 +157,8 @@ function adminOperatorPanel(){
       ?' oninput="adminOperatorDraftCapture()"':'')+'></label>';
   const busy=adminOperatorState.pending?'disabled':'';
   const verified=d?Number(d.verifiedGates||0):0,total=d?Number(d.totalGates||0):12;
+  const preflight=d?.financialPreflight;
+  const blockers=preflight?.blockerCount??null;
   const mode=d?.stage==='active'?'Pessoa jurídica ativa':
     d?.stage==='draft'?'Cadastro PJ em preparação':'Operação atual preservada';
   return '<section class="section admin-operator-pj" aria-label="Transição TAMÃO para CNPJ">'+
@@ -162,6 +172,8 @@ function adminOperatorPanel(){
        safe(d?.currentEntityKind==='company'?'Pessoa jurídica':'Pessoa física')+'</strong></div>'+
     '<div class="kpi"><span class="label">Etapa</span><strong>'+safe(mode)+'</strong></div>'+
     '<div class="kpi"><span class="label">Conferências externas</span><strong>'+verified+'/'+total+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pendências financeiras internas</span><strong>'+
+      (blockers===null?'Não conferido':blockers)+'</strong></div>'+
     '</div><p class="tiny muted">Credenciais do Mercado Pago, extratos, saques, recebíveis, contas e histórico permanecem inalterados durante o preparo.</p></div>'+
     (!d?'<p class="muted">Clique em Atualizar para consultar as condições atuais de migração.</p>':
       '<details class="card flat" open><summary>1. Cadastro da futura empresa</summary>'+
@@ -189,11 +201,24 @@ function adminOperatorPanel(){
         '<button class="secondary small" onclick="adminOperatorGate(false)" '+busy+'>Reabrir</button>'+
         '</div>':'<p class="tiny muted">As verificações poderão ser iniciadas após salvar os dados oficiais da empresa.</p>')+
       '</div></details>'+
-      '<details class="card flat"><summary>3. Virada definitiva (somente quando tudo estiver comprovado)</summary>'+
+      '<details class="card flat" open><summary>3. Conferência financeira automática</summary>'+
+      (preflight?'<p class="tiny muted">Leitura do banco, sem emitir Pix, transferir valores ou alterar pagamentos. Verificado em '+
+        safe(new Date(preflight.checkedAt).toLocaleString('pt-BR'))+'.</p>'+
+        '<div class="form-stack">'+preflight.checks.map(row=>
+          '<div class="list-row"><strong>'+safe(row.title)+'</strong>'+
+          '<span class="status-pill '+(Number(row.count)>0?'risk':'online')+'">'+
+          (Number(row.count)>0?Number(row.count)+' pendente(s)':'Sem pendências')+
+          '</span></div>').join('')+'</div>'+
+        (blockers>0?'<p class="notice danger">Existem '+blockers+
+          ' pendência(s) interna(s). A ativação PJ permanece bloqueada até regularização real.</p>':
+          '<p class="tiny muted">Nenhuma pendência identificada nessas sete filas internas. Isso não comprova quitação bancária nem valida a nova conta PJ.</p>'):
+        '<p class="notice danger">Não foi possível conferir as filas financeiras. Nenhuma ativação autorizada.</p>')+
+      '</details>'+
+      '<details class="card flat"><summary>4. Virada definitiva (somente quando tudo estiver comprovado)</summary>'+
       '<p>Esta etapa muda somente a identidade jurídica pública registrada no TAMÃO. Nunca migra sozinha credenciais Pix, contas bancárias, contratos ou operações antigas.</p>'+
-      (d.readyToActivate===true?
+      (d.readyToActivate===true&&blockers===0?
         '<button class="primary" onclick="adminOperatorActivate()" '+busy+'>Confirmar virada para PJ</button>':
-        '<p class="notice">Indisponível até cadastro real e 12 comprovações externas. Nenhuma ativação antecipada.</p>')+
+        '<p class="notice">Indisponível até cadastro real, 12 comprovações externas e ausência de pendências financeiras internas. Nenhuma ativação antecipada.</p>')+
       '</details>')+
     '<p class="tiny muted">Documentos fiscais e financeiros devem ser guardados fora deste formulário. Registre apenas referências verificáveis, nunca senha, token, chave privada ou CPF.</p></section>';
 }
