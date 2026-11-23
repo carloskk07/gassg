@@ -70,7 +70,23 @@ Deno.serve(async req=>{
       const data=await rpc("platform_operator_transition_read_v1_1159",{p_actor:actor});
       if(data?.readOnly!==true||data?.pspChanged!==false||
         !Array.isArray(data?.gates))throw Error("OPERATOR_TRANSITION_READBACK_INVALID");
-      return respond(data,200,origin);
+      const {data:preflight,error:preflightError}=await admin.rpc(
+        "platform_operator_financial_preflight_v1_1161",{p_actor:actor});
+      if(preflightError||preflight?.source!=="platform_operator_financial_preflight_v1_1161"||
+        preflight?.readOnly!==true||preflight?.moneyMoved!==false||
+        preflight?.pspChanged!==false||preflight?.externalReconciliationVerified!==false||
+        !Number.isSafeInteger(preflight?.blockerCount)||preflight.blockerCount<0||
+        !Array.isArray(preflight?.checks)||preflight.checks.length!==7||
+        !preflight.checks.every((x:unknown)=>{
+          if(!x||typeof x!=="object")return false;
+          const row=x as Record<string,unknown>;
+          return typeof row.key==="string"&&typeof row.title==="string"&&
+            Number.isSafeInteger(row.count)&&Number(row.count)>=0;
+        }))throw Error("OPERATOR_FINANCIAL_PREFLIGHT_INVALID");
+      return respond({...data,
+        financialPreflight:preflight,
+        readyToActivate:data.readyToActivate===true&&preflight.blockerCount===0
+      },200,origin);
     }
     if(action==="stage"){
       const cnpj=normalizeOperatorCnpj(payload.cnpj);
