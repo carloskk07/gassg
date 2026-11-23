@@ -9,6 +9,9 @@ const shared=read('css/visual-finish.css');
 const boot=read('js/bootstrap.js');
 const owner=read('js/discovery-owner.js');
 const mobility=read('js/mobility.js');
+const home=read('js/home-showcase.js');
+const agenda=read('js/agenda-design.js');
+const agendaCSS=read('css/agenda-design.css');
 new vm.Script(discovery,{filename:'discovery.js'});
 
 const localPhoto='https://images.unsplash.com/photo-1673528218483-cc37fb93b2fe';
@@ -50,5 +53,22 @@ assert.match(owner,/Uma concessão por conta|TAMÃO não confirma reservas nem r
 assert.ok(shared.includes('--vf-calendar:')&&shared.includes('--vf-shield:')&&shared.includes('--vf-hand:'));
 assert.match(boot,/discoveryPage/);
 assert.match(mobility,/mobilityPage/);
+
+
+// Companion screens: the original functions remain intact, only presentation improves.
+new vm.Script(home,{filename:'home-showcase.js'});
+new vm.Script(agenda,{filename:'agenda-design.js'});
+assert.match(home,/class="city-price-basket-label">SUA CESTA/);
+assert.doesNotMatch(home,/city-price-basket-label">🧺/);
+assert.match(shared,/\.city-price-basket-label::before/);
+assert.match(shared,/\.tamao-value-grid article:nth-child\(3\) \.tamao-value-icon/);
+assert.match(shared,/\.tamao-perks-network \.tamao-perks-symbol/);
+assert.match(agenda,/agenda-design-live-benefits/);
+assert.doesNotMatch(agenda,/highlights\.map\(x=><span>✦/);
+assert.doesNotMatch(agenda,/agenda-premium-highlights[^\n]+✦/);
+assert.match(agendaCSS,/\.agenda-design-live-benefits>span::before/);
+assert.match(agendaCSS,/\.agenda-premium-highlights div>span::before/);
+assert.match(mobility,/item\.service==='moto'\?'Moto':'Carro'/);
+assert.doesNotMatch(mobility,/item\.service==='moto'\?'🏍️ Moto':'🚕 Carro'/);
 
 console.log('V1.1166 PASS — verified RS photograph, credit, six professional specialty icons, real availability and existing flows preserved');
