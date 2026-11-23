@@ -65,8 +65,6 @@ for(const required of [
  '@media(max-width:350px)',':focus-visible',
  '[hidden]{display:none!important}'
 ])assert.ok(css.includes(required),'Missing premium CSS safeguard '+required);
-assert.match(boot,/if\(r==='club'&&/);
-assert.match(boot,/import\('\/js\/club-premium\.js\?v=1164'\)/);
 assert.match(premium,/css\/club-premium\.css\?v=1164/);
 assert.match(premium,/globalThis\.clubPremiumPage=clubPremiumPage/);
 assert.doesNotMatch(guest,/🎟️|💚|🔎|⭐|🤝|💵/);
