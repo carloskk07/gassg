@@ -273,17 +273,26 @@ function tamaoEnsureEarnPremium(page){
   document.head.appendChild(script);
 }
 // Club styles load only on the real #club route; the existing account and PSP code is unchanged.
+let tamaoClubPremiumRequested=false;
 function tamaoEnsureClubPremiumStyles(page){
   if(page!=='club'||globalThis.adminPortalRequested?.()||
      globalThis.merchantPortalRequested?.())return;
-  if(document.querySelector('link[data-tamao-club-premium]'))return;
   const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
   const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
-  const link=document.createElement('link');
-  link.rel='stylesheet';
-  link.setAttribute('data-tamao-club-premium','');
-  link.href='./css/club-premium.css'+version;
-  document.head.appendChild(link);
+  if(!document.querySelector('link[data-tamao-club-premium]')){
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.setAttribute('data-tamao-club-premium','');
+    link.href='./css/club-premium.css'+version;
+    document.head.appendChild(link);
+  }
+  if(tamaoClubPremiumRequested||typeof clubPremiumPage==='function')return;
+  tamaoClubPremiumRequested=true;
+  const script=document.createElement('script');
+  script.src='./js/club-premium.js'+version;
+  script.onload=()=>{if(route()==='club')render();};
+  script.onerror=()=>{tamaoClubPremiumRequested=false;};
+  document.head.appendChild(script);
 }
 let renderLock=false;
 let tamaoLastPublicRenderRoute='';
