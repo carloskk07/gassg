@@ -1101,7 +1101,7 @@ if(globalThis.__CHAMA_TEST__){
    ?'RESPONSÁVEL TÉCNICO TAMÃO'
    :scope==='merchant'?'RECEBIMENTO DIRETO À REVENDA':'VENDEDOR DO PACOTE';
   const subtitle=scope==='platform'
-   ?'Responsável indicado pelo recebimento da operação'
+   ?'Responsável indicado pelo TAMÃO para a operação de recebimento'
    :scope==='merchant'
      ?'Esta compra é recebida pela revenda, não pelo TAMÃO.'
      :'Vendedor identificado no registro da compra; confira o recebedor bancário.';
