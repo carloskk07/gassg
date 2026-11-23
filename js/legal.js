@@ -59,7 +59,8 @@ function termsPage(){
     '<section class="legal-card"><h2>9. Pacotes de cupons pagos — Clube TAMÃO</h2>'+ 
     (globalThis.document?.getElementById('tamao-coupon-terms-template')?.innerHTML||
      '<p>Consulte as condições vigentes do pacote antes de comprar.</p>')+'</section>'+ 
-    '<section class="legal-card"><h2>10. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
+    '<section class="legal-card"><h2>10. Regulamento da Rede TAMÃO</h2><p>As comissões elegíveis, o fundo coletivo de 10%, a conferência financeira e os saques manuais seguem o <a href="/rede-regulamento-2026-11-22.html" target="_blank" rel="noopener">Regulamento da Rede, versão 22/11/2026</a>. A solicitação de saque exige aceite expresso, saldo validado e aprovação individual. Não existe Pix automático.</p></section>'+ 
+    '<section class="legal-card"><h2>11. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
     legalClose()
   );
 }
