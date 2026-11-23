@@ -657,6 +657,7 @@ function mobilityFeePixPanel(){
   '<div class="mobility-form" aria-label="Cobrança Pix TAMÃO">'+
    '<p><strong>'+(isPlan?'Pix para recarga do plano':'Pix TAMÃO de taxas')+
    ': '+money(Number(p.amountCents))+'</strong></p>'+
+   (globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'')+
    (typeof globalThis.tamaoPixMarkup==='function'?globalThis.tamaoPixMarkup(p.brCode,{amountCents:Number(p.amountCents),label:'QR Code Pix TAMÃO',imageDataUri:img}):img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
    '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
    '<button type="button" class="secondary" onclick="mobilityCopyFeePix()"'+loading+'>Copiar código Pix</button> '+

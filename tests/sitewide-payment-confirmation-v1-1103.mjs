@@ -79,7 +79,7 @@ assert.match(clube,/w\.timer=setTimeout\(poll,15000\)/);
 assert.match(clube,/action:'invoice-status',invoiceId:id/);
 assert.match(backend,/terminalPaymentAttemptAt/);
 assert.match(backend,/liveGetOrder\(requestedOrderId,\{silent:true\}\)/);
-assert.match(customer,/Conferindo automaticamente o pagamento com a revenda/);
+assert.match(customer,/Conferimos o Pix com a revenda, sem gerar outra cobrança/);
 assert.match(merchant,/confirmação acompanhada automaticamente/);
 assert.match(mobility,/A situação deste Pix é conferida automaticamente/);
 assert.match(credits,/Conferindo automaticamente no Mercado Pago/);

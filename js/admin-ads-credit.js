@@ -265,7 +265,8 @@ function adminCreditPilotPanel(){
   ' Autorizo a emissão de um Pix real de R$ 19,90 para a minha carteira de publicidade.</label>'+
   '<button type="button" class="primary small" onclick="adminCreditPilotRun(&quot;prepare&quot;,&quot;'+id+'&quot;,'+state.revision+')"'+disabled+'>'+
   (d.status==='reserved'?'Retomar emissão do Pix':'Gerar Pix de R$ 19,90')+'</button>':'';
- const pix=code?(globalThis.tamaoPixMarkup?.(code,{amountCents:1990,label:'QR Code da homologação de publicidade'})||'')+
+ const pix=code?(globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'')+
+  (globalThis.tamaoPixMarkup?.(code,{amountCents:1990,label:'QR Code da homologação de publicidade'})||'')+
   '<label class="input-wrap">Pix copia e cola<textarea class="input" id="credit-pilot-code" rows="3" readonly>'+esc(code)+'</textarea></label>'+
   '<button type="button" class="secondary small" onclick="adminCreditPilotCopy()">Copiar Pix</button>':'';
  return '<section class="card flat form-stack" aria-label="Homologação da carteira de publicidade">'+

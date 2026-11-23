@@ -2261,10 +2261,12 @@ function liveTracking(){
              Date.parse(String(onlinePayment.expiresAt||''))>Date.now()+60000
             ? '<section class="notice" aria-label="Pix do pedido"><h3>Pix para a revenda</h3>'+
               '<p>'+esc(BRL.format(Number(onlinePayment.amountCents)/100))+'</p>'+
+              (globalThis.tamaoPixRecipientHtml?.({scope:'merchant',
+                merchantName:o.merchantName||o.merchant_name||''})||'')+
               (globalThis.tamaoPixMarkup?.(onlinePayment.pixCode,{amountCents:Number(o.totalCents)})||'')+
               '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(onlinePayment.pixCode)+'</textarea></label>'+
               '<button type="button" class="primary" data-order-id="'+esc(o.orderId)+'" onclick="liveCopyOrderPix(this.dataset.orderId)">Copiar código Pix</button>'+
-              '<p role="status">Conferindo automaticamente o pagamento com a revenda. A confirmação aparece neste acompanhamento, sem gerar outro Pix.</p></section>'
+              '<p role="status">Conferimos o Pix com a revenda, sem gerar outra cobrança. A confirmação aparece aqui.</p></section>'
           : onlinePayment.checkoutUrl
             ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
             : onlinePayment.canStart===true
