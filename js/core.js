@@ -1075,12 +1075,10 @@ if(globalThis.__CHAMA_TEST__){
  }
  function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
   if(!valid(code,amountCents))return '';
-  // Load the trust note only with a valid BR Code; startup stays lightweight.
-  if(typeof document!=='undefined'&&!globalThis.tamaoPixRecipientHtml&&!globalThis._pixIdentityLoading){
-   globalThis._pixIdentityLoading=1;
-   const tag=document.createElement('script');
-   tag.src='./js/pix-recipient-trust.js?v=1162';tag.async=true;
-   tag.onload=()=>globalThis.render?.();tag.onerror=()=>{globalThis._pixIdentityLoading=0};
+  if(typeof document!=='undefined'&&!globalThis.tamaoPixRecipientHtml&&!globalThis._pId){
+   globalThis._pId=1;const tag=document.createElement('script');
+   tag.src='./js/pix-recipient-trust.js?v=1162';
+   tag.onload=()=>globalThis.render?.();tag.onerror=()=>{globalThis._pId=0};
    document.head.appendChild(tag);
   }
   let body='';
