@@ -115,7 +115,7 @@ function agendaDesignPreviewMarkup(input,profile){
    '<strong>'+safe(input.headline||profile.title||'Seu estabelecimento')+'</strong>'+
    '<span>'+safe(input.tagline||'Seu atendimento, do seu jeito.')+'</span>'+
    '<span class="agenda-design-live-hero-button">Agendar horário</span></div>'+
-  (section('show_highlights')&&highlights.length?'<div class="agenda-design-live-benefits">'+highlights.map(x=>'<span>✦ '+safe(x)+'</span>').join('')+'</div>':'')+
+  (section('show_highlights')&&highlights.length?'<div class="agenda-design-live-benefits">'+highlights.map(x=>'<span>'+safe(x)+'</span>').join('')+'</div>':'')+
   '<div class="agenda-design-live-content">'+
    (section('show_about')&&profile.about?heading('NOSSA HISTÓRIA','Sobre o estabelecimento')+'<p>'+safe(profile.about)+'</p>':'')+
    heading('O QUE OFERECEMOS','Serviços e preços')+'<div class="agenda-design-live-services">'+cards+'</div>'+
@@ -382,7 +382,7 @@ function agendaDesignPublicView(p,bookingForm){
  const about=d.show_about?'<section class="agenda-premium-section agenda-premium-about" id="sobre"><div class="agenda-premium-heading">'+
   '<span>QUEM SOMOS</span><h2>Conheça nosso trabalho</h2></div><p>'+safe(p.about||'Atendimento profissional com hora marcada.')+'</p></section>':'';
  const highlights=d.show_highlights&&d.highlights.length?'<section class="agenda-premium-highlights" aria-label="Diferenciais">'+
-  d.highlights.map(x=>'<div><span aria-hidden="true">✦</span><strong>'+safe(x)+'</strong></div>').join('')+'</section>':'';
+  d.highlights.map(x=>'<div><span aria-hidden="true"></span><strong>'+safe(x)+'</strong></div>').join('')+'</section>':'';
  const teamSection=d.show_team&&team.length?'<section class="agenda-premium-section" id="equipe"><div class="agenda-premium-heading"><span>PROFISSIONAIS</span><h2>Nossa equipe</h2></div>'+
   '<div class="agenda-premium-team">'+team.map(item=>{
    const src=staffImg(item);
