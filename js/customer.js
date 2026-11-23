@@ -756,13 +756,13 @@ ${couponBanner}
     <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
       <span>✓ Sua cesta, suas escolhas</span>
       <span>✓ Acompanhamento após o aceite</span>
-      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
+      <button type="button" onclick="go('club')">Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
     </div>
     <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
       <span>O que você precisa hoje?</span>
-      ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">🔥 Gás</button>':''}
-      ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">💧 Água</button>':''}
-      ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">✦ Outros itens</button>':''}
+      ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">Gás</button>':''}
+      ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">Água</button>':''}
+      ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">Outros itens</button>':''}
     </div>
     <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button>${acquisitionOpen?'<button type="button" class="home-notify-shortcut" onclick="openPrelaunchCustomerLead()">Quero receber aviso de disponibilidade <span aria-hidden="true">↗</span></button>':''}</div>
 

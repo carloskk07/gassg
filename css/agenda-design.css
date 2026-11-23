@@ -251,3 +251,44 @@ body:has(.agenda-standalone-profile){background:#f5f6f3}
  .agenda-design-preview-frame .agenda-design-live{transition:none}
  .agenda-design-model-grid{scroll-behavior:auto}
 }
+
+/* V1.1165 — absence of uploaded photos is not represented by random stars or fake stock photos. */
+.agenda-premium-symbol{
+ display:grid;place-items:center;width:68px;height:68px;padding:7px;
+ margin:0 auto 5px;border:1px solid var(--ap-accent);
+ border-radius:21px;background:color-mix(in srgb,var(--ap-primary) 77%,white);
+ color:var(--ap-accent);font-size:35px;font-weight:900;line-height:1;
+ letter-spacing:-.07em;box-shadow:0 12px 25px #00000013
+}
+.agenda-premium-photo-fallback,.agenda-design-live-image{
+ position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:9px;background:linear-gradient(145deg,color-mix(in srgb,var(--ap-primary) 85%,white),color-mix(in srgb,var(--ap-primary) 65%,white));
+ color:var(--ap-accent);text-align:center
+}
+.agenda-premium-photo-fallback::before,.agenda-design-live-image::before{
+ content:"";display:block;width:49px;height:49px;flex-shrink:0;
+ background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%203v4m10-4v4M3%2010h18m-13%205h3m3%200h2%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2218%22%20height%3D%2216%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M7%203v4m10-4v4M3%2010h18m-13%205h3m3%200h2%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat
+}
+.agenda-premium-photo-fallback::after{
+ content:"ATENDIMENTO COM HORA MARCADA";display:block;max-width:24ch;
+ color:color-mix(in srgb,var(--ap-accent) 85%,white);
+ font-size:9px;font-weight:850;letter-spacing:.1em;line-height:1.4
+}
+.agenda-design-live-image::before{width:38px;height:38px}
+.agenda-premium-avatar,.agenda-design-live-avatar{
+ display:grid;place-items:center;background:linear-gradient(135deg,var(--ap-primary),color-mix(in srgb,var(--ap-primary) 76%,white));
+ color:var(--ap-accent);font-weight:850;letter-spacing:-.055em;
+ border:1px solid color-mix(in srgb,var(--ap-accent) 50%,white)
+}
+.agenda-premium-avatar{font-size:49px}
+.agenda-design-live-mark{
+ display:grid;place-items:center;width:55px;height:55px;border:1px solid var(--ap-accent);
+ border-radius:17px;background:color-mix(in srgb,var(--ap-primary) 75%,white);
+ color:var(--ap-accent);font-size:31px;font-weight:900;line-height:1;
+ letter-spacing:-.065em;box-shadow:0 7px 18px #0002
+}
+.agenda-design-live-avatar{width:46px;height:46px;border-radius:13px;font-size:25px}
+@media(max-width:640px){
+ .agenda-premium-symbol{width:58px;height:58px;font-size:30px}
+ .agenda-premium-photo-fallback::before{width:41px;height:41px}
+}
