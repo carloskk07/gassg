@@ -190,8 +190,14 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="manual-request"){
       const key=idempotency(req);
-      const data=await rpc("network_manual_payout_request_v1_1034",{
-        p_user:user,p_key:key
+      const expectedTerms="https://tamao.com.br/rede-regulamento-2026-11-22.html";
+      if(body.termsAccepted!==true||body.termsReference!==expectedTerms)
+        throw new DomainError("PAYOUT_TERMS_ACCEPTANCE_REQUIRED",
+          "Leia e aceite o Regulamento da Rede antes de solicitar saque.",409);
+      // Uma única transação SQL reserva saldo validado e arquiva o aceite real.
+      // A referência deve coincidir com a modalidade efetivamente aprovada.
+      const data=await rpc("network_manual_payout_request_with_terms_v1_1158",{
+        p_user:user,p_key:key,p_terms_reference:expectedTerms,p_accepted:true
       });
       if(data?.source!=="network_manual_request_v1_1034"||
         data?.moneyMoved!==false||!uuid.test(String(data.requestId||"")))
