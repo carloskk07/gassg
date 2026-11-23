@@ -1,6 +1,6 @@
 # TAMÃO — plano operacional de migração PF → PJ (V1.1159)
 
-**Estado inicial:** o TAMÃO continua operando com a configuração financeira atual. **Nenhum CNPJ foi informado, criado ou aprovado por esta implementação.** O painel **Admin → Financeiro → Saques manuais → Transição futura para CNPJ** apenas prepara a futura troca e exige verificações documentais antes da virada.
+**Estado inicial:** o TAMÃO continua operando com a configuração financeira atual. **Nenhum CNPJ foi informado, criado ou aprovado por esta implementação.** A partir da V1.1160, o caminho principal é **Admin → Financeiro → Empresa / CNPJ** (exclusivo do superadministrador); o atalho anterior da Rede é preservado. O painel prepara a futura troca e exige verificações documentais reais antes da virada.
 
 **Referências públicas oficiais (consultadas em 22/11/2026):**
 - [REDESIM / inscrição no CNPJ](https://www.gov.br/pt-br/servicos/inscrever-no-cnpj) — viabilidade, registro, regime e licenças.
@@ -26,7 +26,7 @@
 5. Validar com pagamentos reais de valor conhecido a emissão, QR Code Pix, webhook, conferência automática, estorno, reconciliação e extrato dos três portais. Usar processo de homologação financeira com controle de valores e confirmação independente.
 6. Separar **receitas e obrigações PF anteriores** do período PJ posterior à virada. Não migrar IDs de pagamentos e não reatribuir documentos fiscais já emitidos. Conferir publicidade, pacote de redução de taxas, comissões recorrentes, fundo de 10%, Clube, cashback, pedidos, devoluções, contestação e saques manuais ainda devidos.
 7. Atualizar contratos, política de privacidade, regulamentos, identificação pública, atendimento, dados de faturamento, notas fiscais e instrumentos contratuais das revendas. Se houver alteração material da contraparte, planejar comunicação e os aceites necessários — não inventar consentimentos.
-8. No **Admin → Financeiro → Preparar migração para CNPJ**, registrar o CNPJ e dados reais. Marcar uma das 12 verificações apenas após conferir fonte externa e informar referência verificável com data; o histórico fica no banco. Reabrir um item se a comprovação for invalidada.
+8. No **Admin → Financeiro → Empresa / CNPJ → Preparar migração para CNPJ**, registrar o CNPJ e dados reais. Marcar uma das 12 verificações apenas após conferir fonte externa e informar referência verificável com data; o histórico fica no banco. Reabrir um item se a comprovação for invalidada.
 9. Somente com **12/12**, realizar confirmação explícita de ativação PJ. O TAMÃO passará então a exibir a razão social, CNPJ e endereço da empresa nos Termos de Uso. Conferir a URL oficial e a identidade com o registro da Receita.
 10. Conferir a operação nas primeiras cobranças PJ, reconciliações e estornos. Em caso de divergência após a virada, **pausar novas cobranças**, manter o ledger e abrir incidente com correção auditada. A versão V1.1159 não oferece troca automática de volta para CPF, para não misturar a titularidade histórica.
 
@@ -48,3 +48,10 @@
 - Dados públicos: Edge `operator-public-identity` consulta `platform_operator_public_identity_v1_1159()` **somente no servidor** e retorna apenas a PJ efetivamente ativada, jamais o rascunho. A RPC privilegiada NÃO é executável por `anon` ou `authenticated`.
 
 > Esta preparação é técnica e operacional. O registro do CNPJ, autorização fiscal, contratos, verificação cadastral do PSP e eventual revisão jurídica exigem atos reais quando a empresa existir.
+
+## Ajuste V1.1160 — acesso simples sem dependência da Rede
+
+- A preparação PJ passa a ter espaço próprio e visível no menu principal do Financeiro, sem carregar o módulo de saques ou iniciar operações financeiras.
+- Ao abrir a área, a interface lê o estado real do banco. Somente o superadministrador pode consultar ou editar o preparo; perfis de finanças, operações e suporte não recebem acesso.
+- Os cinco dados da futura empresa digitados e ainda não salvos permanecem em memória durante novas renderizações do painel. Ao trocar de conta ou perder a permissão de superadmin, o rascunho em memória é descartado. Não se usa `localStorage`, `sessionStorage` nem pagamento simulado.
+- Na futura formalização, o primeiro passo continua sendo apresentar um CNPJ e a documentação oficial válidos; V1.1160 não cria nem ativa uma empresa antecipadamente.
