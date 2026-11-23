@@ -284,31 +284,47 @@ const next=purchases>0&&cycle===5?'Ciclo completo — a próxima compra inicia u
 const debt=Math.max(0,Number(state.user.cashbackDebt)||0);
 const comparisonSavings=Math.max(0,Number(globalThis.liveRuntime?.comparisonSavingsCents||0))/100;
 const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
-return shell(`<section class="page">
-<span class="eyebrow">CLUBE TAMÃO</span>
-<h1 class="page-title">Compre com mais vantagens. Acompanhe sua economia e seu cashback.</h1>
-<p class="muted page-lead">Compare ofertas pelo preço total para seu CEP, veja a economia registrada nas compras concluídas e consulte seus créditos de cashback. Tudo em um só lugar.</p>
-<div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
-<div class="earn-summary" style="margin-top:14px">
-<div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
-<div class="earn-balance-card"><span>Cashback já gerado</span><strong>${BRL.format(cashbackEarned)}</strong><small>créditos válidos historicamente, mesmo que parte já tenha sido usada</small></div>
-</div>
-${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
-${clubePaidCouponPanel()}
-<button class="ghost small" onclick="go('refer')">Meu extrato de vantagens →</button>
-${typeof clubeCouponShopPanel==='function'?clubeCouponShopPanel():''}
-<section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
-<div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
-<h2>Compare, faça seu pedido e acompanhe o que você economizou.</h2>
-<p>Consulte as revendas que atendem seu endereço, escolha pelo preço total e aproveite seu saldo de cashback quando for elegível.</p>
-</div>
-<button type="button" class="primary" onclick="go('home')">Encontrar produtos para comprar <span aria-hidden="true">→</span></button>
+return shell(`<section class="page tamao-club-premium club-premium-member" aria-labelledby="club-member-title">
+<header class="club-premium-member-hero">
+ <div class="club-premium-member-intro">
+  <span class="club-premium-section-index">MEU CLUBE / VANTAGENS DA SUA CONTA</span>
+  <h1 id="club-member-title">A sua economia.<br><em>Com cada detalhe à vista.</em></h1>
+  <p>Consulte cupons, acompanhe cashback elegível e veja o histórico dos benefícios associados às suas compras. Os valores só ficam disponíveis conforme as regras de validação.</p>
+  <div class="club-premium-member-hero-actions">
+   <button class="club-premium-button club-premium-light" type="button" onclick="document.getElementById('club-member-coupons')?.scrollIntoView({behavior:'smooth',block:'start'})">Consultar meus cupons <span aria-hidden="true">↓</span></button>
+   <button class="club-premium-button club-premium-member-outline" type="button" onclick="go('refer')">Minha Rede e extrato <span aria-hidden="true">→</span></button>
+  </div>
+ </div>
+ <div class="reward-hero club-premium-member-balance" aria-label="Resumo do cashback disponível">
+  <div class="club-premium-balance-label">SEU CASHBACK DISPONÍVEL</div>
+  <div class="balance">${BRL.format(state.user.cashback)}</div>
+  <p>Crédito para utilizar em compras elegíveis, não valor para saque.</p>
+  <div class="club-premium-cycle"><div class="club-premium-cycle-heading"><span>ACOMPANHAMENTO DE COMPRAS</span><small>${esc(next)}</small></div><div class="progress" role="progressbar" aria-label="Progresso do ciclo de cinco compras" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div></div>
+ </div>
+</header>
+<section class="club-premium-statistics" aria-label="Resumo de benefícios reconhecidos">
+ <article><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>Diferença registrada contra a alternativa mais cara exibida nas consultas que viraram pedidos concluídos.</small></article>
+ <article><span>Cashback já gerado</span><strong>${BRL.format(cashbackEarned)}</strong><small>Créditos válidos historicamente, inclusive a parte eventualmente já utilizada.</small></article>
+ <article><span>Seu histórico</span><strong>Na sua conta</strong><small>Consulte cupons, compras e extrato por origem. Cada modalidade segue regras próprias.</small></article>
 </section>
-<section class="section"><div class="grid cards-3">
-<div class="card"><div class="feature-icon">💵</div><h3>Cashback que volta para você</h3><p class="muted tiny">Nas compras elegíveis, parte do valor pode voltar como crédito para sua próxima compra. Tudo fica registrado em sua conta.</p></div>
-<div class="card"><div class="feature-icon">⭐</div><h3>Seus pedidos, suas vantagens</h3><p class="muted tiny">Tenha seu histórico à mão e saiba quando vale a pena repetir aquela compra do dia a dia.</p></div>
-<div class="card"><div class="feature-icon">🤝</div><h3>Sua rede também cresce</h3><p class="muted tiny">Convide amigos com seu link pessoal, apresente revendas da região e acompanhe as indicações qualificadas.</p><button class="ghost small" onclick="go('earn')">Ver como ganhar →</button></div>
-</div></section>
+${debt>0?`<div class="notice club-premium-compensation" role="status"><strong>${BRL.format(debt)} em compensação.</strong><p>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</p></div>`:''}
+<section class="club-premium-private-section" id="club-member-coupons" aria-label="Meus cupons e pacotes">
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">01 / SUA CARTEIRA</span><h2>Cupons e histórico.<br><em>Tudo organizado.</em></h2><p>Consulte apenas os benefícios vinculados à sua conta. As emissões e os pagamentos são verificados pelo sistema.</p></div>
+ ${clubePaidCouponPanel()}
+</section>
+<section class="club-premium-private-section club-premium-shop-section" aria-label="Pacotes de cupons e condições">
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">02 / CONDIÇÕES DISPONÍVEIS</span><h2>Confira antes<br><em>de escolher.</em></h2><p>Se houver pacotes liberados, consulte o preço, a validade, o pedido mínimo e a cobertura do CEP antes de pagar.</p></div>
+ ${typeof clubeCouponShopPanel==='function'?clubeCouponShopPanel():''}
+</section>
+<section class="tamao-club-shop-now club-premium-shopping-action" aria-label="Usar as vantagens do Clube">
+ <div><span class="club-premium-section-index">03 / USAR SUAS VANTAGENS</span><h2>Compare o preço total e escolha a compra certa para você.</h2><p>Consulte as revendas que atendem seu endereço, confirme os produtos e aproveite o cashback disponível quando elegível.</p></div>
+ <button type="button" class="primary" onclick="go('home')">Encontrar produtos <span aria-hidden="true">→</span></button>
+</section>
+<section class="club-premium-member-options" aria-label="Vantagens complementares">
+ <article><span class="club-premium-feature-icon">${clubPremiumIcon('wallet')}</span><h3>Cashback para voltar</h3><p>Nas compras elegíveis, parte do valor pode retornar como crédito para novas compras após as verificações.</p></article>
+ <article><span class="club-premium-feature-icon">${clubPremiumIcon('receipt')}</span><h3>Seus pedidos, seu controle</h3><p>Reveja suas compras e as condições aplicáveis aos benefícios registrados.</p></article>
+ <article><span class="club-premium-feature-icon">${clubPremiumIcon('pin')}</span><h3>Uma Rede local</h3><p>Compartilhe seu link pessoal e acompanhe as indicações qualificadas em sua área da Rede.</p><button type="button" class="club-premium-text-action" onclick="go('earn')">Conhecer a Rede <span aria-hidden="true">→</span></button></article>
+</section>
 </section>`)
 }
 
