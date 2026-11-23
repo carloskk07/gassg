@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.1123';
+const CACHE='tamao-sg-v1.1158';
 const AUTH_SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./css/marketing-premium.css','./css/learn-premium.css','./css/merchant-landing-executive.css','./css/public-ux.css','./css/workspace-experience.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/home-showcase.js','./js/customer.js','./js/growth.js','./js/learn-premium.js','./js/merchant-public-plans.js','./js/merchant.js','./js/merchant-ui-state.js','./js/merchant-offline-delivery.js','./js/admin-acquisition.js','./js/admin.js','./js/admin-test-center.js','./js/admin-activations.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
@@ -50,7 +50,7 @@ async function navigationNetworkFirst(req){
       // Independent editorial or appointment HTML must never overwrite the application's
       // offline shell; keep it under its own URL when visited.
       const navPath=new URL(req.url).pathname;
-      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
+      const editorialPath=/^\/(?:rede-regulamento-2026-11-22\.html)$/i.test(navPath)||/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
         .test(navPath)||/^\/agenda(?:\/|$)/i.test(navPath)||/^\/convite(?:\/|$)/i.test(navPath)||/^\/p(?:\/|$)/i.test(navPath);
       if(contentType.includes('text/html')&&!editorialPath){
         await cache.put('./index.html',res.clone());
