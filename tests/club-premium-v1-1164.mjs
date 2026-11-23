@@ -36,7 +36,7 @@ assert.equal((guest.match(/<details>/g)||[]).length,5);
 assert.equal((guest.match(/class="club-premium-benefit"/g)||[]).length,3);
 assert.doesNotMatch(guest,/SEU CASHBACK DISPONÍVEL|my-private-vouchers/);
 assert.doesNotMatch(guest,/R\$ ?8,90|R\$ ?19,90|QR Code Pix|compra garantida|economia garantida/i);
-assert.equal((guest.match(/<svg class="club-premium-icon"/g)||[]).length,9);
+assert.equal((guest.match(/<svg class="club-premium-icon"/g)||[]).length,10);
 
 ctx.globalThis.liveReady=()=>true;
 ctx.globalThis.liveRuntime.session={user:{id:'customer-a',is_anonymous:false,email_confirmed_at:null}};
@@ -56,7 +56,7 @@ assert.match(ctx.clubView(),/em compensação/);
 assert.match(ctx.clubView(),/R\$ 5\.00/);
 
 for(const required of [
- '.club-premium-hero','.club-premium-entry-card','.club-premium-verified-offer',
+ '.club-premium-hero','.club-premium-entry-card','#club-premium-offers',
  '.club-premium-faq-items','.club-premium-member-balance',
  '@media(max-width:740px)','@media(max-width:540px)',
  '@media(max-width:350px)',':focus-visible',
