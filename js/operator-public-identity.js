@@ -8,10 +8,9 @@ async function tamaoOperatorPublicProfileLoad(){
     if(tamaoOperatorPublicProfileCache)return tamaoOperatorPublicProfileCache;
     if(typeof CHAMA_BACKEND==='undefined'||!CHAMA_BACKEND.url||!CHAMA_BACKEND.publishableKey)return null;
     const request=(globalThis.chamaFetch||fetch)(
-      CHAMA_BACKEND.url+'/rest/v1/rpc/platform_operator_public_identity_v1_1159',{
-        method:'POST',cache:'no-store',
-        headers:{'Content-Type':'application/json',apikey:CHAMA_BACKEND.publishableKey},
-        body:'{}'
+      CHAMA_BACKEND.url+'/functions/v1/operator-public-identity',{
+        method:'GET',cache:'no-store',
+        headers:{apikey:CHAMA_BACKEND.publishableKey}
       });
     const response=await request;
     if(!response.ok)return null;
