@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const growth=read('js/growth.js');
+const css=read('css/club-premium.css');
+const boot=read('js/bootstrap.js');
+const start=growth.indexOf('function club(){');
+const end=growth.indexOf('\n// V1.1040',start);
+assert.ok(start>0&&end>start,'The genuine Club renderer is present');
+new vm.Script(growth,{filename:'growth.js'});
+const ctx={
+ globalThis:{liveReady:()=>false,liveRuntime:{session:null},document:null},
+ state:{user:{cashback:0, purchases:0,cashbackDebt:0}},
+ BRL:{format:v=>'R$ '+Number(v).toFixed(2)},
+ shell:v=>v,esc:v=>String(v),console,
+ clubePaidCouponPanel:()=>'<section id="my-private-vouchers"></section>'
+};
+vm.runInNewContext(growth.slice(start,end)+'\nthis.clubView=club;',ctx);
+const guest=ctx.clubView();
+for(const must of [
+ 'club-premium-hero','club-premium-benefits','club-premium-how',
+ 'club-premium-faq','club-premium-account','club-premium-offers',
+ 'Descontos para aproveitar','Cashback para voltar',
+ 'Mais controle da sua economia','Condições do pacote em destaque',
+ 'data-coupon-price','data-coupon-face','data-coupon-minimum','data-coupon-availability',
+ 'id="clube-visitor-coupon-email"','name="full_name"','name="phone"',
+ 'value="login"','value="register"','onsubmit="return tamaoWelcomeRegister(event)"',
+ 'Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP',
+ 'Entrar no Clube não gera cobrança','club-premium-faq-items'
+])assert.ok(guest.includes(must),'Missing visible, truthful Club detail: '+must);
+assert.match(guest,/class="tamao-coupon-price-board card form-stack[^"]*" hidden/);
+assert.match(guest,/<form[^>]*data-tamao-account-context="club"/);
+assert.equal((guest.match(/<details>/g)||[]).length,5);
+assert.equal((guest.match(/class="club-premium-benefit"/g)||[]).length,3);
+assert.doesNotMatch(guest,/SEU CASHBACK DISPONÍVEL|my-private-vouchers/);
+assert.doesNotMatch(guest,/R\$ ?8,90|R\$ ?19,90|QR Code Pix|compra garantida|economia garantida/i);
+assert.equal((guest.match(/<svg class="club-premium-icon"/g)||[]).length,9);
+
+ctx.globalThis.liveReady=()=>true;
+ctx.globalThis.liveRuntime.session={user:{id:'customer-a',is_anonymous:false,email_confirmed_at:null}};
+assert.match(ctx.clubView(),/id="clube-visitor-coupon-email"/,'Unconfirmed user must remain guest');
+ctx.globalThis.liveRuntime.session.user.email_confirmed_at='2026-11-23T00:00:00Z';
+ctx.state.user={cashback:7.25,purchases:2,cashbackDebt:0};
+const privateMember=ctx.clubView();
+assert.match(privateMember,/SEU CASHBACK DISPONÍVEL/);
+assert.match(privateMember,/R\$ 7\.25/);
+assert.match(privateMember,/my-private-vouchers/);
+assert.match(privateMember,/club-premium-shop-section/);
+assert.match(privateMember,/club-premium-member-balance/);
+assert.doesNotMatch(privateMember,/clube-visitor-coupon-email|tamao-coupon-price-board/);
+assert.equal((privateMember.match(/SEU CASHBACK DISPONÍVEL/g)||[]).length,1);
+ctx.state.user={cashback:0,purchases:0,cashbackDebt:5};
+assert.match(ctx.clubView(),/em compensação/);
+assert.match(ctx.clubView(),/R\$ 5\.00/);
+
+for(const required of [
+ '.club-premium-hero','.club-premium-entry-card','.club-premium-verified-offer',
+ '.club-premium-faq-items','.club-premium-member-balance',
+ '@media(max-width:740px)','@media(max-width:540px)',
+ '@media(max-width:350px)',':focus-visible',
+ '[hidden]{display:none!important}'
+])assert.ok(css.includes(required),'Missing premium CSS safeguard '+required);
+assert.match(boot,/function tamaoEnsureClubPremiumStyles\(page\)/);
+assert.match(boot,/if\(page!=='club'/);
+assert.match(boot,/css\/club-premium\.css/);
+assert.match(boot,/tamaoEnsureClubPremiumStyles\(r\)/);
+assert.doesNotMatch(guest,/🎟️|💚|🔎|⭐|🤝|💵/);
+assert.doesNotMatch(privateMember,/🎟️|💚|🔎|⭐|🤝|💵/);
+console.log('V1.1164 PASS — premium Club visitor/member, registered user gate, verified offer, safe benefits, original voucher/checkout and responsive styles');
