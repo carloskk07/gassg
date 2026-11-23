@@ -99,6 +99,8 @@ jobs:
         run: node tests/network-ads-dispute-v1-1156.mjs
       - name: V1.1159 PF to PJ operator migration, alphanumeric CNPJ and financial isolation
         run: node tests/operator-cnpj-transition-v1-1159.mjs
+      - name: V1.1161 PF to PJ financial preflight, seven obligations and server-side activation block
+        run: node tests/operator-cnpj-financial-preflight-v1-1161.mjs
       - name: V1.1160 company CNPJ finance workspace, role isolation and unsaved form recovery
         run: node tests/operator-cnpj-finance-entry-v1-1160.mjs
       - name: V1.1154 Ads 10 percent shared network fund sources, accounting, lifecycle and transparency
