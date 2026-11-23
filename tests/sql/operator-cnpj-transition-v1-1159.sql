@@ -27,9 +27,13 @@ begin
    'public.platform_operator_transition_activate_v1_1159(uuid,bigint,text)',
    'EXECUTE')
  then raise exception 'V1159_DIRECT_RPC_BYPASS';end if;
- if not has_function_privilege('anon',
+ if has_function_privilege('anon',
    'public.platform_operator_public_identity_v1_1159()','EXECUTE')
- then raise exception 'V1159_PUBLIC_DISCLOSURE_MISSING';end if;
+   or has_function_privilege('authenticated',
+   'public.platform_operator_public_identity_v1_1159()','EXECUTE')
+   or not has_function_privilege('service_role',
+   'public.platform_operator_public_identity_v1_1159()','EXECUTE')
+ then raise exception 'V1159_PUBLIC_DEFINER_ACL_LEAKED';end if;
  p:=public.platform_operator_public_identity_v1_1159();
  if p->>'public' is distinct from 'false'
    or p->>'entityType' is distinct from 'individual'
