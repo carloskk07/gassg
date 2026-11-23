@@ -3731,8 +3731,13 @@ function adminNetworkPayoutFallbackView(){
 // V1.1160 — a identidade jurídica agora tem uma área PRÓPRIA no Financeiro,
 // sem depender da Rede, da fila de saques ou de qualquer Pix.
 // O módulo nunca é carregado nos portais Cliente ou Parceiro.
-const adminOperatorFinanceModuleUrl=adminNetworkPayoutModuleUrl
-  ?new URL('admin-operator-transition.js',adminNetworkPayoutModuleUrl).href:null;
+const adminOperatorFinanceModuleUrl=(()=>{
+  if(!adminNetworkPayoutModuleUrl)return null;
+  const source=new URL(adminNetworkPayoutModuleUrl);
+  const moduleUrl=new URL('admin-operator-transition.js',source);
+  moduleUrl.search=source.search; // cache-busting version same as canonical Admin
+  return moduleUrl.href;
+})();
 let adminOperatorFinanceModulePromise=null;
 let adminOperatorFinanceModuleError=null;
 async function adminOperatorFinanceLoadOnDemand(){
