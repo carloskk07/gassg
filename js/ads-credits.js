@@ -126,6 +126,7 @@ function tamaoCreditPixHtml(pix){
  return '<section class="tamao-credit-pix" aria-label="Pagamento Pix da recarga">'+
   '<h4>Pix da recarga</h4><p>Confira '+tamaoCreditMoney(pix.amountCents)+
   ' e pague pelo app do seu banco. Conferimos este Pix automaticamente e atualizamos seu saldo após confirmação do provedor.</p>'+
+  (globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'')+
   (qr||'<div id="tamao-credit-qrcode" role="img" aria-label="QR Code para pagar a recarga" class="tamao-credit-qr-placeholder">Gerando QR Code…</div>')+
   '<label>Pix copia e cola<textarea id="tamao-credit-pix-code" class="input" readonly rows="3">'+
   safeCode+'</textarea></label><button type="button" class="secondary" onclick="tamaoCreditCopyPix()">Copiar Pix</button>'+
