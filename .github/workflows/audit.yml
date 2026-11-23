@@ -205,6 +205,8 @@ jobs:
         run: node tests/embedded-pix-provider.mjs
       - name: Bank-readable Pix rendered locally in every portal
         run: node tests/embedded-pix-renderer.mjs
+      - name: V1.1162 Pix identification, real recipient isolation and CPF privacy
+        run: node tests/pix-operator-identity-v1-1162.mjs
       - name: Existing merchant billing charge status and ownership boundary
         run: node tests/merchant-billing-status.mjs
       - name: Merchant package checkout inside Finance Admin
