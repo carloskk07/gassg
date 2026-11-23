@@ -190,7 +190,6 @@ clubePaidCouponView.error=String(err?.message||err);
 }
 
 function club(){
-if(typeof clubPremiumPage==='function')return clubPremiumPage();
 const u=globalThis.liveRuntime?.session?.user;
 const member=globalThis.__CHAMA_TEST__||(globalThis.liveReady?.()&&u?.id&&u.email_confirmed_at&&u.is_anonymous!==true);
 if(globalThis.document&&!globalThis.cshop){
