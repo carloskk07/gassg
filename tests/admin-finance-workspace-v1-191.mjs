@@ -19,8 +19,8 @@ assert.ok(declaration,'Finance workspace allowlist required');
 const sandbox=vm.createContext({});
 vm.runInContext(declaration[0]+'this.items=ADMIN_FINANCE_WORKSPACES;',sandbox);
 const keys=Array.from(sandbox.items,x=>x.id);
-assert.equal(keys.join('|'),'summary|homologation|billing|reconciliation|policy|lab');
-let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0,couponLoads=0;
+assert.equal(keys.join('|'),'summary|homologation|billing|reconciliation|operator|policy|lab');
+let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0,couponLoads=0,companyLoads=0;
 const rt={financeWorkspace:'summary'};
 const document={
   getElementById:id=>{
@@ -38,6 +38,7 @@ const ctx=vm.createContext({
   render:()=>repaints++,
   esc:value=>String(value),
   adminCouponCommercialRefresh:async()=>{couponLoads++;},
+  adminOperatorFinanceLoadOnDemand:()=>{companyLoads++;},
   adminFinanceLabReadinessFromUi:async()=>{},
   adminFinanceLabLiveReadinessFromUi:async()=>{liveLoads++;},
   adminFinanceLabLiveCancelAutoCheck:()=>{},
@@ -86,7 +87,11 @@ assert.equal(couponLoads,1,'opening coupon rules should fetch the MP seller auto
 assert.ok(ctx.nav().includes('CENTRAL FINANCEIRA'));
 assert.ok(ctx.nav().includes('Laboratório'));
 assert.ok(ctx.nav().includes('Testes e Pix'));
-assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,6);
+assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,7);
+assert.ok(ctx.nav().includes('Empresa / CNPJ'));
+ctx.select('operator');
+assert.equal(rt.financeWorkspace,'operator');
+assert.equal(companyLoads,1,'A tela PJ abre sem executar nenhum Pix');
 ctx.select('homologation');
 assert.equal(rt.financeWorkspace,'homologation');
 assert.equal(liveLoads,0,'Navigating into homologation must not open Pix or call provider');
@@ -101,6 +106,9 @@ assert.equal(repaints,beforeLab,'Only superadmin can enter the financial lab');
 assert.equal(liveLoads,1,'non-superadmin never loads private real Pix history');
 ctx.select('homologation');
 assert.equal(repaints,beforeLab,'Only superadmin can enter homologation');
+ctx.select('operator');
+assert.equal(repaints,beforeLab,'Only superadmin can enter Empresa / CNPJ');
+assert.equal(companyLoads,1,'Perfil financeiro não recebe dados da futura PJ');
 role='superadmin';
 const from=src.indexOf('  const financeSummaryContent=');
 const until=src.indexOf('  const incidentsContent=',from);
