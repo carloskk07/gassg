@@ -47,6 +47,7 @@ assert.match(ctx.clubView(),/id="clube-visitor-coupon-email"/,'Unconfirmed user 
 ctx.globalThis.liveRuntime.session.user.email_confirmed_at='2026-11-23T00:00:00Z';
 ctx.state.user={cashback:7.25,purchases:2,cashbackDebt:0};
 const privateMember=ctx.clubView();
+assert.match(privateMember,/CLUBE TAMÃO \/ VANTAGENS DA SUA CONTA/,'Verified member retains route identity for navigation');
 assert.match(privateMember,/SEU CASHBACK DISPONÍVEL/);
 assert.match(privateMember,/R\$ 7\.25/);
 assert.match(privateMember,/my-private-vouchers/);
