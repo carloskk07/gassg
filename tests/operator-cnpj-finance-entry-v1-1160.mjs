@@ -51,7 +51,7 @@ const ctx=vm.createContext({
 });
 vm.runInContext(operator,ctx);
 assert.equal(vm.runInContext('adminOperatorSession()',ctx),user.id);
-vm.runInContext("adminOperatorState.data={stage:'not_started',revision:7};",ctx);
+vm.runInContext("adminOperatorState.data={stage:'not_started',currentEntityKind:'individual',revision:7,verifiedGates:0,totalGates:12,gates:Array.from({length:12},(_,i)=>({key:'k'+i,title:'Conferência '+i,verified:false}))};",ctx);
 inputs['operator-pj-cnpj']='11.222.333/0001-81';
 inputs['operator-pj-legal-name']='Razão social digitada';
 inputs['operator-pj-trade-name']='TAMÃO';
