@@ -469,6 +469,4 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-finance-secondary>summary{cursor:pointer;font-weight:700}
 .admin-finance-secondary>.admin-finance-areas{margin:12px 0 0;grid-template-columns:repeat(2,minmax(0,1fr))}
 
-/* V1.1160 — cinco áreas principais somente para superadmin; sem cartões solitários. */
-@media(min-width:1200px){.admin-finance-primary.has-operator{grid-template-columns:repeat(5,minmax(0,1fr))}}
-@media(min-width:951px) and (max-width:1199px){.admin-finance-primary.has-operator{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:951px){.admin-finance-primary.has-operator{grid-template-columns:repeat(5,minmax(0,1fr))}}
