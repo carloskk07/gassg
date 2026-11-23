@@ -333,6 +333,42 @@ globalThis.adminNetworkPayoutPolicy=adminNetworkPayoutPolicy;
 globalThis.adminNetworkPayoutRecover=adminNetworkPayoutRecover;
 
 
+// V1.1159 — migração para PJ fica visível no Financeiro, mas seu módulo
+// e seus dados só são carregados depois de uma ação do superadmin.
+let adminOperatorLoadPromise=null;
+async function adminOperatorMigrationLoad(){
+  if(!adminNetworkPayoutActor())return;
+  if(typeof globalThis.adminOperatorPanel!=='function'){
+    if(!adminOperatorLoadPromise){
+      adminOperatorLoadPromise=new Promise((resolve,reject)=>{
+        const parent=document.querySelector('script[src*="admin-network-payout.js"]')?.src;
+        const script=document.createElement('script');
+        script.src=parent?new URL('admin-operator-transition.js',parent).href:
+          new URL('./js/admin-operator-transition.js',location.href).href;
+        script.async=true;
+        script.onload=()=>globalThis.adminOperatorPanel?resolve(true):
+          reject(Error('A preparação PJ não iniciou.'));
+        script.onerror=()=>reject(Error('Não foi possível abrir a preparação PJ.'));
+        document.head.appendChild(script);
+      }).finally(()=>{adminOperatorLoadPromise=null});
+    }
+    try{await adminOperatorLoadPromise}catch(e){toast(String(e?.message||e));return}
+  }
+  await globalThis.adminOperatorRefresh?.();
+}
+function adminOperatorTransitionSection(){
+  if(!adminNetworkPayoutActor())return '';
+  if(typeof globalThis.adminOperatorPanel==='function')
+    return globalThis.adminOperatorPanel();
+  return '<section class="section admin-operator-pj">'+
+    '<div class="section-head"><div><span class="section-kicker">EMPRESA • PREPARAÇÃO</span>'+
+    '<h3>Transição futura para CNPJ</h3>'+
+    '<p>Organize os dados fiscais, a conta PJ e as 12 verificações sem alterar os recebimentos atuais.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminOperatorMigrationLoad()">Preparar empresa</button>'+
+    '</div></section>';
+}
+globalThis.adminOperatorMigrationLoad=adminOperatorMigrationLoad;
+
 // TAMÃO V1.1034: operative payout mode is manual, never an automated PSP POST.
 const adminManualPayoutState={queue:null,pending:false,error:null};
 async function adminNetworkManualPayoutRefresh(){
@@ -499,7 +535,7 @@ function adminNetworkManualPayoutPanel(){
       '<div class="form-stack"><h4>Fila de saques</h4>'+
       (d.items.length?d.items.map(item).join(''):'<p class="tiny muted">Não há saques aguardando.</p>')+'</div>'+
       '<p class="tiny muted">O TAMÃO não realiza Pix nesta modalidade. Após o pagamento externo, guarde o comprovante bancário original; apenas a referência e o hash são registrados aqui. Saques aprovados não liberam saldo ao serem cancelados.</p>')+
-    '</section>';
+    '</section>'+adminOperatorTransitionSection();
 }
 globalThis.adminNetworkManualPayoutRefresh=adminNetworkManualPayoutRefresh;
 globalThis.adminNetworkManualPayoutMinimum=adminNetworkManualPayoutMinimum;

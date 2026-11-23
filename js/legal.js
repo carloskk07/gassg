@@ -39,7 +39,25 @@ function privacyPage(){
   );
 }
 
+// V1.1159 — identidade PJ pública só quando abrir os Termos; não pesa no checkout.
+function tamaoOperatorPublicProfileSchedule(){
+  // A identidade oficial só é consultada no domínio de produção.
+  // Builds locais e testes não devem chamar uma Edge ainda inexistente no ambiente.
+  const host=String(globalThis.location?.hostname||'').toLowerCase();
+  if(host!=='tamao.com.br'&&host!=='tamao-sg-cliente.pages.dev'&&
+     !host.endsWith('.tamao-sg-cliente.pages.dev'))return;
+  if(typeof globalThis.tamaoOperatorPublicProfileLoad==='function'){
+    void globalThis.tamaoOperatorPublicProfileLoad();return;
+  }
+  if(document.querySelector('script[src*="operator-public-identity.js"]'))return;
+  const el=document.createElement('script');
+  el.src=new URL('./js/operator-public-identity.js',location.href).href;
+  el.async=true;
+  el.onload=()=>globalThis.tamaoOperatorPublicProfileLoad?.();
+  document.head.appendChild(el);
+}
 function termsPage(){
+  queueMicrotask(()=>{tamaoOperatorPublicProfileSchedule()});
   return shell(
     legalHero(
       'TERMOS • TAMÃO',
@@ -60,7 +78,8 @@ function termsPage(){
     (globalThis.document?.getElementById('tamao-coupon-terms-template')?.innerHTML||
      '<p>Consulte as condições vigentes do pacote antes de comprar.</p>')+'</section>'+ 
     '<section class="legal-card"><h2>10. Regulamento da Rede TAMÃO</h2><p>As comissões elegíveis, o fundo coletivo de 10%, a conferência financeira e os saques manuais seguem o <a href="/rede-regulamento-2026-11-22.html" target="_blank" rel="noopener">Regulamento da Rede, versão 22/11/2026</a>. A solicitação de saque exige aceite expresso, saldo validado e aprovação individual. Não existe Pix automático.</p></section>'+ 
-    '<section class="legal-card"><h2>11. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
+    '<section class="legal-card"><h2>11. Responsável pela plataforma</h2><div id="tamao-legal-operator-identity"><p>Os dados da pessoa jurídica serão exibidos automaticamente após a formalização e ativação verificadas. Para identificar o atual responsável ou solicitar informações cadastrais, utilize o canal oficial de contato.</p></div></section>'+ 
+    '<section class="legal-card"><h2>12. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
     legalClose()
   );
 }

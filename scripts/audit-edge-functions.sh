@@ -286,6 +286,26 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'await verifyIndependentAdsSeller(config)' "${f%index.ts}handlers.ts" || { echo "$f missing authenticated seller verification"; exit 1; }
       grep -q 'independentAdsCredentialConfig' "${f%index.ts}handlers.ts" || { echo "$f missing shared credential policy"; exit 1; }
       ;;
+    supabase/functions/operator-public-identity/index.ts)
+      # Public informational GET only: no anonymous privileged SQL permissions,
+      # no private draft data, strict output projection, key and abuse quota.
+      grep -q 'const allowed=new Set' "$f" || { echo "$f missing official origin allowlist"; exit 1; }
+      grep -q 'req.headers.get("apikey")!==PUB' "$f" || { echo "$f missing publishable key validation"; exit 1; }
+      grep -q 'req.method!=="GET"' "$f" || { echo "$f must allow GET only"; exit 1; }
+      grep -q 'consume_hashed_api_quota' "$f" || { echo "$f missing server rate-limit"; exit 1; }
+      grep -q 'platform_operator_public_identity_v1_1159' "$f" || { echo "$f missing private read-only identity RPC"; exit 1; }
+      grep -q 'data.entityType==="individual"||data.public!==true' "$f" || { echo "$f could expose unverified candidate"; exit 1; }
+      grep -q '\[functions.operator-public-identity\]' supabase/config.toml || { echo "$f missing public-edge JWT opt-out"; exit 1; }
+      ! grep -q 'admin.from(' "$f" || { echo "$f must not directly query sensitive tables"; exit 1; }
+      ! grep -q 'candidate_cnpj\|prepared_by\|activated_by' "$f" || { echo "$f includes private operator fields"; exit 1; }
+      ! grep -q 'auth.getUser' "$f" || { echo "$f must not create guest Auth accounts"; exit 1; }
+      ;;
+    supabase/functions/operator-transition-ops/index.ts)
+      grep -q 'auth.getUser' "$f" || { echo "$f missing JWT verification"; exit 1; }
+      grep -q 'permission?.admin_role!=="superadmin"' "$f" || { echo "$f missing owner-only gate"; exit 1; }
+      grep -q 'enforceApiQuota' "$f" || { echo "$f missing server rate limit"; exit 1; }
+      grep -q '\[functions.operator-transition-ops\]' supabase/config.toml || { echo "$f missing explicit JWT verification mode"; exit 1; }
+      ;;
     *)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
       ;;

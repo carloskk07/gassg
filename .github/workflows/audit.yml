@@ -97,6 +97,8 @@ jobs:
         run: node tests/network-redemption-terms-v1-1155.mjs
       - name: V1.1156 Ads frozen balances and refunded campaign holds are not redeemable
         run: node tests/network-ads-dispute-v1-1156.mjs
+      - name: V1.1159 PF to PJ operator migration, alphanumeric CNPJ and financial isolation
+        run: node tests/operator-cnpj-transition-v1-1159.mjs
       - name: V1.1154 Ads 10 percent shared network fund sources, accounting, lifecycle and transparency
         run: node tests/network-ads-fund-v1-1154.mjs
       - name: V1.1145 trust-first Rede TAMÃO landing, accurate commission policies and routes

@@ -521,6 +521,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       for(const module of ['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent','admin-ads-credit']){
         fs.rmSync(path.join(target,'js',module+'.js'));
       }
+      // Legal migration tools are likewise Admin-only, but legacy smoke tests
+      // intentionally pin the original admin bundle manifest above.
+      fs.rmSync(path.join(target,'js','admin-operator-transition.js'),{force:true});
       // Deliver only CSS needed by the public portals. Keep every shared
       // admin-named class used by non-admin modules (the merchant reconciliation
       // panel currently uses .admin-entity-grid), and preserve admin CSS fully.

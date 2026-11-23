@@ -1889,6 +1889,20 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
       source.includes('data.products.map')&&
       !source.includes('admin.from(')&&!source.includes('auth.getUser'),
       'Preço regional público só pode projetar dados agregados sem identidade');
+  }else if(entry.name==='operator-public-identity'){
+    // Deliberate GET-only public endpoint: no JSON request body, no Auth
+    // account creation, and no direct privileged browser RPCs.
+    assert.ok(source.includes('req.method!=="GET"')&&
+      source.includes('req.headers.get("apikey")!==PUB')&&
+      source.includes('const allowed=new Set')&&
+      source.includes('consume_hashed_api_quota')&&
+      source.includes('p_limit:120,p_window_seconds:3600'),
+      'Identidade pública da PJ exige GET, origem, chave e quota');
+    assert.ok(source.includes('admin.rpc("platform_operator_public_identity_v1_1159")')&&
+      source.includes('data.entityType==="individual"||data.public!==true')&&
+      !source.includes('admin.from(')&&!source.includes('auth.getUser')&&
+      !source.includes('candidate_cnpj'),
+      'Dados da futura empresa somente após ativação, sem cadastro preparatório');
   }else if(entry.name==='merchant-public-plans'){
     assert.ok(source.includes('boundedEmptyObject(req)')&&source.includes('getReader()')&&source.includes('total>64'),
       'Catálogo comercial público precisa leitura incremental limitada');
