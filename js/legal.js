@@ -39,7 +39,45 @@ function privacyPage(){
   );
 }
 
+// V1.1159 — consulta apenas a identidade PJ formalmente ativada.
+// Rascunhos de empresa, CPF do operador e documentos não são retornados.
+let tamaoOperatorPublicProfileCache=null;
+async function tamaoOperatorPublicProfileLoad(){
+  const target=document.getElementById('tamao-legal-operator-identity');
+  if(!target)return;
+  const getProfile=async()=>{
+    if(tamaoOperatorPublicProfileCache)return tamaoOperatorPublicProfileCache;
+    if(!globalThis.CHAMA_BACKEND?.url||!CHAMA_BACKEND.publishableKey)return null;
+    const request=(globalThis.chamaFetch||fetch)(
+      CHAMA_BACKEND.url+'/rest/v1/rpc/platform_operator_public_identity_v1_1159',{
+        method:'POST',cache:'no-store',
+        headers:{'Content-Type':'application/json',apikey:CHAMA_BACKEND.publishableKey},
+        body:'{}'
+      });
+    const response=await request;
+    if(!response.ok)return null;
+    const data=await response.json();
+    if(data?.source!=='platform_operator_public_identity_v1_1159')return null;
+    tamaoOperatorPublicProfileCache=data;
+    return data;
+  };
+  try{
+    const profile=await getProfile();
+    if(!target.isConnected||document.getElementById('tamao-legal-operator-identity')!==target)return;
+    if(profile?.public===true&&profile.entityType==='company'&&
+       typeof profile.cnpj==='string'&&typeof profile.legalName==='string'){
+      // DOM textContent is deliberate: never insert business data as raw HTML.
+      target.textContent='';
+      const p=document.createElement('p');
+      p.textContent=profile.tradeName+' — '+profile.legalName+
+        ' · CNPJ '+profile.cnpj+' · '+profile.publicAddress+
+        ' · E-mail: '+profile.contactEmail;
+      target.appendChild(p);
+    }
+  }catch{/* A identidade ainda não confirmada nunca é inventada no navegador. */}
+}
 function termsPage(){
+  queueMicrotask(()=>{void tamaoOperatorPublicProfileLoad()});
   return shell(
     legalHero(
       'TERMOS • TAMÃO',
@@ -60,7 +98,8 @@ function termsPage(){
     (globalThis.document?.getElementById('tamao-coupon-terms-template')?.innerHTML||
      '<p>Consulte as condições vigentes do pacote antes de comprar.</p>')+'</section>'+ 
     '<section class="legal-card"><h2>10. Regulamento da Rede TAMÃO</h2><p>As comissões elegíveis, o fundo coletivo de 10%, a conferência financeira e os saques manuais seguem o <a href="/rede-regulamento-2026-11-22.html" target="_blank" rel="noopener">Regulamento da Rede, versão 22/11/2026</a>. A solicitação de saque exige aceite expresso, saldo validado e aprovação individual. Não existe Pix automático.</p></section>'+ 
-    '<section class="legal-card"><h2>11. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
+    '<section class="legal-card"><h2>11. Responsável pela plataforma</h2><div id="tamao-legal-operator-identity"><p>Os dados da pessoa jurídica serão exibidos automaticamente após a formalização e ativação verificadas. Para identificar o atual responsável ou solicitar informações cadastrais, utilize o canal oficial de contato.</p></div></section>'+ 
+    '<section class="legal-card"><h2>12. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
     legalClose()
   );
 }
