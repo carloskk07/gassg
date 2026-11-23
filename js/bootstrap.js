@@ -272,6 +272,19 @@ function tamaoEnsureEarnPremium(page){
   script.onerror=()=>{tamaoEarnPremiumRequested=false;};
   document.head.appendChild(script);
 }
+// Club styles load only on the real #club route; the existing account and PSP code is unchanged.
+function tamaoEnsureClubPremiumStyles(page){
+  if(page!=='club'||globalThis.adminPortalRequested?.()||
+     globalThis.merchantPortalRequested?.())return;
+  if(document.querySelector('link[data-tamao-club-premium]'))return;
+  const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+  const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  const link=document.createElement('link');
+  link.rel='stylesheet';
+  link.setAttribute('data-tamao-club-premium','');
+  link.href='./css/club-premium.css'+version;
+  document.head.appendChild(link);
+}
 let renderLock=false;
 let tamaoLastPublicRenderRoute='';
 function render(){
@@ -295,6 +308,7 @@ function render(){
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
     tamaoEnsurePublicExperienceStyles(r);
+    tamaoEnsureClubPremiumStyles(r);
     tamaoEnsureLearnPremium(r);
     tamaoEnsureEarnPremium(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
