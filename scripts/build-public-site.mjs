@@ -41,7 +41,7 @@ if(liveRuntime){
   if(TURNSTILE_TEST_KEYS.has(turnstileKey))throw new Error('Turnstile de teste é proibido no runtime público real');
 }
 
-const files=['index.html','manifest.webmanifest','sw.js','robots.txt'];
+const files=['index.html','manifest.webmanifest','sw.js','robots.txt','rede-regulamento-2026-11-22.html'];
 const dirs=['css','js','icons','assets'];
 
 fs.rmSync(out,{recursive:true,force:true});
@@ -165,7 +165,7 @@ for(const forbidden of ['supabase','tests','scripts','.github','.git']){
 }
 
 const required=[
-  'index.html','manifest.webmanifest','sw.js','robots.txt',
+  'index.html','manifest.webmanifest','sw.js','robots.txt','rede-regulamento-2026-11-22.html',
   'js/runtime-config.js','js/backend.js','js/core.js','js/analytics.js','js/acquisition.js','js/legal.js',
   'css/base.css','css/components.css','icons/icon.svg'
 ];
