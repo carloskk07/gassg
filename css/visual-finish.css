@@ -1,0 +1,163 @@
+/* TAMÃO V1.1165 — unified finished iconography and visual trust; presentation only. 
+   A single route-neutral system replaces OS-dependent emojis, placeholders and ornamental glyphs.
+   Never creates a transaction, a fictitious listing, a fake QR or an eligibility claim. */
+:root{
+ --vf-bag:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M5%208h14l1%2012H4L5%208Z'%2F%3E%3Cpath%20d%3D'M9%209V6a3%203%200%200%201%206%200v3'%2F%3E%3C%2Fsvg%3E");
+ --vf-ticket:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M4%205h16v4a3%203%200%200%200%200%206v4H4v-4a3%203%200%200%200%200-6V5Z'%2F%3E%3Cpath%20d%3D'M9%206v2m0%203v2m0%203v2'%2F%3E%3C%2Fsvg%3E");
+ --vf-hand:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'm2%2012%204-4%204%201%202.4%202.2M22%2012l-4-4-4%201-4%204'%2F%3E%3Cpath%20d%3D'm7%2013%204.5%204.5a2%202%200%200%200%202.8%200l4.7-4.7M9.5%2015.5l-1.1%201.1a2%202%200%200%201-2.8%200L2%2013M15.8%2016l.8.8a2%202%200%200%200%202.8%200L22%2014'%2F%3E%3C%2Fsvg%3E");
+ --vf-store:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M4%2010h16v11H4zM3%203h18l1%207c0%201.8-1.5%203-3%203s-3-1.2-3-3c0%201.8-1.5%203-4%203s-4-1.2-4-3c0%201.8-1.5%203-3%203s-3-1.2-3-3zM10%2015h4v6h-4z'%2F%3E%3C%2Fsvg%3E");
+ --vf-search:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D'10.5'%20cy%3D'10.5'%20r%3D'6.5'%2F%3E%3Cpath%20d%3D'm15.5%2015.5%206%206'%2F%3E%3C%2Fsvg%3E");
+ --vf-calendar:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'16'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M7%203v4m10-4v4M3%2010h18m-13%205h3m3%200h2'%2F%3E%3C%2Fsvg%3E");
+ --vf-car:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M5%2017H3V10l2-6h14l2%206v7h-2M5%2017h14M3%2010h18M7%2020v-3m10%203v-3'%2F%3E%3Ccircle%20cx%3D'7'%20cy%3D'14'%20r%3D'1'%20fill%3D'black'%2F%3E%3Ccircle%20cx%3D'17'%20cy%3D'14'%20r%3D'1'%20fill%3D'black'%2F%3E%3C%2Fsvg%3E");
+ --vf-bike:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D'5'%20cy%3D'17'%20r%3D'3'%2F%3E%3Ccircle%20cx%3D'19'%20cy%3D'17'%20r%3D'3'%2F%3E%3Cpath%20d%3D'M5%2017h5l3-7h5l3%204M11%2017l-4-8h4m3%201%202-3h4'%2F%3E%3C%2Fsvg%3E");
+ --vf-box:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'm12%202%209%205-9%205-9-5%209-5ZM3%207v10l9%205%209-5V7M12%2012v10'%2F%3E%3C%2Fsvg%3E");
+ --vf-wrench:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M14%204a6%206%200%200%201%206.5%208.5L11%2022l-5-5%209.5-9.5A6%206%200%200%201%2014%204Z'%2F%3E%3Cpath%20d%3D'm3%2017%204%204'%2F%3E%3C%2Fsvg%3E");
+ --vf-wallet:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D'3'%20y%3D'6'%20width%3D'18'%20height%3D'15'%20rx%3D'3'%2F%3E%3Cpath%20d%3D'M3%2010h18M15%2014h5v3h-5a1.5%201.5%200%200%201%200-3Z'%2F%3E%3C%2Fsvg%3E");
+ --vf-megaphone:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M3%2010h5l11-6v16l-11-6H3v-4ZM7%2014l2%207h4M21%209v6'%2F%3E%3C%2Fsvg%3E");
+ --vf-shield:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M12%202%2020%205v7c0%204.4-3%207.8-8%2010-5-2.2-8-5.6-8-10V5l8-3Z'%2F%3E%3Cpath%20d%3D'm8%2012%202.5%202.5L16%209'%2F%3E%3C%2Fsvg%3E");
+ --vf-link:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M9.5%2014.5%208%2016a4%204%200%200%201-5.6-5.6l4-4a4%204%200%200%201%205.6%200M14.5%209.5%2016%208a4%204%200%200%201%205.6%205.6l-4%204a4%204%200%200%201-5.6%200M8%2016l8-8'%2F%3E%3C%2Fsvg%3E");
+ --vf-clock:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%207v5l3.5%202'%2F%3E%3C%2Fsvg%3E");
+ --vf-pin:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M12%2022s7-8%207-13a7%207%200%200%200-14%200c0%205%207%2013%207%2013Z'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'9'%20r%3D'2'%2F%3E%3C%2Fsvg%3E");
+ --vf-receipt:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'M5%203h14v18l-3-2-4%202-4-2-3%202V3ZM9%208h6M9%2012h6M9%2016h4'%2F%3E%3C%2Fsvg%3E");
+ --vf-users:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D'9'%20cy%3D'8'%20r%3D'3'%2F%3E%3Cpath%20d%3D'M3%2020v-2c0-3%202.7-5%206-5s6%202%206%205v2H3ZM17%205a3%203%200%200%201%200%206M18%2013c2.5.4%204%202.1%204%205v2h-4'%2F%3E%3C%2Fsvg%3E");
+ --vf-spark:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.9%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D'm12%202%202.6%207.4L22%2012l-7.4%202.6L12%2022l-2.6-7.4L2%2012l7.4-2.6L12%202Z'%2F%3E%3C%2Fsvg%3E");
+ --vf-forest:#106445;--vf-ink:#163d2c;--vf-gold:#a77a3e;
+}
+:where(.tamao-benefit-emoji,.tamao-quick-path-icon,.tamao-visitor-paths .visitor-path-icon,
+.tamao-home-service .intent-icon,.tamao-home-coupon-icon,.sponsor-premium-format-icon,
+.learn-premium .learn-benefit-symbol,.tamao-network-connections .tamao-network-center>span,
+.tamao-network-connections .tamao-network-node>span,
+.tamao-cro-paths button>span:first-child,.opportunity-card .opportunity-icon){
+ --vf-symbol:var(--vf-shield);
+ display:grid;place-items:center;flex-shrink:0;
+ color:var(--vf-forest);font-size:0!important;
+}
+:where(.tamao-benefit-emoji,.tamao-quick-path-icon,.tamao-visitor-paths .visitor-path-icon,
+.tamao-home-service .intent-icon,.tamao-home-coupon-icon,.sponsor-premium-format-icon,
+.learn-premium .learn-benefit-symbol,.tamao-network-connections .tamao-network-center>span,
+.tamao-network-connections .tamao-network-node>span,
+.tamao-cro-paths button>span:first-child,.opportunity-card .opportunity-icon)::before{
+ content:"";display:block;flex:none;width:25px;height:25px;background:currentColor;
+ -webkit-mask:var(--vf-symbol) center/contain no-repeat;
+ mask:var(--vf-symbol) center/contain no-repeat
+}
+/* Home paths and benefits: stable, brand-colored icons instead of emoji stickers. */
+.tamao-quick-paths .tamao-quick-path:nth-child(1) .tamao-quick-path-icon{--vf-symbol:var(--vf-bag)}
+.tamao-quick-paths .tamao-quick-path:nth-child(2) .tamao-quick-path-icon{--vf-symbol:var(--vf-calendar)}
+.tamao-quick-paths .tamao-quick-path:nth-child(3) .tamao-quick-path-icon{--vf-symbol:var(--vf-search)}
+.tamao-quick-paths .tamao-quick-path:nth-child(4) .tamao-quick-path-icon{--vf-symbol:var(--vf-ticket)}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(1) .tamao-benefit-emoji{--vf-symbol:var(--vf-search)}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(2) .tamao-benefit-emoji{--vf-symbol:var(--vf-ticket);color:#9e7131}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(3) .tamao-benefit-emoji{--vf-symbol:var(--vf-hand)}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(4) .tamao-benefit-emoji{--vf-symbol:var(--vf-calendar)}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(5) .tamao-benefit-emoji{--vf-symbol:var(--vf-store)}
+.tamao-all-benefits .tamao-benefit-tile:nth-child(6) .tamao-benefit-emoji{--vf-symbol:var(--vf-megaphone);color:#9e7131}
+.tamao-visitor-paths .visitor-path-buyer .visitor-path-icon{--vf-symbol:var(--vf-bag)}
+.tamao-visitor-paths .visitor-path-merchant .visitor-path-icon{--vf-symbol:var(--vf-store);color:#93662c}
+.tamao-visitor-paths .visitor-path-network .visitor-path-icon{--vf-symbol:var(--vf-hand)}
+.tamao-visitor-paths .visitor-path-sponsor .visitor-path-icon{--vf-symbol:var(--vf-megaphone)}
+.tamao-home-mobility-grid .tamao-home-service:first-child .intent-icon{--vf-symbol:var(--vf-bike)}
+.tamao-home-mobility-grid .tamao-home-service:nth-child(2) .intent-icon{--vf-symbol:var(--vf-car)}
+.tamao-home-support-grid .tamao-home-service:nth-child(1) .intent-icon{--vf-symbol:var(--vf-box)}
+.tamao-home-support-grid .tamao-home-service:nth-child(2) .intent-icon{--vf-symbol:var(--vf-box)}
+.tamao-home-support-grid .tamao-home-service:nth-child(3) .intent-icon{--vf-symbol:var(--vf-wrench)}
+.tamao-home-support-grid .tamao-home-service:nth-child(4) .intent-icon{--vf-symbol:var(--vf-car)}
+.tamao-home-support-grid .tamao-home-service:nth-child(5) .intent-icon{--vf-symbol:var(--vf-calendar)}
+.tamao-home-coupon-rail .tamao-home-coupon-icon{--vf-symbol:var(--vf-ticket);width:45px;height:45px;border-radius:14px;background:#fff6dd;color:#8f681b}
+.tamao-home-coupon-rail .tamao-home-coupon-icon::before{width:25px;height:25px}
+.tamao-all-benefits .tamao-benefit-emoji,.tamao-quick-path-icon,.tamao-visitor-paths .visitor-path-icon{
+ background-image:linear-gradient(140deg,#e6f4e9,#f9fbf4);
+ border:1px solid #d0e4d3;box-shadow:0 5px 13px #123b2810
+}
+.tamao-visitor-paths .visitor-path-merchant .visitor-path-icon,.tamao-all-benefits .tamao-benefit-tile:nth-child(2) .tamao-benefit-emoji,
+.tamao-all-benefits .tamao-benefit-tile:nth-child(6) .tamao-benefit-emoji{background-image:linear-gradient(145deg,#fbefda,#fffcf6);border-color:#e8d7b6}
+.tamao-home-mobility-grid .intent-icon::before{width:31px;height:31px}
+.tamao-benefit-tile:hover,.tamao-visitor-paths .visitor-path:hover{
+ border-color:#a5cfb1;box-shadow:0 15px 28px #15472b16
+}
+/* Revenue cards and educational modules: no more solitary ✦ and ↗ treated as illustrations. */
+.learn-premium .learn-benefit-club .learn-benefit-symbol{--vf-symbol:var(--vf-ticket)}
+.learn-premium .learn-benefit-network .learn-benefit-symbol{--vf-symbol:var(--vf-link)}
+.learn-premium .learn-benefit-symbol::before{width:28px;height:28px}
+.tamao-network-connections .tamao-network-center>span{--vf-symbol:var(--vf-link);color:#17543a}
+.tamao-network-connections .tamao-network-node--buyer>span{--vf-symbol:var(--vf-bag);color:#f2e2b7}
+.tamao-network-connections .tamao-network-node--seller>span{--vf-symbol:var(--vf-store);color:#f2e2b7}
+.tamao-network-connections .tamao-network-node>span::before{width:28px;height:28px}
+.tamao-cro-paths button:nth-child(1)>span:first-child{--vf-symbol:var(--vf-link)}
+.tamao-cro-paths button:nth-child(2)>span:first-child{--vf-symbol:var(--vf-ticket)}
+.tamao-cro-paths button:nth-child(3)>span:first-child{--vf-symbol:var(--vf-store)}
+.tamao-cro-paths button>span:first-child::before{width:24px;height:24px}
+.person-opportunity .opportunity-icon{--vf-symbol:var(--vf-link)}
+.business-opportunity .opportunity-icon{--vf-symbol:var(--vf-store)}
+.opportunity-card .opportunity-icon{width:49px;height:49px;border-radius:14px;background:#e7f3e9;margin-bottom:13px}
+.opportunity-card .opportunity-icon::before{width:27px;height:27px}
+/* Sponsor formats and trust rail: relevant finished symbols rather than random typographic marks. */
+.sponsor-premium-format-icon{width:54px;height:54px;border:1px solid #cbe2cf;border-radius:16px;
+ background:#eaf5ec;color:#176d49;margin-bottom:14px}
+.sponsor-premium-format-icon::before{width:29px;height:29px}
+.sponsor-format-grid article:nth-child(1) .sponsor-premium-format-icon{--vf-symbol:var(--vf-megaphone)}
+.sponsor-format-grid article:nth-child(2) .sponsor-premium-format-icon{--vf-symbol:var(--vf-wallet)}
+.sponsor-format-grid article:nth-child(3) .sponsor-premium-format-icon{--vf-symbol:var(--vf-store)}
+.sponsor-premium-trust-rail>div>span:first-child{font-size:0!important;position:relative;display:grid;place-items:center;width:37px;height:37px;flex:none;color:#166949}
+.sponsor-premium-trust-rail>div>span:first-child::before{
+ content:"";display:block;width:24px;height:24px;background:currentColor;
+ -webkit-mask:var(--vf-symbol,var(--vf-shield)) center/contain no-repeat;mask:var(--vf-symbol,var(--vf-shield)) center/contain no-repeat
+}
+.sponsor-premium-trust-rail>div:nth-child(1)>span:first-child{--vf-symbol:var(--vf-pin)}
+.sponsor-premium-trust-rail>div:nth-child(2)>span:first-child{--vf-symbol:var(--vf-shield)}
+.sponsor-premium-trust-rail>div:nth-child(3)>span:first-child{--vf-symbol:var(--vf-wallet)}
+.sponsor-premium-trust-rail>div:nth-child(4)>span:first-child{--vf-symbol:var(--vf-receipt)}
+/* A layout demonstration must look like an example of an ad location, never loading skeletons. */
+.sponsor-placement-faux-products{gap:8px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.sponsor-placement-faux-products span{
+ width:auto;min-height:51px;height:auto;display:grid;align-content:center;place-items:center;
+ padding:9px 6px;text-align:center;background:#f0f6ef;border:1px solid #d5e7d9;border-radius:11px;
+ color:#4e725b;font-size:10px;font-weight:850;line-height:1.35
+}
+.sponsor-placement-faux-products span:nth-child(2){background:#fcf7ea;border-color:#ebdec5}
+.sponsor-placement-faux-lines{display:flex;flex-wrap:wrap;gap:8px}
+.sponsor-placement-faux-lines span,.sponsor-placement-faux-lines span+span{
+ display:inline-flex;align-items:center;justify-content:center;width:auto;min-height:31px;height:auto;
+ padding:6px 10px;border:1px solid #dce9dd;border-radius:10px;background:#eef6ef;
+ color:#49745b;font-size:10px;font-weight:800;line-height:1.25
+}
+.sponsor-placement-faux-lines span:nth-child(2){background:#f9f4e8;border-color:#e9dcbf}
+.sponsor-placement-faux-lines span:nth-child(3){background:#fff;border-color:#d9e4db}
+/* Coupons: savings must never be implied before catalog verification. */
+.tamao-coupon-banner-tags span{position:relative;padding-left:25px}
+.tamao-coupon-banner-tags span::before{
+ content:"";position:absolute;left:3px;top:50%;width:15px;height:15px;transform:translateY(-50%);
+ background:currentColor;-webkit-mask:var(--vf-symbol,var(--vf-ticket)) center/contain no-repeat;
+ mask:var(--vf-symbol,var(--vf-ticket)) center/contain no-repeat
+}
+.tamao-coupon-banner-tags span:nth-child(1){--vf-symbol:var(--vf-ticket)}
+.tamao-coupon-banner-tags span:nth-child(2){--vf-symbol:var(--vf-wallet)}
+.tamao-coupon-banner-tags span:nth-child(3){--vf-symbol:var(--vf-link)}
+.tamao-coupon-banner-sticker{gap:7px}
+.tamao-coupon-banner-sticker::before{content:"";display:block;width:27px;height:27px;background:#fff8d7;
+ -webkit-mask:var(--vf-wallet) center/contain no-repeat;mask:var(--vf-wallet) center/contain no-repeat}
+.tamao-coupon-ticket-top::before,.tamao-coupon-ticket-bottom b::before{
+ content:"";display:inline-block;width:14px;height:14px;vertical-align:-3px;margin-right:5px;
+ background:currentColor;-webkit-mask:var(--vf-ticket) center/contain no-repeat;
+ mask:var(--vf-ticket) center/contain no-repeat
+}
+.tamao-coupon-ticket-bottom b{font-size:0!important}
+.tamao-coupon-ticket-bottom b::before{width:18px;height:18px;margin:0}
+.tamao-coupon-banner-kicker>span:first-child{display:inline-block;width:12px;height:12px;font-size:0!important;
+ background:currentColor;-webkit-mask:var(--vf-ticket) center/contain no-repeat;mask:var(--vf-ticket) center/contain no-repeat}
+/* Brandwide craft: focus, density, optical alignment, accessibility. */
+:is(.tamao-quick-path,.tamao-benefit-tile button,.visitor-path button,.sponsor-premium-formats button,
+.learn-premium button,.tamao-home-service,.tamao-coupon-banner button):focus-visible{
+ outline:3px solid #b58229;outline-offset:3px
+}
+:where(.tamao-benefit-tile,.visitor-path,.sponsor-format-grid article,.opportunity-card) h3{
+ text-wrap:balance
+}
+@media(max-width:740px){
+ .sponsor-placement-faux-products{gap:6px}
+ .sponsor-placement-faux-products span{font-size:9px;padding:7px 5px}
+ .sponsor-premium-format-icon{width:48px;height:48px}
+}
+@media(prefers-reduced-motion:reduce){
+ .tamao-benefit-tile,.tamao-visitor-paths .visitor-path{transition:none!important}
+}
