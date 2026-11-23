@@ -17,6 +17,7 @@ on:
       - 'js/clube-coupon-shop.js'
       - 'tests/club-premium-browser-v1-1164.mjs'
       - 'js/earn-premium.js'
+      - 'tests/global-visual-browser-v1-1165.mjs'
       - 'tests/earn-premium-browser-v1-1145.mjs'
       - 'tests/earn-premium-trust-v1-1145.mjs'
       - 'js/growth.js'
@@ -125,6 +126,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/club-premium-browser-v1-1164.mjs
+
+      - name: V1.1165 premium finish: Home, Learn, Sponsors, Rede, Clube in 360/1280 Chrome
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/global-visual-browser-v1-1165.mjs
 
       - name: Check real painted advertisement CTA in isolated Chrome at 360 and 1120 px
         env:
