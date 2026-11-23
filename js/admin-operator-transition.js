@@ -2,7 +2,9 @@
 // Nunca faz transferências, troca credenciais financeiras ou inventa comprovantes.
 const adminOperatorState={actor:null,data:null,pending:false,error:null};
 function adminOperatorSession(){
-  const actor=typeof adminNetworkPayoutActor==='function'?adminNetworkPayoutActor():null;
+  const actor=typeof adminReady==='function'&&adminReady()&&
+    typeof adminCurrentRole==='function'&&adminCurrentRole()==='superadmin'
+      ?String(adminRuntime.session?.user?.id||'')||null:null;
   if(adminOperatorState.actor!==actor){
     adminOperatorState.actor=actor;adminOperatorState.data=null;
     adminOperatorState.error=null;adminOperatorState.pending=false;
