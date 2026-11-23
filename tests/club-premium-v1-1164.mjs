@@ -33,7 +33,7 @@ for(const must of [
 assert.match(guest,/class="tamao-coupon-price-board card form-stack[^"]*" hidden/);
 assert.match(guest,/<form[^>]*data-tamao-account-context="club"/);
 assert.equal((guest.match(/<details>/g)||[]).length,5);
-assert.equal((guest.match(/class="club-premium-benefit"/g)||[]).length,3);
+assert.equal((guest.match(/class="card club-premium-benefit"/g)||[]).length,3);
 assert.doesNotMatch(guest,/SEU CASHBACK DISPONÍVEL|my-private-vouchers/);
 assert.doesNotMatch(guest,/R\$ ?8,90|R\$ ?19,90|QR Code Pix|compra garantida|economia garantida/i);
 assert.equal((guest.match(/<svg class="club-premium-icon"/g)||[]).length,10);
