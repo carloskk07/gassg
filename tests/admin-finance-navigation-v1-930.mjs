@@ -31,7 +31,8 @@ assert.match(html,/Não pague novamente/);
 assert.match(html,/Continuar conferência/);
 assert.match(html,/admin-finance-primary/);
 assert.match(html,/Configurações e ferramentas avançadas/);
-assert.equal((html.match(/id='admin-finance-switch-/g)||[]).length,6);
+assert.equal((html.match(/id='admin-finance-switch-/g)||[]).length,7);
+assert.ok(html.includes('Empresa / CNPJ'),'A nova área do superadmin deve ser visível');
 assert(html.indexOf("admin-finance-switch-homologation")<
  html.indexOf("admin-finance-secondary"),'real payments must be easy to find');
 assert(html.indexOf("admin-finance-switch-lab")>
@@ -51,6 +52,8 @@ role='finance';
 html=context.nav();
 assert(!html.includes('adminFinanceOpenCouponReview()'),
  'coupon shortcut must not be visible to other roles');
+assert(!html.includes("admin-finance-switch-operator"),
+ 'A preparação da pessoa jurídica não pode aparecer para outros perfis');
 assert(!html.includes("admin-finance-switch-lab"),
  'financial lab restricted to owner');
 assert(!html.includes("admin-finance-switch-homologation"),
