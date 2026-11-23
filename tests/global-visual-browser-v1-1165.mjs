@@ -53,7 +53,7 @@ try{
     await sleep(170);
     const answer=await send('Runtime.evaluate',{expression:makeInspect(page.icon),returnByValue:true,awaitPromise:true});
     if(answer?.result?.value)item=JSON.parse(answer.result.value);
-    if(item?.ready&&item.style&&item.icon)break;
+    if(item?.ready&&item.style&&item.icon&&(!['home','learn','sponsors'].includes(page.name)||item.mask?.includes('data:image/svg+xml')))break;
    }
    assert.ok(item?.ready&&item.style&&item.icon,`Route ${page.name} not loaded at ${width}: ${JSON.stringify(item)}`);
    assert.ok(item.scroll<=width+2,`Horizontal overflow ${page.name}@${width}: ${JSON.stringify(item)}`);
