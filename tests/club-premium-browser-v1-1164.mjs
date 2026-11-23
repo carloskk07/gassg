@@ -56,7 +56,7 @@ try{
   assert.ok(item.account&&item.login&&item.register,'Identified customer login/register broken: '+JSON.stringify(item));
   assert.equal(item.benefits,3);
   assert.equal(item.faq,5);
-  assert.match(item.heading,/Suas compras podem render muito mais no Clube TAMÃO/);
+  assert.match(item.heading,/Cupons e cashback/);
   assert.equal(item.error,null);
   // Do not issue an OTP, payment or request: only native disclosure and safe scroll action.
   const disclosure=await send('Runtime.evaluate',{expression:'(()=>{const d=document.querySelector(".club-premium-faq-items details");d.open=false;d.querySelector("summary").click();return d.open})()',returnByValue:true});
