@@ -104,14 +104,14 @@ function agendaDesignPreviewMarkup(input,profile){
  const cards=services.length?services.map(item=>{
   const img=imageFor(input.service_images,item.id);
   return '<article class="agenda-design-live-service">'+
-   (img?'<img src="'+esc(img)+'" alt="">':'<span class="agenda-design-live-image" aria-hidden="true">✦</span>')+
+   (img?'<img src="'+esc(img)+'" alt="">':'<span class="agenda-design-live-image" aria-hidden="true"></span>')+
    '<div><strong>'+safe(item.title)+'</strong><small>'+safe(item.duration_min||30)+' min · '+agendaMoney(item.price_cents||0)+'</small></div></article>';
  }).join(''):'<p>Seus serviços aparecerão aqui.</p>';
  const highlights=Array.isArray(input.highlights)?input.highlights.slice(0,4).filter(Boolean):[];
  return '<div class="agenda-design-live theme-'+template+' font-'+font+'" style="--ap-primary:'+primary+';--ap-accent:'+accent+'">'+
   '<div class="agenda-design-live-top"><span>'+safe(profile.title||'Seu estabelecimento')+'</span><span>Serviços · Reservas</span></div>'+
   '<div class="agenda-design-live-cover">'+(cover?'<img src="'+esc(cover)+'" alt="">':'')+
-   (logo?'<img class="agenda-design-live-logo" src="'+esc(logo)+'" alt="">':'<span class="agenda-design-live-mark" aria-hidden="true">✦</span>')+
+   (logo?'<img class="agenda-design-live-logo" src="'+esc(logo)+'" alt="">':'<span class="agenda-design-live-mark" aria-hidden="true">'+safe(String(profile.title||'A').trim().charAt(0).toUpperCase())+'</span>')+
    '<strong>'+safe(input.headline||profile.title||'Seu estabelecimento')+'</strong>'+
    '<span>'+safe(input.tagline||'Seu atendimento, do seu jeito.')+'</span>'+
    '<span class="agenda-design-live-hero-button">Agendar horário</span></div>'+
@@ -122,7 +122,7 @@ function agendaDesignPreviewMarkup(input,profile){
    (section('show_team')&&team.length?heading('PROFISSIONAIS','Nossa equipe')+
     '<div class="agenda-design-live-team">'+team.map(item=>{
      const photo=imageFor(input.staff_images,item.id);
-     return '<div>'+(photo?'<img src="'+esc(photo)+'" alt="">':'<span aria-hidden="true">✦</span>')+
+     return '<div>'+(photo?'<img src="'+esc(photo)+'" alt="">':'<span class="agenda-design-live-avatar" aria-hidden="true">'+safe(String(item.name||'P').trim().charAt(0).toUpperCase())+'</span>')+
       '<strong>'+safe(item.name)+'</strong></div>';
     }).join('')+'</div>':'')+
    (section('show_gallery')&&photos.length?heading('NOSSO ESPAÇO','Galeria')+
@@ -364,7 +364,7 @@ function agendaDesignPublicView(p,bookingForm){
  const hero='<section class="agenda-premium-hero" id="inicio">'+
   (cover?'<img class="agenda-premium-cover" src="'+esc(cover)+'" alt="">':'')+
   '<div class="agenda-premium-hero-inner">'+
-   (logo?'<img class="agenda-premium-logo" src="'+esc(logo)+'" alt="Marca de '+safe(p.title)+'">':'<span class="agenda-premium-symbol" aria-hidden="true">✦</span>')+
+   (logo?'<img class="agenda-premium-logo" src="'+esc(logo)+'" alt="Marca de '+safe(p.title)+'">':'<span class="agenda-premium-symbol" aria-hidden="true">'+safe(String(p.title||'A').trim().charAt(0).toUpperCase())+'</span>')+
    '<span class="agenda-premium-overline">BEM-VINDO A '+safe(p.title)+'</span>'+
    '<h1>'+safe(title)+'</h1><p>'+safe(d.tagline||p.about||'Seu próximo atendimento começa aqui.')+'</p>'+
    '<a href="#agenda-premium-book" class="agenda-premium-button">Agendar horário</a>'+
@@ -374,7 +374,7 @@ function agendaDesignPublicView(p,bookingForm){
   (realService.length?'<div class="agenda-premium-cards">'+realService.map(item=>{
    const src=serviceImg(item);
    return '<article class="agenda-premium-service">'+
-    (src?'<img loading="lazy" src="'+esc(src)+'" alt="Foto de '+safe(item.title)+'">':'<div class="agenda-premium-photo-fallback" aria-hidden="true">✦</div>')+
+    (src?'<img loading="lazy" src="'+esc(src)+'" alt="Foto de '+safe(item.title)+'">':'<div class="agenda-premium-photo-fallback" aria-hidden="true"></div>')+
     '<div><h3>'+safe(item.title)+'</h3><p>'+Number(item.duration_min)+' minutos</p>'+
     '<strong>'+agendaMoney(item.price_cents)+'</strong>'+
     '<button type="button" onclick="agendaDesignChooseService(\''+esc(item.id)+'\')">Escolher serviço</button></div></article>';
@@ -387,7 +387,7 @@ function agendaDesignPublicView(p,bookingForm){
   '<div class="agenda-premium-team">'+team.map(item=>{
    const src=staffImg(item);
    return '<article>'+(src?'<img loading="lazy" src="'+esc(src)+'" alt="Foto de '+safe(item.name)+'">':
-    '<span class="agenda-premium-avatar" aria-hidden="true">✦</span>')+'<h3>'+safe(item.name)+'</h3></article>';
+    '<span class="agenda-premium-avatar" aria-hidden="true">'+safe(String(item.name||'P').trim().charAt(0).toUpperCase())+'</span>')+'<h3>'+safe(item.name)+'</h3></article>';
   }).join('')+'</div></section>':'';
  const gallery=d.show_gallery&&photos.length?'<section class="agenda-premium-section" id="galeria">'+
   '<div class="agenda-premium-heading"><span>NOSSO ESPAÇO</span><h2>Galeria</h2></div><div class="agenda-premium-gallery">'+
