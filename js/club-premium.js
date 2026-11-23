@@ -23,7 +23,7 @@ if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-prem
 <header class="tamao-club-visitor-focus club-premium-hero">
  <div class="tamao-club-visitor-hero club-premium-hero-copy">
   <span class="eyebrow club-premium-eyebrow"><span class="club-premium-mark" aria-hidden="true"></span> CLUBE TAMÃO / VANTAGENS LOCAIS</span>
-  <h1>Suas compras podem render muito mais no Clube TAMÃO.<em> Com benefícios claros, do início ao fim.</em></h1>
+  <h1>Cupons e cashback.<em> Benefícios claros no Clube TAMÃO.</em></h1>
   <p class="club-premium-lead">Cupons, cashback elegível e oportunidades da sua cidade. Consulte as condições, veja o que está disponível para você e acompanhe tudo na sua conta.</p>
   <div class="club-premium-actions">
    <button type="button" class="club-premium-button club-premium-primary" onclick="document.getElementById('club-premium-account')?.scrollIntoView({behavior:'smooth',block:'start'})">Acessar meu Clube <span aria-hidden="true">→</span></button>
