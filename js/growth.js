@@ -196,42 +196,86 @@ if(globalThis.document&&!globalThis.cshop){
 globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
 }
 globalThis.clubeCouponWatchAuth?.();
-// V1.969: the verified package is the destination, not a third generic
-// benefit pitch. Hidden until the public catalog confirms real prices.
-if(!member)return shell(`<section class="page tamao-club-visitor">
-<div class="tamao-club-visitor-focus">
-<div class="tamao-club-visitor-hero">
-<span class="eyebrow">CLUBE TAMÃO</span>
-<h1>Suas compras podem render muito mais no Clube TAMÃO.</h1>
-<p>Cupons, cashback e suas vantagens em um só lugar. Entre no Clube e conheça o que pode aproveitar.</p>
-<form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
-<label for="clube-visitor-coupon-name">Nome e sobrenome (para criar conta)</label>
-<input id="clube-visitor-coupon-name" name="full_name" class="input" type="text" autocomplete="name" placeholder="Nome e sobrenome" maxlength="100">
-<label for="clube-visitor-coupon-phone">Telefone com DDD (para criar conta)</label>
-<input id="clube-visitor-coupon-phone" name="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999" maxlength="18">
-<label for="clube-visitor-coupon-email">Seu e-mail</label>
-<input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-<button type="submit" class="primary" name="intent" value="login">Entrar no meu Clube →</button>
-<button type="submit" class="secondary tamao-club-register" name="intent" value="register">Primeiro acesso? Criar minha conta</button>
-<p data-welcome-signup-status role="status"></p>
-<small>Confira sua caixa de entrada para confirmar o acesso.</small>
-</form>
-</div>
-<aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado">
-<span class="section-kicker">PACOTE DE CUPONS</span>
-<h2>Pacote disponível</h2>
-<p class="tamao-club-face" data-coupon-face></p>
-<p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p>
-<p data-coupon-minimum></p>
-<p data-coupon-availability></p>
-<details class="tamao-benefits-details"><summary>Detalhes de uso do pacote</summary><p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP. Veja validade e condições ao usar. Entrar não gera cobrança.</p></details>
+// V1.1164: Decorative icons share one finished style and never impersonate a real offer.
+const clubPremiumIcon=kind=>{
+ const paths={
+  ticket:'<path d="M4 5h16v4a3 3 0 0 0 0 6v4H4v-4a3 3 0 0 0 0-6V5Z" fill="currentColor" opacity=".22"/><path d="M9 5v14M13 8.5h4M13 12h4M13 15.5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>',
+  wallet:'<rect x="3" y="5" width="18" height="15" rx="3" fill="currentColor" opacity=".2"/><path d="M3 9.5h18M14.5 13h4.2v3.2h-4.2a1.6 1.6 0 0 1 0-3.2Z" fill="currentColor"/>',
+  shield:'<path d="M12 2 20 5v6.7c0 4.8-3 8.4-8 10.3C7 20.1 4 16.5 4 11.7V5l8-3Z" fill="currentColor" opacity=".2"/><path d="m8 11.9 2.6 2.5 5.5-5.7" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  receipt:'<path d="M5 2.8h14v19l-3.4-1.7-3.6 1.7-3.5-1.7L5 21.8v-19Z" fill="currentColor" opacity=".2"/><path d="M8.5 8.3h7M8.5 12.3h7M8.5 16.3h4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>',
+  pin:'<path d="M12 22c4.5-5.8 7-9.4 7-13a7 7 0 1 0-14 0c0 3.6 2.5 7.2 7 13Z" fill="currentColor" opacity=".18"/><circle cx="12" cy="9" r="2.8" fill="currentColor"/>'
+ };
+ return '<svg class="club-premium-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">'+(paths[kind]||paths.receipt)+'</svg>';
+};
+// A public verified-price card may only be unhidden by the canonical live catalog.
+// The account form preserves its exact IDs, names, intents and Turnstile workflow.
+if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-premium club-premium-visitor" aria-labelledby="club-premium-title">
+<header class="tamao-club-visitor-focus club-premium-hero">
+ <div class="tamao-club-visitor-hero club-premium-hero-copy">
+  <span class="eyebrow club-premium-eyebrow"><span class="club-premium-mark" aria-hidden="true"></span> CLUBE TAMÃO / VANTAGENS LOCAIS</span>
+  <h1>Suas compras podem render muito mais no Clube TAMÃO.<em> Com benefícios claros, do início ao fim.</em></h1>
+  <p class="club-premium-lead">Cupons, cashback elegível e oportunidades da sua cidade. Consulte as condições, veja o que está disponível para você e acompanhe tudo na sua conta.</p>
+  <div class="club-premium-actions">
+   <button type="button" class="club-premium-button club-premium-primary" onclick="document.getElementById('club-premium-account')?.scrollIntoView({behavior:'smooth',block:'start'})">Acessar meu Clube <span aria-hidden="true">→</span></button>
+   <button type="button" class="club-premium-button club-premium-outline" onclick="document.getElementById('club-premium-benefits')?.scrollIntoView({behavior:'smooth',block:'start'})">Conhecer os benefícios</button>
+  </div>
+  <div class="club-premium-trustline" aria-label="Compromissos do Clube"><span>${clubPremiumIcon('shield')} Cadastro identificado</span><span>${clubPremiumIcon('receipt')} Condições visíveis</span><span>${clubPremiumIcon('pin')} Vantagens por região</span></div>
+  <div class="club-premium-message"><span class="club-premium-message-symbol">${clubPremiumIcon('shield')}</span><p><strong>Sem surpresas.</strong> Entrar no Clube não gera cobrança. Cupons e cashback dependem de regras, disponibilidade e validações próprias.</p></div>
+ </div>
+ <aside class="club-premium-entry-card" id="club-premium-account" aria-labelledby="club-premium-account-title">
+  <div class="club-premium-card-top"><span class="club-premium-card-monogram">T<span>•</span></span><span>ACESSO AO CLUBE</span></div>
+  <h2 id="club-premium-account-title">Sua conta. Suas vantagens.</h2>
+  <p>Entre com seu e-mail ou faça seu primeiro cadastro. O acesso é confirmado pela sua caixa de entrada.</p>
+  <form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
+   <label for="clube-visitor-coupon-name">Nome e sobrenome (para criar conta)</label>
+   <input id="clube-visitor-coupon-name" name="full_name" class="input" type="text" autocomplete="name" placeholder="Como podemos chamar você?" maxlength="100">
+   <label for="clube-visitor-coupon-phone">Telefone com DDD (para criar conta)</label>
+   <input id="clube-visitor-coupon-phone" name="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999" maxlength="18">
+   <label for="clube-visitor-coupon-email">Seu e-mail</label>
+   <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
+   <button type="submit" class="primary" name="intent" value="login">Entrar no meu Clube →</button>
+   <button type="submit" class="secondary tamao-club-register" name="intent" value="register">Primeiro acesso? Criar minha conta</button>
+   <p data-welcome-signup-status role="status" aria-live="polite"></p>
+   <small>Confira sua caixa de entrada para confirmar o acesso. Não solicitamos senha nem pagamento para entrar.</small>
+  </form>
+ </aside>
+</header>
+<div class="club-premium-trustbar" aria-label="Como protegemos seus benefícios"><span>${clubPremiumIcon('receipt')} <strong>Histórico na sua conta</strong> para consultar o que foi reconhecido</span><span>${clubPremiumIcon('shield')} <strong>Sem crédito fictício:</strong> benefícios passam por validação</span><span>${clubPremiumIcon('pin')} <strong>Uso regional:</strong> disponibilidade depende do CEP</span></div>
+<aside class="tamao-coupon-price-board card form-stack club-premium-verified-offer" hidden aria-label="Pacote de cupons com preço confirmado" id="club-premium-offers">
+ <div class="club-premium-offer-heading"><span class="section-kicker">PACOTE DE CUPONS · CATÁLOGO CONFERIDO</span><h2>Condições do pacote em destaque</h2><p>O preço e as condições abaixo vêm do catálogo oficial, não de um exemplo.</p></div>
+ <div class="club-premium-offer-data"><p class="tamao-club-face" data-coupon-face></p><p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p><p data-coupon-minimum></p><p data-coupon-availability></p></div>
+ <details class="tamao-benefits-details"><summary>Regras, validade e disponibilidade</summary><p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP. Veja validade e condições ao usar. Entrar não gera cobrança. Confira no Clube se a compra está habilitada antes de pagar.</p></details>
 </aside>
-</div>
-<div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
-<article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Descontos para aproveitar</h2><p>Descubra os cupons disponíveis e acompanhe os que você já conquistou.</p></article>
-<article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback para voltar</h2><p>Acompanhe o crédito das compras participantes e use o saldo disponível em novas compras.</p></article>
-<article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Mais controle da sua economia</h2><p>Compare o preço total por CEP e veja seus benefícios registrados na conta.</p></article>
-</div>
+<section id="club-premium-benefits" class="club-premium-benefits" aria-labelledby="club-premium-benefits-title">
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">01 / O QUE VOCÊ ENCONTRA</span><h2 id="club-premium-benefits-title">Benefícios compreensíveis.<br><em>Sem letras miúdas escondidas.</em></h2><p>São modalidades diferentes. Cada vantagem tem uma condição, um momento de validação e um histórico próprio.</p></div>
+ <div class="grid cards-3 tamao-club-visitor-grid club-premium-benefit-grid" aria-label="Vantagens do Clube">
+  <article class="card club-premium-benefit"><span class="club-premium-feature-icon">${clubPremiumIcon('ticket')}</span><span class="club-premium-card-counter">01 / CUPONS</span><h3>Descontos para aproveitar</h3><p>Veja pacotes elegíveis, valor, quantidade, prazo e pedido mínimo. Um cupom só pode ser usado quando as regras e a cobertura permitirem.</p><div class="club-premium-benefit-foot">Condições antes da compra</div></article>
+  <article class="card club-premium-benefit"><span class="club-premium-feature-icon">${clubPremiumIcon('wallet')}</span><span class="club-premium-card-counter">02 / CASHBACK</span><h3>Cashback para voltar</h3><p>Créditos de compras elegíveis aparecem no saldo após a confirmação aplicável. Valores em análise e compensações não são dinheiro disponível.</p><div class="club-premium-benefit-foot">Saldo conferido na conta</div></article>
+  <article class="card club-premium-benefit"><span class="club-premium-feature-icon">${clubPremiumIcon('receipt')}</span><span class="club-premium-card-counter">03 / TRANSPARÊNCIA</span><h3>Mais controle da sua economia</h3><p>Compare o preço total por CEP, acompanhe suas compras concluídas e consulte a origem dos benefícios reconhecidos.</p><div class="club-premium-benefit-foot">Origem e validade acessíveis</div></article>
+ </div>
+</section>
+<section class="club-premium-how" aria-labelledby="club-premium-how-title">
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">02 / SIMPLES NA PRÁTICA</span><h2 id="club-premium-how-title">Da descoberta ao benefício.<br><em>Sem complicação.</em></h2></div>
+ <ol class="club-premium-steps">
+  <li><span class="club-premium-step-number">01</span><div><h3>Entre na sua conta</h3><p>Identifique-se e confirme o e-mail. Sua carteira e seus cupons ficam vinculados à sua conta.</p></div></li>
+  <li><span class="club-premium-step-number">02</span><div><h3>Confira a condição</h3><p>Verifique preço, CEP, prazo, pedido mínimo e disponibilidade real antes de decidir.</p></div></li>
+  <li><span class="club-premium-step-number">03</span><div><h3>Acompanhe o resultado</h3><p>Cupons emitidos, uso e cashback elegível ficam registrados conforme as validações.</p></div></li>
+ </ol>
+</section>
+<section class="club-premium-faq" aria-labelledby="club-premium-faq-title">
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">03 / TRANSPARÊNCIA</span><h2 id="club-premium-faq-title">Dúvidas importantes.<br><em>Respostas sem enrolação.</em></h2><p>Consulte as condições completas antes de adquirir um pacote ou usar qualquer benefício.</p><button type="button" class="club-premium-text-action" onclick="go('terms')">Ler os Termos de Uso <span aria-hidden="true">→</span></button></div>
+ <div class="club-premium-faq-items">
+  <details><summary>Preciso pagar para entrar no Clube?<span aria-hidden="true">+</span></summary><p>Não. O cadastro e a consulta ao Clube não geram cobrança. Pacotes de cupons, quando habilitados, possuem preço e condições próprios.</p></details>
+  <details><summary>Posso utilizar cupons em qualquer cidade?<span aria-hidden="true">+</span></summary><p>Não necessariamente. A utilização depende de revendas elegíveis, produtos e atendimento ao seu CEP, além de prazo e pedido mínimo de cada cupom.</p></details>
+  <details><summary>Cashback é dinheiro disponível para saque?<span aria-hidden="true">+</span></summary><p>Não. Cashback elegível é crédito para uso nas compras permitidas. Créditos pendentes, revertidos ou destinados a compensação não estão disponíveis.</p></details>
+  <details><summary>O que ocorre se um pacote não puder ser utilizado?<span aria-hidden="true">+</span></summary><p>Confira as condições do pacote e os direitos de cancelamento ou reembolso aplicáveis. O histórico da compra e o atendimento ficam disponíveis na conta.</p></details>
+  <details><summary>Quando vou encontrar ofertas perto de mim?<span aria-hidden="true">+</span></summary><p>As ofertas variam conforme a cidade e a revenda. A plataforma só apresenta disponibilidade de compra quando existe oferta operacional elegível.</p></details>
+ </div>
+</section>
+<footer class="club-premium-final">
+ <div><span class="club-premium-section-index">CLUBE TAMÃO</span><h2>Vantagens começam com <em>informação clara.</em></h2><p>Consulte sua conta, veja o que está liberado e escolha com segurança.</p></div>
+ <button type="button" class="club-premium-button club-premium-primary" onclick="document.getElementById('club-premium-account')?.scrollIntoView({behavior:'smooth',block:'start'})">Entrar no meu Clube <span aria-hidden="true">→</span></button>
+</footer>
 </section>`);
 const purchases=Math.max(0,Number(state.user.purchases)||0);
 const cycle=purchases===0?0:(purchases%5||5);
