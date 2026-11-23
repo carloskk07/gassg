@@ -59,7 +59,7 @@ new vm.Script(legal,{filename:'js/legal.js'});
 assert.ok(adminUI.includes('12 verificações')||adminUI.includes('12 verificação'));
 assert.ok(adminUI.includes('adminOperatorGate(false)'),'Deve reabrir provas');
 assert.ok(adminUI.includes('CONFIRMO ATIVACAO PJ'));
-assert.ok(legal.includes('platform_operator_public_identity_v1_1159'));
+assert.ok(publicModule.includes('platform_operator_public_identity_v1_1159'));
 assert.ok(legal.includes('tamaoOperatorPublicProfileSchedule'), 'Consulta somente sob demanda');
 assert.ok(publicModule.includes('textContent'),'Não renderizar razão social por innerHTML');
 new vm.Script(publicModule,{filename:'js/operator-public-identity.js'});
