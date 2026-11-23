@@ -16,7 +16,8 @@ const earn=read('js/earn-premium.js');
 for(const [file,code] of [['js/customer.js',customer],['js/agenda-design.js',agenda],['js/sponsors-premium.js',sponsors]]){
  new vm.Script(code,{filename:file});
 }
-assert.match(html,/<link rel="stylesheet" href="\.\/css\/visual-finish\.css"/);
+assert.match(html,/<link rel="preload" as="style" href="\.\/css\/visual-finish\.css"/);
+assert.match(html,/onload="this\.onload=null;this\.rel='stylesheet'"/);
 assert.match(visual,/--vf-ticket:|--vf-wallet:|--vf-calendar:|--vf-shield:/);
 assert.match(visual,/data:image\/svg\+xml/);
 assert.match(visual,/-webkit-mask:var\(--vf-symbol/);
