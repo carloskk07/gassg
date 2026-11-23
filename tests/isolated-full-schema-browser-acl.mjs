@@ -188,6 +188,7 @@ const expectedFunctions=[
  'mobility_start_position(p_request_id uuid)',
  'mobility_stop_position(p_request_id uuid)',
  'mobility_transition(p_request_id uuid, p_action text)',
+ 'platform_operator_public_identity_v1_1159()',
  'public_city_price_board_v1_341(p_city text, p_state text)',
  'claim_welcome_bonus_v1_815()',
  'welcome_bonus_status_v1_815()',
@@ -208,7 +209,8 @@ const fns=JSON.parse(sql(qFunctions));
 assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
  'An unknown SECURITY DEFINER or overload was granted to the browser');
 for(const fn of fns){
- assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
+ assert.equal(fn.anon,['platform_operator_public_identity_v1_1159()',
+  'welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
   'agenda_deposit_quote(p_service_id uuid)',
   'agenda_available_slots(p_service_id uuid, p_day date)','agenda_public_directory()',
   'agenda_search_directory(p_query text, p_limit integer, p_offset integer)',
