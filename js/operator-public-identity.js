@@ -6,7 +6,7 @@ async function tamaoOperatorPublicProfileLoad(){
   if(!target)return;
   const getProfile=async()=>{
     if(tamaoOperatorPublicProfileCache)return tamaoOperatorPublicProfileCache;
-    if(!globalThis.CHAMA_BACKEND?.url||!CHAMA_BACKEND.publishableKey)return null;
+    if(typeof CHAMA_BACKEND==='undefined'||!CHAMA_BACKEND.url||!CHAMA_BACKEND.publishableKey)return null;
     const request=(globalThis.chamaFetch||fetch)(
       CHAMA_BACKEND.url+'/rest/v1/rpc/platform_operator_public_identity_v1_1159',{
         method:'POST',cache:'no-store',
