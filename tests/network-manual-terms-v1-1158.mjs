@@ -14,6 +14,13 @@ assert.ok(html.includes('R$ 50,00')&&html.includes('três dias corridos'));
 assert.ok(html.includes('10%')&&html.includes('2%'));
 assert.ok(html.includes('Pix permanece desativado'));
 assert.ok(build.includes('rede-regulamento-2026-11-22.html'));
+const live=read('scripts/build-live-portals.mjs');
+const sw=read('sw.js');
+assert.ok(live.includes("if(role==='customer')fs.copyFileSync(path.join(ROOT,'rede-regulamento-2026-11-22.html')"),
+  'Official Cloudflare customer build must physically contain standalone terms');
+assert.ok(sw.includes('rede-regulamento-2026-11-22\\.html'),
+  'Service worker must not cache a legal document as index.html');
+
 assert.ok(legal.includes('/rede-regulamento-2026-11-22.html'));
 assert.ok(frontend.includes('network-manual-terms-accept'));
 assert.ok(frontend.includes("?.checked!==true"));
