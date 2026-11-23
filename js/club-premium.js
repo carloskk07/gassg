@@ -97,7 +97,7 @@ const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCen
 return shell(`<section class="page tamao-club-premium club-premium-member" aria-labelledby="club-member-title">
 <header class="club-premium-member-hero">
  <div class="club-premium-member-intro">
-  <span class="club-premium-section-index">MEU CLUBE / VANTAGENS DA SUA CONTA</span>
+  <span class="club-premium-section-index">CLUBE TAMÃO / VANTAGENS DA SUA CONTA</span>
   <h1 id="club-member-title">A sua economia.<br><em>Com cada detalhe à vista.</em></h1>
   <p>Consulte cupons, acompanhe cashback elegível e veja o histórico dos benefícios associados às suas compras. Os valores só ficam disponíveis conforme as regras de validação.</p>
   <div class="club-premium-member-hero-actions">
