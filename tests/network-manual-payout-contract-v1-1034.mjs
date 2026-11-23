@@ -67,7 +67,7 @@ for(const phrase of [
   'manual-status','manual-request','manual-queue','manual-set-minimum',
   'manual-approve','manual-paid','manual-cancel',
   'network_manual_payout_status_v1_1034',
-  'network_manual_payout_request_v1_1034',
+  'network_manual_payout_request_with_terms_v1_1158',
   'network_manual_payout_mark_paid_v1_1034',
   'p_user:user','p_actor:user','manualOnly!==true',
   'data?.moneyMoved!==false','data?.providerApiCalled!==false'
@@ -76,9 +76,15 @@ assert.ok(edge.indexOf('if(action==="manual-request")')<
   edge.indexOf('permission.admin_role!=="superadmin"'),
   'Self-request must be user-scoped and separate from Admin-only actions');
 assert.ok(edge.includes('await actor(req)'));
+const termsMigration=read('supabase/migrations/20261123015500_network_manual_terms_acceptance_v1_1158.sql');
+assert.ok(termsMigration.includes('public.network_manual_payout_request_v1_1034(p_user,p_key)'),
+  'V1.1158 must still reserve via unchanged V1.1034 financial checks');
+assert.ok(edge.includes('body.termsAccepted!==true||body.termsReference!==expectedTerms'),
+  'withdrawal must have explicit user consent matching exact published terms');
 assert.ok(edge.includes('enforceApiQuota(admin'));
 for(const phrase of [
   'tamaoManualPayoutInvoke','tamaoManualPayoutRequest','tamaoManualPayoutRefresh',
+  'network-manual-terms-accept','termsAccepted:true','termsReference:TAMAO_NETWORK_REDEMPTION_TERMS_URL',
   'tamaoNetworkManualPayoutDetailsPanel','liveAccessToken()',
   'network-payout-ops','3 dias corridos','manual-request',
   'automaticPayouts!==false'
@@ -124,6 +130,7 @@ const browser={
   },
   route:()=> 'refer',render:()=>{},
   BRL:{format:(x)=>String(x)},esc:(x)=>String(x),
+  document:{getElementById:(id)=>id==='network-manual-terms-accept'?{checked:true}:null},
   confirm:()=>true,toast:()=>{notices++},
   crypto:{randomUUID:()=> '4a52aead-abcd-4444-8888-0123456789ab'}
 };

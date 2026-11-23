@@ -50,7 +50,7 @@ async function navigationNetworkFirst(req){
       // Independent editorial or appointment HTML must never overwrite the application's
       // offline shell; keep it under its own URL when visited.
       const navPath=new URL(req.url).pathname;
-      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
+      const editorialPath=/^\/(?:rede-regulamento-2026-11-22\.html)$/i.test(navPath)||/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
         .test(navPath)||/^\/agenda(?:\/|$)/i.test(navPath)||/^\/convite(?:\/|$)/i.test(navPath)||/^\/p(?:\/|$)/i.test(navPath);
       if(contentType.includes('text/html')&&!editorialPath){
         await cache.put('./index.html',res.clone());

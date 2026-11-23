@@ -465,6 +465,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     const target=path.join(out,role);
     fs.mkdirSync(target,{recursive:true});
     for(const file of STATIC_FILES)fs.copyFileSync(path.join(ROOT,file),path.join(target,file));
+    // Public legal document is a real static customer asset, not an SPA fallback.
+    if(role==='customer')fs.copyFileSync(path.join(ROOT,'rede-regulamento-2026-11-22.html'),
+      path.join(target,'rede-regulamento-2026-11-22.html'));
     for(const dir of STATIC_DIRS)copyDir(path.join(ROOT,dir),path.join(target,dir));
     if(role!=='customer'){
       for(const file of ['agenda.js','agenda-boot.js','agenda-callback.js'])
