@@ -20,8 +20,8 @@ for(const [path,data] of Object.entries({
  'js/admin.js':admin,'js/admin-ads-credit.js':pilot
 }))assert.doesNotThrow(()=>new vm.Script(data,{filename:path}),path);
 
-assert.match(core,/pix-recipient-trust\\.js\\?v=1162/);
-assert.match(core,/if\\(!valid\\(code,amountCents\\)\\)return ''/);
+assert.ok(core.includes('pix-recipient-trust.js?v=1162'));
+assert.ok(core.includes("if(!valid(code,amountCents))return ''"));
 const context=vm.createContext({});
 vm.runInContext(trust,context);
 assert.equal(typeof context.tamaoPixRecipientHtml,'function');
