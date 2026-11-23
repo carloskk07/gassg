@@ -209,7 +209,7 @@ const clubPremiumIcon=kind=>{
 };
 // A public verified-price card may only be unhidden by the canonical live catalog.
 // The account form preserves its exact IDs, names, intents and Turnstile workflow.
-if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-premium club-premium-visitor" aria-labelledby="club-premium-title">
+if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-premium club-premium-visitor" aria-label="Clube TAMÃO — benefícios e acesso">
 <header class="tamao-club-visitor-focus club-premium-hero">
  <div class="tamao-club-visitor-hero club-premium-hero-copy">
   <span class="eyebrow club-premium-eyebrow"><span class="club-premium-mark" aria-hidden="true"></span> CLUBE TAMÃO / VANTAGENS LOCAIS</span>
@@ -241,7 +241,7 @@ if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-prem
  </aside>
 </header>
 <div class="club-premium-trustbar" aria-label="Como protegemos seus benefícios"><span>${clubPremiumIcon('receipt')} <strong>Histórico na sua conta</strong> para consultar o que foi reconhecido</span><span>${clubPremiumIcon('shield')} <strong>Sem crédito fictício:</strong> benefícios passam por validação</span><span>${clubPremiumIcon('pin')} <strong>Uso regional:</strong> disponibilidade depende do CEP</span></div>
-<aside class="tamao-coupon-price-board card form-stack club-premium-verified-offer" hidden aria-label="Pacote de cupons com preço confirmado" id="club-premium-offers">
+<aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado" id="club-premium-offers">
  <div class="club-premium-offer-heading"><span class="section-kicker">PACOTE DE CUPONS · CATÁLOGO CONFERIDO</span><h2>Condições do pacote em destaque</h2><p>O preço e as condições abaixo vêm do catálogo oficial, não de um exemplo.</p></div>
  <div class="club-premium-offer-data"><p class="tamao-club-face" data-coupon-face></p><p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p><p data-coupon-minimum></p><p data-coupon-availability></p></div>
  <details class="tamao-benefits-details"><summary>Regras, validade e disponibilidade</summary><p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP. Veja validade e condições ao usar. Entrar não gera cobrança. Confira no Clube se a compra está habilitada antes de pagar.</p></details>
