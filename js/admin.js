@@ -8133,7 +8133,7 @@ function adminFinanceWorkspaceNav(){
        'Consulte a fatura e os cupons da sua conta, sem emitir outra cobrança.'}</p></div>
      <button type='button' class='secondary' onclick='adminFinanceOpenCouponReview()'>${unsettled?'Continuar conferência':covered?'Ver recibo e benefícios':'Abrir cupons pagos'}</button>
     </div>`:''}
-   <nav class='admin-finance-areas admin-finance-primary' aria-label='Tarefas principais do Financeiro'>
+   <nav class='admin-finance-areas admin-finance-primary ${superadmin?'has-operator':''}' aria-label='Tarefas principais do Financeiro'>
     ${primary.map(button).join('')}
    </nav>
    ${advanced.length?`<details class='admin-finance-secondary' ${advanced.some(x=>x.id===selected)?'open':''}>
