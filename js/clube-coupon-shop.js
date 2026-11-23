@@ -621,3 +621,11 @@ async function clubeCouponRefundAsk(invoiceId){
 Object.assign(globalThis,{clubeCouponWatchAuth,clubeCouponShopPanel,clubeCouponShopRefresh,
   clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,clubeCouponVerifyPostal,
   clubeCouponPurchasesPanel,ca:clubePaidCouponAutoLoad});
+
+// V1.1164: Club's existing deferred module upgrades its own visual shell.
+// This never adds JS to the initial buyer bundle or creates another checkout.
+import('/js/club-premium.js?v=1164').then(()=>{
+ if(typeof globalThis.clubPremiumPage!=='function')return;
+ globalThis.club=globalThis.clubPremiumPage;
+ if(typeof route==='function'&&route()==='club')render();
+}).catch(()=>{});
