@@ -260,7 +260,7 @@ function sponsorsLandingPremium(){
   </aside>
  </div>
    <div class="sponsor-demo-panel">
-     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Sua campanha começa aqui.</strong><small>Teste a apresentação sem criar conta. Personalize sua marca e escolha o valor de crédito para montar a proposta.</small></div>
+     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">ESTÚDIO DE ANÚNCIOS</span><strong>Sua campanha começa aqui.</strong><small>Teste a apresentação sem criar conta. Personalize sua marca e escolha o valor de crédito para montar a proposta.</small></div>
      <div class="sponsor-demo-name-field">
        <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
        <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
@@ -314,7 +314,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-placement-browser"><strong>TAMÃO</strong><small>Início • Produtos e serviços</small><span aria-hidden="true">● ● ●</span></div>
    <div class="sponsor-placement-body">
     <div class="sponsor-placement-context"><span>NA PÁGINA INICIAL</span><strong>Descubra produtos, serviços e novidades na sua região.</strong></div>
-    <div class="sponsor-placement-faux-products" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="sponsor-placement-faux-products" aria-hidden="true"><span>Produtos e serviços</span><span>Atendimento local</span><span>Publicidade identificada</span></div>
     <div class="sponsor-placement-ad"><small>PUBLICIDADE · <span data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span></small><strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong><p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p><span>Conhecer a empresa ↗</span></div>
    </div>
    <div class="sponsor-placement-caption"><strong>01 · Página inicial</strong><p>Um espaço contextual para campanhas elegíveis na navegação pública.</p></div>
@@ -324,7 +324,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-placement-body sponsor-placement-body-brands">
     <div class="sponsor-placement-context"><span>NA ÁREA DE MARCAS</span><strong>Descubra iniciativas de empresas da região.</strong></div>
     <div class="sponsor-placement-ad sponsor-placement-ad-brands"><small>PUBLICIDADE · <span data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span></small><strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong><p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p><span>Conhecer o anunciante ↗</span></div>
-    <div class="sponsor-placement-faux-lines" aria-hidden="true"><span></span><span></span></div>
+    <div class="sponsor-placement-faux-lines" aria-hidden="true"><span>Marca identificada</span><span>Região definida</span></div>
    </div>
    <div class="sponsor-placement-caption"><strong>02 · Área de publicidade</strong><p>Outra oportunidade de apresentação quando houver inventário na cidade.</p></div>
   </article>
