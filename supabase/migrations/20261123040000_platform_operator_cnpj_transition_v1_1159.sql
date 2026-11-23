@@ -283,4 +283,6 @@ grant execute on function public.platform_operator_transition_read_v1_1159(uuid)
 grant execute on function public.platform_operator_transition_stage_v1_1159(uuid,bigint,text,text,text,text,text,text) to service_role;
 grant execute on function public.platform_operator_transition_gate_v1_1159(uuid,bigint,text,boolean,text,text) to service_role;
 grant execute on function public.platform_operator_transition_activate_v1_1159(uuid,bigint,text) to service_role;
-grant execute on function public.platform_operator_public_identity_v1_1159() to anon,authenticated,service_role;
+-- A identidade será consultada por uma Edge pública estritamente de leitura.
+-- Nunca abrir a função SECURITY DEFINER diretamente para anon/authenticated.
+grant execute on function public.platform_operator_public_identity_v1_1159() to service_role;
