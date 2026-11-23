@@ -9,6 +9,7 @@ const admin=read('js/admin-network-payout.js');
 const adminUI=read('js/admin-operator-transition.js');
 const legal=read('js/legal.js');
 const publicModule=read('js/operator-public-identity.js');
+const publicEdge=read('supabase/functions/operator-public-identity/index.ts');
 const portals=read('scripts/build-live-portals.mjs');
 const audit=read('.github/workflows/audit.yml');
 const ci=read('.github/workflows/isolated-supabase-integration.yml');
@@ -40,7 +41,9 @@ assert.ok(sql.includes("set verified_at=null,verified_by=null,evidence_reference
 assert.ok(sql.includes('revision=p_expected_revision'),'Controle concorrente obrigatório');
 assert.ok(sql.includes('enable row level security'),'Proteção RLS');
 assert.ok(sql.includes('revoke all on public.platform_operator_transition_v1_1159'));
-assert.ok(sql.includes('grant execute on function public.platform_operator_public_identity_v1_1159() to anon,authenticated,service_role'));
+assert.ok(sql.includes('grant execute on function public.platform_operator_public_identity_v1_1159() to service_role'));
+assert.ok(!sql.includes('grant execute on function public.platform_operator_public_identity_v1_1159() to anon'),
+  'No privileged DB RPC should be exposed directly to browser roles');
 assert.doesNotMatch(sql,/update\s+public\.(?:network_.*(?:policy|awards)|platform_payment_reconciliation_config|merchants)\b/i);
 for(const action of ['read','stage','gate','activate']){
  assert.ok(edge.includes('if(action==="'+action+'")'));
@@ -60,6 +63,11 @@ assert.ok(adminUI.includes('12 verificações')||adminUI.includes('12 verificaç
 assert.ok(adminUI.includes('adminOperatorGate(false)'),'Deve reabrir provas');
 assert.ok(adminUI.includes('CONFIRMO ATIVACAO PJ'));
 assert.ok(publicModule.includes('platform_operator_public_identity_v1_1159'));
+assert.ok(publicModule.includes('/functions/v1/operator-public-identity'));
+assert.ok(publicEdge.includes('method!=="GET"'));
+assert.ok(publicEdge.includes('admin.rpc("platform_operator_public_identity_v1_1159")'));
+assert.ok(publicEdge.includes('if(data.entityType==="individual"||data.public!==true)'));
+assert.ok(!publicEdge.includes('candidate_cnpj')&&!publicEdge.includes('prepared_by'));
 assert.ok(legal.includes('tamaoOperatorPublicProfileSchedule'), 'Consulta somente sob demanda');
 assert.ok(publicModule.includes('textContent'),'Não renderizar razão social por innerHTML');
 new vm.Script(publicModule,{filename:'js/operator-public-identity.js'});
