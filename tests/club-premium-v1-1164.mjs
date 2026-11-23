@@ -9,7 +9,7 @@ const css=read('css/club-premium.css');
 const boot=read('js/bootstrap.js');
 assert.match(growth,/if\(typeof clubPremiumPage==='function'\)return clubPremiumPage\(\)/);
 assert.match(boot,/js\/club-premium\.js/);
-assert.match(boot,/script\.onload=\(\)=>\{if\(route\(\)==='club'\)render\(\);\}/);
+assert.match(boot,/__clubLoading/);
 new vm.Script(premium,{filename:'club-premium.js'});
 const ctx={
  globalThis:{liveReady:()=>false,liveRuntime:{session:null},document:null},
