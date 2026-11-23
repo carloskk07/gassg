@@ -41,6 +41,11 @@ function privacyPage(){
 
 // V1.1159 — identidade PJ pública só quando abrir os Termos; não pesa no checkout.
 function tamaoOperatorPublicProfileSchedule(){
+  // A identidade oficial só é consultada no domínio de produção.
+  // Builds locais e testes não devem chamar uma Edge ainda inexistente no ambiente.
+  const host=String(globalThis.location?.hostname||'').toLowerCase();
+  if(host!=='tamao.com.br'&&host!=='tamao-sg-cliente.pages.dev'&&
+     !host.endsWith('.tamao-sg-cliente.pages.dev'))return;
   if(typeof globalThis.tamaoOperatorPublicProfileLoad==='function'){
     void globalThis.tamaoOperatorPublicProfileLoad();return;
   }
