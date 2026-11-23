@@ -55,3 +55,13 @@
 - Ao abrir a área, a interface lê o estado real do banco. Somente o superadministrador pode consultar ou editar o preparo; perfis de finanças, operações e suporte não recebem acesso.
 - Os cinco dados da futura empresa digitados e ainda não salvos permanecem em memória durante novas renderizações do painel. Ao trocar de conta ou perder a permissão de superadmin, o rascunho em memória é descartado. Não se usa `localStorage`, `sessionStorage` nem pagamento simulado.
 - Na futura formalização, o primeiro passo continua sendo apresentar um CNPJ e a documentação oficial válidos; V1.1160 não cria nem ativa uma empresa antecipadamente.
+
+## V1.1161 — conferência financeira automática antes da virada
+
+O Admin exibe sete contagens **reais, somente de leitura**: saques manuais em aberto, repasses Pix com resultado não definitivo, reservas/revisões da Rede, estornos Ads em análise, estornos do Clube em solicitação/revisão, estornos da Agenda não confirmados e estornos de revendas requerendo revisão. As contagens são observadas diretamente no Supabase e não alteram dados financeiros nem emitem novo Pix.
+
+Se uma dessas sete contagens for diferente de zero, o botão de ativação PJ fica bloqueado e o PostgreSQL rejeita a ativação mesmo que alguém envie uma requisição direta ao servidor. Uma tela desatualizada não basta para fazer a virada; o banco reconsulta as filas no ato.
+
+Uma contagem zero **não é** comprovação de quitação geral ou de migração de credenciais do Mercado Pago. Ela só cobre essas sete filas internas. O operador continua responsável por conferir o PSP, cobranças e créditos ainda não liquidados, saldo de caixa, obrigações fiscais, contas bancárias, contratos e demais documentos externos registrados nas 12 verificações. Nenhuma dessas comprovações pode ser marcada automaticamente.
+
+**Evidências técnicas:** `supabase/migrations/20261123120000_platform_operator_financial_preflight_v1_1161.sql`, `tests/operator-cnpj-financial-preflight-v1-1161.mjs` e `tests/sql/operator-cutover-financial-preflight-v1-1161.sql`.
