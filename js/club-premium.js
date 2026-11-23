@@ -137,3 +137,14 @@ ${debt>0?`<div class="notice club-premium-compensation" role="status"><strong>${
 </section>
 </section>`)
 }
+
+// The editorial theme is fetched only by #club, without affecting home or checkout startup.
+if(typeof document!=='undefined'&&!document.querySelector('link[data-tamao-club-premium]')){
+ const link=document.createElement('link');
+ link.rel='stylesheet';
+ link.setAttribute('data-tamao-club-premium','');
+ link.href='./css/club-premium.css?v=1164';
+ link.onload=()=>{if(typeof route==='function'&&route()==='club')render();};
+ document.head.appendChild(link);
+}
+globalThis.clubPremiumPage=clubPremiumPage;
