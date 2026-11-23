@@ -468,3 +468,5 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-finance-secondary{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:12px}
 .admin-finance-secondary>summary{cursor:pointer;font-weight:700}
 .admin-finance-secondary>.admin-finance-areas{margin:12px 0 0;grid-template-columns:repeat(2,minmax(0,1fr))}
+
+@media(min-width:951px){.admin-finance-primary.has-operator{grid-template-columns:repeat(5,minmax(0,1fr))}}

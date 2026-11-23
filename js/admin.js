@@ -3728,6 +3728,64 @@ function adminNetworkPayoutFallbackView(){
    '<button class="secondary small" type="button" onclick="adminNetworkPayoutLoadOnDemand()">Abrir central de saques</button></div></section>';
 }
 
+// V1.1160 — a identidade jurídica agora tem uma área PRÓPRIA no Financeiro,
+// sem depender da Rede, da fila de saques ou de qualquer Pix.
+// O módulo nunca é carregado nos portais Cliente ou Parceiro.
+const adminOperatorFinanceModuleUrl=(()=>{
+  if(!adminNetworkPayoutModuleUrl)return null;
+  const source=new URL(adminNetworkPayoutModuleUrl);
+  const moduleUrl=new URL('admin-operator-transition.js',source);
+  moduleUrl.search=source.search; // cache-busting version same as canonical Admin
+  return moduleUrl.href;
+})();
+let adminOperatorFinanceModulePromise=null;
+let adminOperatorFinanceModuleError=null;
+async function adminOperatorFinanceLoadOnDemand(){
+  if(!adminReady()||adminRuntime.section!=='finance'||
+     adminFinanceWorkspaceCurrent()!=='operator'||
+     adminCurrentRole()!=='superadmin')return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(typeof globalThis.adminOperatorPanel!=='function'){
+    if(!adminOperatorFinanceModulePromise){
+      adminOperatorFinanceModulePromise=new Promise((resolve,reject)=>{
+        if(!adminOperatorFinanceModuleUrl){
+          reject(Error('Assistente PJ não está disponível nesta publicação.'));return;
+        }
+        const script=document.createElement('script');
+        script.src=adminOperatorFinanceModuleUrl;script.async=true;
+        script.onload=()=>typeof globalThis.adminOperatorPanel==='function'
+          ?resolve(true):reject(Error('O assistente PJ não inicializou.'));
+        script.onerror=()=>reject(Error('Não foi possível abrir o assistente PJ.'));
+        document.head.appendChild(script);
+      }).finally(()=>{adminOperatorFinanceModulePromise=null});
+    }
+    try{await adminOperatorFinanceModulePromise}
+    catch(e){adminOperatorFinanceModuleError=String(e?.message||e);render();return}
+  }
+  if(!adminReady()||adminRuntime.section!=='finance'||
+     adminFinanceWorkspaceCurrent()!=='operator'||
+     adminCurrentRole()!=='superadmin'||
+     actor!==String(adminRuntime.session?.user?.id||''))return;
+  adminOperatorFinanceModuleError=null;render();
+  if(typeof globalThis.adminOperatorRefresh==='function')
+    await globalThis.adminOperatorRefresh();
+}
+function adminOperatorFinanceView(){
+  if(!adminReady()||adminRuntime.section!=='finance'||
+     adminCurrentRole()!=='superadmin')return '';
+  if(typeof globalThis.adminOperatorPanel==='function')
+    return globalThis.adminOperatorPanel();
+  return '<section class="section admin-operator-pj">'+
+    '<div class="section-head"><div><span class="section-kicker">ADMIN • EMPRESA</span>'+
+    '<h3>Preparar o TAMÃO para CNPJ</h3>'+
+    '<p>Cadastro empresarial, 12 conferências e virada formal. Sua operação atual em pessoa física permanece preservada.</p></div></div>'+
+    (adminOperatorFinanceModuleError?'<p class="notice danger">'+
+       esc(adminOperatorFinanceModuleError)+'</p>':'')+
+    '<button type="button" class="primary small" onclick="adminOperatorFinanceLoadOnDemand()">'+
+    'Abrir preparação de empresa</button></section>';
+}
+globalThis.adminOperatorFinanceLoadOnDemand=adminOperatorFinanceLoadOnDemand;
+
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
@@ -5874,6 +5932,7 @@ const ADMIN_FINANCE_WORKSPACES=[
  {id:'homologation',label:'Testes e Pix',detail:'Verificar pagamentos reais'},
  {id:'billing',label:'Cobranças',detail:'Faturas, planos e taxas'},
  {id:'reconciliation',label:'Conciliação',detail:'Repasses e divergências'},
+ {id:'operator',label:'Empresa / CNPJ',detail:'Preparar futura pessoa jurídica'},
  {id:'policy',label:'Regras e cupons',detail:'Liberação e valor líquido'},
  {id:'lab',label:'Laboratório',detail:'Diagnóstico técnico do gateway'}
 ];
@@ -8033,15 +8092,15 @@ function adminFinanceOpenCouponReview(){
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
   return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)
-    &&(!['lab','homologation'].includes(selected)||adminCurrentRole()==='superadmin')?selected:'summary';
+    &&(!['lab','homologation','operator'].includes(selected)||adminCurrentRole()==='superadmin')?selected:'summary';
 }
 function adminFinanceWorkspaceNav(){
  if(!adminRoleCanSection('finance'))return '';
  const selected=adminFinanceWorkspaceCurrent();
  const superadmin=adminCurrentRole()==='superadmin';
  const visible=ADMIN_FINANCE_WORKSPACES.filter(item=>
-  !['lab','homologation'].includes(item.id)||superadmin);
- const primary=['summary','homologation','billing','reconciliation']
+  !['lab','homologation','operator'].includes(item.id)||superadmin);
+ const primary=['summary','homologation','billing','reconciliation','operator']
   .map(id=>visible.find(item=>item.id===id)).filter(Boolean);
  const advanced=['policy','lab']
   .map(id=>visible.find(item=>item.id===id)).filter(Boolean);
@@ -8074,7 +8133,7 @@ function adminFinanceWorkspaceNav(){
        'Consulte a fatura e os cupons da sua conta, sem emitir outra cobrança.'}</p></div>
      <button type='button' class='secondary' onclick='adminFinanceOpenCouponReview()'>${unsettled?'Continuar conferência':covered?'Ver recibo e benefícios':'Abrir cupons pagos'}</button>
     </div>`:''}
-   <nav class='admin-finance-areas admin-finance-primary' aria-label='Tarefas principais do Financeiro'>
+   <nav class='admin-finance-areas admin-finance-primary ${superadmin?'has-operator':''}' aria-label='Tarefas principais do Financeiro'>
     ${primary.map(button).join('')}
    </nav>
    ${advanced.length?`<details class='admin-finance-secondary' ${advanced.some(x=>x.id===selected)?'open':''}>
@@ -8089,10 +8148,13 @@ function adminSetFinanceWorkspace(workspace){
   if(!adminRoleCanSection('finance'))return;
   const key=String(workspace||'');
   if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key)
-    ||(['lab','homologation'].includes(key)&&adminCurrentRole()!=='superadmin'))return;
+    ||(['lab','homologation','operator'].includes(key)&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   adminFinanceLabLiveCancelAutoCheck();
   render();
+  if(key==='operator'&&adminCurrentRole()==='superadmin'){
+    void adminOperatorFinanceLoadOnDemand();
+  }
   if(key==='policy'&&adminCurrentRole()==='superadmin'){
     adminCouponCommercialRefresh().catch(()=>{});
   }
@@ -12410,7 +12472,9 @@ function adminPage(){
     homologation:sectionActive('finance')&&financeSelection==='homologation'?
       adminFinanceRenderPart('Homologação financeira',()=>adminFinanceHomologationView(d)):'',
     reconciliation:financeReconciliationContent,
-    policy:financePolicyContent
+    policy:financePolicyContent,
+    operator:sectionActive('finance')&&financeSelection==='operator'
+      ?adminOperatorFinanceView():''
   };
   const adsContent=(sectionActive('ads'))?(
     '<section class="section admin-ads-workspace"><div class="section-head"><div><span class="section-kicker">PUBLICIDADE</span>'+

@@ -1,13 +1,37 @@
 // TAMÃO V1.1159 — assistente de transição para CNPJ. Superadmin, sob demanda.
 // Nunca faz transferências, troca credenciais financeiras ou inventa comprovantes.
-const adminOperatorState={actor:null,data:null,pending:false,error:null};
+const adminOperatorState={actor:null,data:null,pending:false,error:null,draft:null};
 function adminOperatorSession(){
-  const actor=typeof adminNetworkPayoutActor==='function'?adminNetworkPayoutActor():null;
+  const actor=typeof adminReady==='function'&&adminReady()&&
+    typeof adminCurrentRole==='function'&&adminCurrentRole()==='superadmin'
+      ?String(adminRuntime.session?.user?.id||'')||null:null;
   if(adminOperatorState.actor!==actor){
     adminOperatorState.actor=actor;adminOperatorState.data=null;
     adminOperatorState.error=null;adminOperatorState.pending=false;
+    adminOperatorState.draft=null;
   }
   return actor;
+}
+// Avoid discarding typed legal information when the dashboard refreshes.
+// This draft lives in memory only, scoped to the authenticated superadmin and
+// the exact server-side revision. It is never treated as a verified document.
+function adminOperatorDraftCapture(){
+  const actor=adminOperatorSession();
+  const d=adminOperatorState.data;
+  if(!actor||!d||d.stage==='active')return;
+  const entries=[
+    ['operator-pj-cnpj','cnpj'],['operator-pj-legal-name','legalName'],
+    ['operator-pj-trade-name','tradeName'],
+    ['operator-pj-public-address','publicAddress'],
+    ['operator-pj-email','contactEmail']
+  ];
+  const values={};
+  for(const [id,key] of entries){
+    const control=document.getElementById(id);
+    values[key]=control?String(control.value):
+      String(adminOperatorState.draft?.values?.[key]||'');
+  }
+  adminOperatorState.draft={actor,revision:d.revision,values};
 }
 async function adminOperatorInvoke(payload){
   const actor=adminOperatorSession();
@@ -64,6 +88,7 @@ async function adminOperatorSave(){
     const r=await adminOperatorInvoke({action:'stage',revision:d.revision,...fields,
       confirmation:'PREPARAR DADOS PJ'});
     if(r.stage!=='draft')throw Error('Rascunho não confirmado.');
+    adminOperatorState.draft=null;
     toast('Dados da futura PJ preparados. Conta PF e pagamentos atuais preservados.');
   }catch(e){toast(String(e?.message||e))}
   finally{adminOperatorState.pending=false;await adminOperatorRefresh()}
@@ -112,9 +137,16 @@ function adminOperatorPanel(){
   if(!adminOperatorSession())return '';
   const d=adminOperatorState.data;
   const safe=v=>esc(String(v??''));
+  const draft=adminOperatorState.draft?.actor===adminOperatorState.actor&&
+    adminOperatorState.draft?.revision===d?.revision
+      ?adminOperatorState.draft.values:null;
+  const candidate=key=>draft&&Object.hasOwn(draft,key)?draft[key]:d?.candidate?.[key];
   const field=(id,title,value,placeholder='')=>'<label>'+safe(title)+
     '<input class="input" id="'+id+'" maxlength="240" autocomplete="off"'+
-    ' value="'+safe(value)+'" placeholder="'+safe(placeholder)+'"></label>';
+    ' value="'+safe(value)+'" placeholder="'+safe(placeholder)+'"'+
+    (['operator-pj-cnpj','operator-pj-legal-name','operator-pj-trade-name',
+      'operator-pj-public-address','operator-pj-email'].includes(id)
+      ?' oninput="adminOperatorDraftCapture()"':'')+'></label>';
   const busy=adminOperatorState.pending?'disabled':'';
   const verified=d?Number(d.verifiedGates||0):0,total=d?Number(d.totalGates||0):12;
   const mode=d?.stage==='active'?'Pessoa jurídica ativa':
@@ -134,11 +166,11 @@ function adminOperatorPanel(){
     (!d?'<p class="muted">Clique em Atualizar para consultar as condições atuais de migração.</p>':
       '<details class="card flat" open><summary>1. Cadastro da futura empresa</summary>'+
       '<div class="form-stack">'+
-      field('operator-pj-cnpj','CNPJ numérico ou alfanumérico',d.candidate?.cnpj,'Somente após emissão oficial')+
-      field('operator-pj-legal-name','Razão social oficial',d.candidate?.legalName)+
-      field('operator-pj-trade-name','Nome fantasia',d.candidate?.tradeName,'TAMÃO, se registrado')+
-      field('operator-pj-public-address','Endereço comercial para divulgação',d.candidate?.publicAddress,'Endereço conforme registro')+
-      field('operator-pj-email','E-mail comercial de suporte',d.candidate?.contactEmail)+
+      field('operator-pj-cnpj','CNPJ numérico ou alfanumérico',candidate('cnpj'),'Somente após emissão oficial')+
+      field('operator-pj-legal-name','Razão social oficial',candidate('legalName'))+
+      field('operator-pj-trade-name','Nome fantasia',candidate('tradeName'),'TAMÃO, se registrado')+
+      field('operator-pj-public-address','Endereço comercial para divulgação',candidate('publicAddress'),'Endereço conforme registro')+
+      field('operator-pj-email','E-mail comercial de suporte',candidate('contactEmail'))+
       (d.stage!=='active'?'<button class="secondary" onclick="adminOperatorSave()" '+busy+'>Salvar dados da PJ (não ativar)</button>':
         '<p class="notice">Identidade PJ já ativada e preservada em histórico.</p>')+
       '</div></details>'+
@@ -165,6 +197,7 @@ function adminOperatorPanel(){
       '</details>')+
     '<p class="tiny muted">Documentos fiscais e financeiros devem ser guardados fora deste formulário. Registre apenas referências verificáveis, nunca senha, token, chave privada ou CPF.</p></section>';
 }
+globalThis.adminOperatorDraftCapture=adminOperatorDraftCapture;
 globalThis.adminOperatorRefresh=adminOperatorRefresh;
 globalThis.adminOperatorSave=adminOperatorSave;
 globalThis.adminOperatorGate=adminOperatorGate;
