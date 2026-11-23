@@ -1075,7 +1075,7 @@ if(globalThis.__CHAMA_TEST__){
  }
  function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
   if(!valid(code,amountCents))return '';
-  if(!globalThis._pId&&typeof document!=='undefined'){
+  if(!globalThis._pId&&typeof globalThis.document?.createElement==='function'){
    globalThis._pId=1;const t=document.createElement('script');
    t.src='./js/pix-recipient-trust.js?v=1162';
    t.onload=()=>globalThis.render?.();t.onerror=()=>{globalThis._pId=0};
