@@ -248,7 +248,11 @@ function clubeCouponShopPanel(){
      esc(purchase.status==='paid'&&purchase.fundingPending===true?
        'Pagamento identificado; cupons aguardam conciliação financeira':
        purchase.status||'Em conferência')+'</p>'+
-    (pixDisplayFresh&&partnerPixProven?(qrImage+
+    (pixDisplayFresh&&partnerPixProven?(
+      (globalThis.tamaoPixRecipientHtml?.({
+        scope:purchase.fundingModel==='partner_funded'?'seller':'platform',
+        sellerName:String(purchase?.seller?.name||seller?.name||'')
+      })||'')+qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
         esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()" '+(s?.busy?'disabled':'')+'>Copiar código Pix</button>':'')+
       paymentLink):'')+
