@@ -128,7 +128,7 @@ function homeRegionalPriceBoard(region){
  }).join('');
  // No indicative prices without verified supply.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty" role="status"><strong>Ainda sem ofertas confirmadas em '+esc(place)+'</strong><p>Consulte seu CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
+   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Consulte seu CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
  const controls='<div class="city-price-controls">'+
    '<span class="tamao-storefront-location"><small>SUA REGIÃO</small><strong>'+esc(place)+'</strong></span>'+
    '<details class="city-price-chooser"><summary>Alterar cidade</summary>'+
