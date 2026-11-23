@@ -4,12 +4,13 @@ import vm from 'node:vm';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const growth=read('js/growth.js');
+const premium=read('js/club-premium.js');
 const css=read('css/club-premium.css');
 const boot=read('js/bootstrap.js');
-const start=growth.indexOf('function club(){');
-const end=growth.indexOf('\n// V1.1040',start);
-assert.ok(start>0&&end>start,'The genuine Club renderer is present');
-new vm.Script(growth,{filename:'growth.js'});
+assert.match(growth,/if\(typeof clubPremiumPage==='function'\)return clubPremiumPage\(\)/);
+assert.match(boot,/js\/club-premium\.js/);
+assert.match(boot,/script\.onload=\(\)=>\{if\(route\(\)==='club'\)render\(\);\}/);
+new vm.Script(premium,{filename:'club-premium.js'});
 const ctx={
  globalThis:{liveReady:()=>false,liveRuntime:{session:null},document:null},
  state:{user:{cashback:0, purchases:0,cashbackDebt:0}},
@@ -17,7 +18,7 @@ const ctx={
  shell:v=>v,esc:v=>String(v),console,
  clubePaidCouponPanel:()=>'<section id="my-private-vouchers"></section>'
 };
-vm.runInNewContext(growth.slice(start,end)+'\nthis.clubView=club;',ctx);
+vm.runInNewContext(premium+'\nthis.clubView=clubPremiumPage;',ctx);
 const guest=ctx.clubView();
 for(const must of [
  'club-premium-hero','club-premium-benefits','club-premium-how',
