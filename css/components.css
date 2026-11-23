@@ -472,3 +472,48 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 
 @media(min-width:951px){.admin-finance-primary.has-operator{grid-template-columns:repeat(5,minmax(0,1fr))}}
 
+
+/* Operations workspace: readable information and compact action hierarchy. */
+.admin-page .admin-page-heading h1{line-height:1.12;overflow-wrap:anywhere}
+.admin-page .admin-page-heading p{line-height:1.55}
+.admin-page .admin-ops-strip{box-shadow:0 8px 24px rgba(10,62,45,.10)}
+.admin-page .admin-ops-strip small{font-size:11px;letter-spacing:.045em;color:#d2e6da;line-height:1.35}
+.admin-page .admin-ops-strip strong{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.admin-page .admin-sidebar .admin-nav-group{color:#53695d;font-size:11px;letter-spacing:.06em}
+.admin-page .admin-sidebar .admin-nav-label{font-size:13px;line-height:1.4}
+.admin-page .admin-main .section-head p{font-size:14px;line-height:1.55}
+.admin-page .admin-exec-kpi small{font-size:12px;line-height:1.45}
+.admin-page .admin-exec-kpi p{font-size:12px;line-height:1.5}
+.admin-page .admin-attention-copy strong{font-size:13px;line-height:1.4}
+.admin-page .admin-attention-copy small{font-size:12px;line-height:1.5}
+.admin-page .admin-task-tabs{gap:6px;padding:5px;border-radius:12px}
+.admin-page .admin-task-tabs button{min-height:44px;white-space:normal;text-align:center;line-height:1.35}
+.admin-page .admin-task-tabs button:focus-visible{outline:3px solid #4cae80;outline-offset:2px}
+@media(min-width:1121px){
+ .admin-page{padding-top:18px}
+ .admin-page .admin-page-header{margin-bottom:13px;gap:18px}
+ .admin-page .admin-page-heading .section-kicker{margin-bottom:6px}
+ .admin-page .admin-page-heading h1{font-size:clamp(30px,2.8vw,38px)}
+ .admin-page .admin-page-heading p{margin-top:6px}
+ .admin-page .admin-ops-primary,.admin-page .admin-ops-item{padding:12px 14px}
+ .admin-page .admin-workspace{margin-top:15px;gap:20px;grid-template-columns:minmax(205px,230px) minmax(0,1fr)}
+ .admin-page .admin-sidebar{gap:2px;padding:9px}
+ .admin-page .admin-sidebar .admin-nav-group{padding-top:12px;padding-bottom:5px}
+}
+@media(max-width:560px){
+ .admin-page .admin-global-search .input{font-size:16px}
+ .admin-page .admin-ops-strip small{font-size:10px}
+ .admin-page .admin-ops-strip strong{font-size:12px}
+}
+/* Daily partner actions: retain access to every function without visual crowding. */
+.merchant-workspace .merchant-workspace-shortcut{border-color:#cbded2;box-shadow:0 3px 10px rgba(18,70,45,.045)}
+.merchant-workspace .merchant-workspace-shortcut strong{line-height:1.35;overflow-wrap:anywhere}
+.merchant-workspace .merchant-workspace-shortcut small{font-size:13px;line-height:1.5}
+.merchant-workspace .merchant-workspace-more>summary{min-height:46px;line-height:1.55}
+.merchant-workspace .merchant-workspace-section>summary small{font-size:13px;line-height:1.55}
+.merchant-workspace .merchant-workspace-section>summary:focus-visible,
+.merchant-workspace .merchant-workspace-more>summary:focus-visible{outline:3px solid #4cae80;outline-offset:-3px}
+@media(max-width:540px){
+ .merchant-workspace .merchant-workspace-shortcut{padding:13px;min-height:94px}
+ .merchant-workspace .merchant-workspace-shortcut small{font-size:12px}
+}
