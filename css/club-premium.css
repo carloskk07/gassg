@@ -1,0 +1,263 @@
+/* TAMÃO V1.1164 — Clube premium: only #club. No claims of available stock, cashback or discounts are fabricated. */
+.tamao-club-premium{
+ --cp-ink:#143d2d;--cp-deep:#073d30;--cp-forest:#0b5f46;--cp-pine:#14553f;
+ --cp-muted:#586f61;--cp-line:#d8e6da;--cp-gold:#d5b275;
+ width:min(100%,1190px);max-width:1190px;margin-inline:auto;padding:16px 0 74px;color:var(--cp-ink);
+ font-size:14px;overflow-wrap:anywhere
+}
+.tamao-club-premium,.tamao-club-premium *{box-sizing:border-box}
+.tamao-club-premium [hidden]{display:none!important}
+.tamao-club-premium button{font:inherit;cursor:pointer}
+.tamao-club-premium :is(button,a,input,summary):focus-visible{outline:3px solid #d6ab62;outline-offset:3px}
+.tamao-club-premium :is(.club-premium-hero,.club-premium-benefits,.club-premium-how,.club-premium-faq,.club-premium-private-section,.club-premium-entry-card){scroll-margin-top:100px}
+.tamao-club-premium .club-premium-section-index{display:block;color:#387c5c;font-size:10px;font-weight:900;letter-spacing:.13em;line-height:1.5}
+.tamao-club-premium .club-premium-icon{display:block;width:23px;height:23px;flex:none}
+.tamao-club-premium .club-premium-section-heading{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.75fr);gap:10px 35px;align-items:end;margin-bottom:25px}
+.tamao-club-premium .club-premium-section-heading>.club-premium-section-index{grid-column:1/-1}
+.tamao-club-premium .club-premium-section-heading h2{max-width:24ch;margin:0;font-size:clamp(28px,3.7vw,45px);line-height:1.12;letter-spacing:-.055em;font-weight:850;color:var(--cp-ink)}
+.tamao-club-premium .club-premium-section-heading h2 em{font-style:normal;color:#287451}
+.tamao-club-premium .club-premium-section-heading>p{max-width:43ch;margin:0;color:var(--cp-muted);line-height:1.75}
+.tamao-club-premium .club-premium-button{display:inline-flex;align-items:center;justify-content:center;gap:13px;min-height:49px;padding:12px 19px;border-radius:11px;border:1px solid transparent;font-size:13px;font-weight:850;text-align:center;line-height:1.25;text-decoration:none;white-space:normal}
+.tamao-club-premium .club-premium-primary{background:#086144;color:#fff;box-shadow:0 8px 20px #09543720}
+.tamao-club-premium .club-premium-primary:hover{background:#064c36}
+.tamao-club-premium .club-premium-outline{background:#f9fcf8;border-color:#bdd4c2;color:#13583e}
+.tamao-club-premium .club-premium-outline:hover{background:#e9f2e9}
+.tamao-club-premium .club-premium-text-action{display:inline-flex;align-items:center;gap:8px;padding:9px 0;border:0;background:transparent;color:#0e6646;font-weight:850;text-align:left}
+.tamao-club-premium .club-premium-text-action:hover{text-decoration:underline;text-underline-offset:4px}
+
+/* Public entry: calm editorial proposition beside the actual, secure account form. */
+.tamao-club-premium .club-premium-hero.tamao-club-visitor-focus{
+ display:grid;grid-template-columns:minmax(0,1.09fr) minmax(0,.91fr);gap:0;align-items:stretch;
+ border:1px solid #d5e3d7;border-radius:27px;overflow:hidden;
+ background:#f7faf4;box-shadow:0 21px 48px #0d452718
+}
+.tamao-club-premium .club-premium-hero .tamao-club-visitor-hero.club-premium-hero-copy{
+ display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+ min-width:0;padding:clamp(27px,4.35vw,55px);border:0;border-radius:0;
+ color:var(--cp-ink);background:radial-gradient(circle at 95% 3%,#e5f1e8 0,transparent 44%),linear-gradient(120deg,#fcfdf9,#f3f8f1);
+ box-shadow:none
+}
+.tamao-club-premium .club-premium-eyebrow{display:inline-flex;align-items:center;gap:10px;color:#367052!important;letter-spacing:.14em;font-size:10px;font-weight:900}
+.tamao-club-premium .club-premium-mark{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c69c5e;box-shadow:0 0 0 4px #e3cda433}
+.tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{
+ max-width:16ch;margin:19px 0 17px;color:#133e2e;font-size:clamp(38px,4.4vw,60px);
+ line-height:1.075;letter-spacing:-.058em;font-weight:880;text-wrap:balance
+}
+.tamao-club-premium .club-premium-hero-copy h1 em{display:block;margin-top:8px;font-style:normal;font-size:.55em;line-height:1.28;letter-spacing:-.038em;color:#287451}
+.tamao-club-premium .club-premium-hero .club-premium-hero-copy .club-premium-lead{
+ max-width:51ch;margin:0;color:#536b5a;font-size:14px;line-height:1.77
+}
+.tamao-club-premium .club-premium-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
+.tamao-club-premium .club-premium-trustline{display:flex;flex-wrap:wrap;gap:7px 15px;margin-top:20px}
+.tamao-club-premium .club-premium-trustline span{display:inline-flex;align-items:center;gap:6px;color:#526b5a;font-size:10px;font-weight:800}
+.tamao-club-premium .club-premium-trustline .club-premium-icon{width:17px;height:17px;color:#267b56}
+.tamao-club-premium .club-premium-message{display:flex;align-items:start;gap:11px;margin-top:22px;padding:13px 14px;background:#eaf3e7;border:1px solid #c9dfcd;border-radius:13px}
+.tamao-club-premium .club-premium-message-symbol{display:grid;place-items:center;flex:none;width:26px;height:26px;color:#23754e}
+.tamao-club-premium .club-premium-message .club-premium-icon{width:22px;height:22px}
+.tamao-club-premium .club-premium-message p{margin:0!important;color:#385945!important;font-size:11px!important;line-height:1.55!important}
+.tamao-club-premium .club-premium-message strong{color:#174b32}
+
+/* Genuine form. No visual placeholder offers or fabricated membership balance. */
+.tamao-club-premium .club-premium-entry-card{
+ display:flex;flex-direction:column;min-width:0;padding:clamp(26px,3.45vw,43px);
+ border-left:1px solid #176344;background:radial-gradient(circle at 110% -9%,#2b856158,transparent 48%),linear-gradient(155deg,#084b38,#073b30);
+ color:#f6fbf5
+}
+.tamao-club-premium .club-premium-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px;color:#b9d9c2;font-size:10px;font-weight:900;letter-spacing:.12em}
+.tamao-club-premium .club-premium-card-monogram{display:grid;place-items:center;width:38px;height:38px;border:1px solid #eed0a381;border-radius:12px;color:#fff;font-size:19px;font-weight:900;letter-spacing:-.09em;background:#ffffff15}
+.tamao-club-premium .club-premium-card-monogram span{color:#e9c68d}
+.tamao-club-premium .club-premium-entry-card h2{margin:4px 0 10px;font-size:clamp(24px,2.8vw,34px);font-weight:850;line-height:1.14;letter-spacing:-.043em;color:#fff}
+.tamao-club-premium .club-premium-entry-card>p{max-width:38ch;margin:0;color:#cce4d3;font-size:12px;line-height:1.65}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access{display:grid;gap:8px;width:100%;max-width:none;margin-top:23px}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access label{margin:4px 0 0;color:#e7f1e6;font-size:11px;font-weight:800}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.input{
+ display:block;width:100%;min-width:0;height:44px;min-height:44px;margin:0;padding:10px 13px;
+ border:1px solid #9ecbb2;border-radius:10px;background:#fff;color:#173e2b;font-size:14px
+}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.input::placeholder{color:#839388}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.primary{
+ min-height:45px;margin-top:11px;border-radius:10px;background:#e8cc94;border:1px solid #e8cc94;color:#133e2d;font-size:13px;font-weight:900
+}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.primary:hover{background:#f6ddb0}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.tamao-club-register{
+ min-height:43px;margin:0;border:1px solid #7ca38c;border-radius:10px;background:transparent;color:#f3f6ef;font-size:12px;font-weight:850
+}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>.tamao-club-register:hover{background:#ffffff1a;border-color:#c3dfca;color:#fff}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access [data-welcome-signup-status]:not(:empty){margin:5px 0;color:#fff3c2}
+.tamao-club-premium .club-premium-entry-card .tamao-club-access>small{color:#d2e9d7;font-size:10px;line-height:1.5}
+
+/* Independent verified catalog: hidden until canonical public response arrives. */
+.tamao-club-premium .club-premium-trustbar{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
+ margin:17px 0 0;padding:14px 20px;border:1px solid #dae8dc;border-radius:15px;
+ background:#fff;box-shadow:0 6px 18px #103f2d0a
+}
+.tamao-club-premium .club-premium-trustbar>span{display:flex;align-items:flex-start;gap:10px;min-width:0;color:#5e7163;font-size:10px;line-height:1.5}
+.tamao-club-premium .club-premium-trustbar strong{color:#28553e}
+.tamao-club-premium .club-premium-trustbar .club-premium-icon{width:23px;height:23px;color:#2e8260}
+.tamao-club-premium .tamao-coupon-price-board#club-premium-offers{
+ display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+ align-items:start;gap:17px 36px;margin:22px 0 0;padding:clamp(22px,3vw,34px);
+ background:linear-gradient(125deg,#f6f9f2,#fffdf7);border:1px solid #d9dfcc;border-radius:19px;
+ box-shadow:0 12px 25px #0a4d3010
+}
+.tamao-club-premium .club-premium-offer-heading h2{margin:8px 0;font-size:clamp(21px,2.5vw,29px);line-height:1.22;color:#184530;letter-spacing:-.04em}
+.tamao-club-premium .club-premium-offer-heading p{max-width:33ch;margin:0;color:#627465;font-size:12px;line-height:1.6}
+.tamao-club-premium .club-premium-offer-data{padding:2px 0 8px}
+.tamao-club-premium .club-premium-offer-data .tamao-club-face{margin:5px 0 10px;color:#0d6747;font-size:clamp(24px,3vw,34px);font-weight:900;line-height:1.15;letter-spacing:-.045em}
+.tamao-club-premium .club-premium-offer-data .tamao-club-offer-label{margin:0 0 11px;color:#536c5a;font-size:13px;line-height:1.5}
+.tamao-club-premium .club-premium-offer-data .tamao-club-offer-label strong{font-size:20px;color:#173e2a}
+.tamao-club-premium .club-premium-offer-data>p{margin:6px 0;font-size:12px;line-height:1.6}
+.tamao-club-premium #club-premium-offers .tamao-benefits-details{grid-column:1/-1;margin:0}
+.tamao-club-premium #club-premium-offers .tamao-benefits-details summary{padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #d9e6dc;color:#28563d;font-weight:850;cursor:pointer}
+.tamao-club-premium #club-premium-offers .tamao-benefits-details p{margin:8px 5px;font-size:12px;line-height:1.6;color:#5f7063}
+
+/* Benefit distinction, informative steps, and facts-based FAQ. */
+.tamao-club-premium .club-premium-benefits{margin:68px 0 60px}
+.tamao-club-premium .club-premium-benefit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
+.tamao-club-premium .club-premium-benefit-grid .club-premium-benefit{
+ display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:287px;
+ padding:23px 22px;border:1px solid #d7e6d8;border-radius:18px;
+ background:#fff;box-shadow:0 8px 25px #113e2710
+}
+.tamao-club-premium .club-premium-feature-icon{
+ display:grid;place-items:center;flex:none;width:52px;height:52px;border:1px solid #c5dfce;
+ border-radius:16px;background:linear-gradient(140deg,#e7f3e8,#f8faf5);color:#14724f;
+ box-shadow:0 6px 16px #174c3010
+}
+.tamao-club-premium .club-premium-benefit:nth-child(2) .club-premium-feature-icon{background:linear-gradient(140deg,#faf0dc,#fffaf0);border-color:#e5d4b0;color:#956c32}
+.tamao-club-premium .club-premium-feature-icon .club-premium-icon{width:28px;height:28px}
+.tamao-club-premium .club-premium-card-counter{display:block;margin:19px 0 7px;color:#3a8061;font-size:9px;font-weight:900;letter-spacing:.13em}
+.tamao-club-premium .club-premium-benefit-grid .club-premium-benefit h3{margin:0 0 10px;font-size:21px;line-height:1.2;color:#1a4632;letter-spacing:-.038em}
+.tamao-club-premium .club-premium-benefit-grid .club-premium-benefit p{margin:0 0 17px;color:#5c7062;font-size:12px;line-height:1.68}
+.tamao-club-premium .club-premium-benefit-foot{margin-top:auto;padding-top:12px;border-top:1px solid #e1ece2;width:100%;color:#357356;font-size:10px;font-weight:850}
+.tamao-club-premium .club-premium-how{padding:clamp(23px,3.6vw,38px);border:1px solid #d8e5d8;border-radius:22px;background:#f5f9f3;margin-bottom:65px}
+.tamao-club-premium .club-premium-how .club-premium-section-heading{margin-bottom:23px}
+.tamao-club-premium .club-premium-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;list-style:none;padding:0;margin:0}
+.tamao-club-premium .club-premium-steps li{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:17px 13px;border:1px solid #e1e9dc;border-radius:14px;background:#fff}
+.tamao-club-premium .club-premium-step-number{display:grid;place-items:center;width:35px;height:35px;flex:none;border-radius:11px;background:#0b6648;color:#fff;font-size:11px;font-weight:900}
+.tamao-club-premium .club-premium-steps h3{font-size:15px;line-height:1.35;margin:1px 0 7px;color:#1b4a34}
+.tamao-club-premium .club-premium-steps p{font-size:11px;line-height:1.65;color:#607265;margin:0}
+.tamao-club-premium .club-premium-faq{display:grid;grid-template-columns:minmax(0,.83fr) minmax(0,1.17fr);gap:clamp(22px,4vw,55px);align-items:start;margin-bottom:67px}
+.tamao-club-premium .club-premium-faq .club-premium-section-heading{display:flex;flex-direction:column;align-items:start;gap:13px}
+.tamao-club-premium .club-premium-faq .club-premium-section-heading h2{margin:0}
+.tamao-club-premium .club-premium-faq-items{border-top:1px solid #cedecd}
+.tamao-club-premium .club-premium-faq-items details{border-bottom:1px solid #d7e4d7}
+.tamao-club-premium .club-premium-faq-items summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:19px 2px;color:#184c35;font-size:13px;font-weight:850;line-height:1.5;list-style:none}
+.tamao-club-premium .club-premium-faq-items summary::-webkit-details-marker{display:none}
+.tamao-club-premium .club-premium-faq-items summary span{font-size:23px;color:#428766;line-height:1}
+.tamao-club-premium .club-premium-faq-items details[open] summary span{transform:rotate(45deg)}
+.tamao-club-premium .club-premium-faq-items details p{margin:0 25px 20px 2px;font-size:12px;line-height:1.7;color:#5a7160}
+.tamao-club-premium .club-premium-final{
+ display:flex;justify-content:space-between;align-items:center;gap:25px;
+ padding:clamp(23px,4vw,40px);border:1px solid #d9e6d8;border-radius:23px;
+ background:linear-gradient(125deg,#edf5eb,#fafbf6)
+}
+.tamao-club-premium .club-premium-final h2{max-width:22ch;margin:10px 0;font-size:clamp(27px,3.3vw,40px);color:#143d2d;line-height:1.15;letter-spacing:-.04em}
+.tamao-club-premium .club-premium-final h2 em{font-style:normal;color:#287451}
+.tamao-club-premium .club-premium-final p{color:#5b7363;font-size:13px;line-height:1.6;margin:0}
+
+/* Authenticated: never mix available cashback with historical earnings. */
+.tamao-club-premium .club-premium-member-hero{
+ display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:clamp(20px,4vw,48px);
+ align-items:center;min-width:0;margin-bottom:17px;padding:clamp(25px,4vw,43px);
+ border:1px solid #1f6851;border-radius:24px;background:radial-gradient(circle at 90% 0,#237e5761,transparent 47%),linear-gradient(140deg,#073b30,#10513b);color:#fff
+}
+.tamao-club-premium .club-premium-member-intro .club-premium-section-index{color:#e5c993}
+.tamao-club-premium .club-premium-member-intro h1{max-width:17ch;margin:13px 0;font-size:clamp(33px,4vw,53px);line-height:1.1;letter-spacing:-.055em;color:#fff}
+.tamao-club-premium .club-premium-member-intro h1 em{font-style:normal;color:#f0d59e}
+.tamao-club-premium .club-premium-member-intro>p{max-width:50ch;margin:0;color:#d4e8d9;font-size:13px;line-height:1.75}
+.tamao-club-premium .club-premium-member-hero-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.tamao-club-premium .club-premium-light{background:#e9d09b;color:#12412e}
+.tamao-club-premium .club-premium-light:hover{background:#f5dfb3}
+.tamao-club-premium .club-premium-member-outline{color:#f2f8f2;border-color:#7faa92;background:#ffffff15}
+.tamao-club-premium .club-premium-member-outline:hover{background:#ffffff23}
+.tamao-club-premium .reward-hero.club-premium-member-balance{
+ min-width:0;margin:0;padding:clamp(20px,2.6vw,27px);border:1px solid #b9d1be;
+ border-radius:19px;background:linear-gradient(135deg,#fcfdf7,#edf4e9);color:#12452f;box-shadow:0 16px 35px #00291b31
+}
+.tamao-club-premium .club-premium-member-balance .club-premium-balance-label{color:#34724e;font-size:10px;letter-spacing:.12em;font-weight:900}
+.tamao-club-premium .club-premium-member-balance .balance{font-size:clamp(39px,5vw,61px);font-weight:900;letter-spacing:-.065em;line-height:1.15;color:#056744;margin:12px 0}
+.tamao-club-premium .club-premium-member-balance>p{margin:0;color:#577160;font-size:11px;line-height:1.6}
+.tamao-club-premium .club-premium-cycle{margin-top:22px;padding-top:15px;border-top:1px solid #d4e2d5}
+.tamao-club-premium .club-premium-cycle-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;color:#2b6345}
+.tamao-club-premium .club-premium-cycle-heading>span{font-size:9px;letter-spacing:.08em;font-weight:900}
+.tamao-club-premium .club-premium-cycle-heading>small{max-width:18ch;text-align:right;line-height:1.35;font-size:10px}
+.tamao-club-premium .club-premium-member-balance .progress{height:8px;margin:12px 0 0;background:#d9e6d8}
+.tamao-club-premium .club-premium-member-balance .progress>div{background:#1b9165}
+.tamao-club-premium .club-premium-statistics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 25px}
+.tamao-club-premium .club-premium-statistics article{display:flex;flex-direction:column;gap:9px;padding:23px 20px;border-radius:17px;background:#fff;border:1px solid #d9e7d9}
+.tamao-club-premium .club-premium-statistics article>span{color:#417657;font-size:11px;font-weight:850}
+.tamao-club-premium .club-premium-statistics article>strong{font-size:clamp(23px,2.6vw,33px);letter-spacing:-.045em;color:#0f5b3d;line-height:1.22;overflow-wrap:anywhere}
+.tamao-club-premium .club-premium-statistics article>small{font-size:10px;line-height:1.6;color:#65776a}
+.tamao-club-premium .club-premium-compensation{margin:0 0 25px;padding:17px 20px}
+.tamao-club-premium .club-premium-compensation p{margin:5px 0 0;line-height:1.5}
+.tamao-club-premium .club-premium-private-section{margin:40px 0}
+.tamao-club-premium .club-premium-private-section>.section{margin:0;padding:clamp(18px,3vw,28px);border:1px solid #d8e7d9;border-radius:19px;background:#fff}
+.tamao-club-premium .club-premium-private-section>.section :is(h2,h3){color:#164632}
+.tamao-club-premium .club-premium-shopping-action{margin-top:44px}
+.tamao-club-premium .club-premium-member-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:36px}
+.tamao-club-premium .club-premium-member-options article{padding:22px;border:1px solid #d7e5d9;border-radius:17px;background:#fff}
+.tamao-club-premium .club-premium-member-options h3{font-size:17px;color:#174631;letter-spacing:-.028em;line-height:1.3;margin:16px 0 7px}
+.tamao-club-premium .club-premium-member-options p{color:#5a7061;font-size:12px;line-height:1.6;margin:0 0 12px}
+
+/* Tablet/mobile and very narrow devices: no horizontal overflow or CTA clipping. */
+@media(max-width:990px){
+ .tamao-club-premium .club-premium-hero.tamao-club-visitor-focus{grid-template-columns:minmax(0,1fr) minmax(0,.95fr)}
+ .tamao-club-premium .club-premium-hero .tamao-club-visitor-hero.club-premium-hero-copy{padding:24px}
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{font-size:clamp(33px,4.1vw,44px)}
+ .tamao-club-premium .club-premium-entry-card{padding:24px}
+ .tamao-club-premium .club-premium-trustbar{padding:14px}
+ .tamao-club-premium .club-premium-benefit-grid .club-premium-benefit{padding:20px 17px}
+}
+@media(max-width:740px){
+ .tamao-club-premium{padding:10px 0 45px}
+ .tamao-club-premium .club-premium-hero.tamao-club-visitor-focus{grid-template-columns:minmax(0,1fr)}
+ .tamao-club-premium .club-premium-hero .tamao-club-visitor-hero.club-premium-hero-copy{padding:29px 24px}
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{font-size:clamp(36px,7vw,46px);max-width:17ch}
+ .tamao-club-premium .club-premium-entry-card{border-left:0;border-top:1px solid #c7dfc8;padding:26px 24px}
+ .tamao-club-premium .club-premium-trustbar{grid-template-columns:1fr;gap:10px}
+ .tamao-club-premium .club-premium-section-heading{grid-template-columns:1fr;gap:10px}
+ .tamao-club-premium .club-premium-section-heading>.club-premium-section-index{grid-column:1}
+ .tamao-club-premium .club-premium-benefits{margin:49px 0}
+ .tamao-club-premium .club-premium-benefit-grid{grid-template-columns:1fr}
+ .tamao-club-premium .club-premium-benefit-grid .club-premium-benefit{min-height:0}
+ .tamao-club-premium .club-premium-card-counter{margin-top:13px}
+ .tamao-club-premium .club-premium-steps{grid-template-columns:1fr}
+ .tamao-club-premium .club-premium-how{margin-bottom:48px}
+ .tamao-club-premium .club-premium-faq{grid-template-columns:1fr;gap:18px}
+ .tamao-club-premium .club-premium-final{flex-direction:column;align-items:stretch}
+ .tamao-club-premium .club-premium-final>.club-premium-button{align-self:flex-start}
+ .tamao-club-premium .tamao-coupon-price-board#club-premium-offers{grid-template-columns:1fr;gap:10px}
+ .tamao-club-premium #club-premium-offers .tamao-benefits-details{grid-column:1}
+ .tamao-club-premium .club-premium-member-hero{grid-template-columns:1fr}
+ .tamao-club-premium .club-premium-statistics{grid-template-columns:1fr}
+ .tamao-club-premium .club-premium-member-options{grid-template-columns:1fr}
+}
+@media(max-width:540px){
+ .tamao-club-premium .club-premium-hero.tamao-club-visitor-focus{border-radius:19px}
+ .tamao-club-premium .club-premium-hero .tamao-club-visitor-hero.club-premium-hero-copy{padding:25px 19px}
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{font-size:clamp(32px,8.6vw,42px);line-height:1.1}
+ .tamao-club-premium .club-premium-hero-copy h1 em{font-size:.65em}
+ .tamao-club-premium .club-premium-actions{flex-direction:column;align-items:stretch;width:100%}
+ .tamao-club-premium .club-premium-actions .club-premium-button{width:100%}
+ .tamao-club-premium .club-premium-entry-card{padding:25px 19px}
+ .tamao-club-premium .club-premium-message{padding:11px}
+ .tamao-club-premium .club-premium-section-heading h2{font-size:clamp(27px,7.2vw,36px)}
+ .tamao-club-premium .club-premium-how{padding:20px 15px}
+ .tamao-club-premium .club-premium-final{padding:23px 18px}
+ .tamao-club-premium .club-premium-final>.club-premium-button{width:100%}
+ .tamao-club-premium .club-premium-member-hero{padding:22px 17px;border-radius:19px}
+ .tamao-club-premium .club-premium-member-intro h1{font-size:clamp(30px,8vw,42px)}
+ .tamao-club-premium .club-premium-member-hero-actions{flex-direction:column}
+ .tamao-club-premium .club-premium-member-hero-actions .club-premium-button{width:100%}
+ .tamao-club-premium .club-premium-member-balance .balance{font-size:clamp(38px,12vw,55px)}
+}
+@media(max-width:350px){
+ .tamao-club-premium .club-premium-hero .tamao-club-visitor-hero.club-premium-hero-copy{padding:20px 15px}
+ .tamao-club-premium .club-premium-hero .club-premium-hero-copy h1{font-size:30px}
+ .tamao-club-premium .club-premium-entry-card{padding:21px 15px}
+ .tamao-club-premium .club-premium-trustline{gap:8px}
+ .tamao-club-premium .club-premium-statistics article{padding:18px 14px}
+}
+@media(prefers-reduced-motion:reduce){.tamao-club-premium *{scroll-behavior:auto!important;transition:none!important}}

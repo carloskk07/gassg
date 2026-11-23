@@ -105,6 +105,8 @@ jobs:
         run: node tests/operator-cnpj-finance-entry-v1-1160.mjs
       - name: V1.1154 Ads 10 percent shared network fund sources, accounting, lifecycle and transparency
         run: node tests/network-ads-fund-v1-1154.mjs
+      - name: V1.1164 premium Clube real visitor/member, verified offers and private benefits
+        run: node tests/club-premium-v1-1164.mjs
       - name: V1.1145 trust-first Rede TAMÃO landing, accurate commission policies and routes
         run: node tests/earn-premium-trust-v1-1145.mjs
       - name: V1.1041 verified cross-module benefit accounting and RLS contract
