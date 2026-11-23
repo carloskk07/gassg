@@ -7714,7 +7714,8 @@ function adminFinanceRealPanel(key){
   html+='<div class="notice" id="admin-finance-real-pix" role="region" aria-label="Pagamento original verificado">'+
    '<h4>'+(key==='advertising'?'Checkout REAL da campanha':'Pix REAL da fatura original')+' · '+money(payment.amountCents)+'</h4>'+ 
    '<p>Situação: '+esc(String(payment.status))+'. Confira o recebedor no aplicativo do banco.</p>'+
-   (payment.pix?(globalThis.tamaoPixMarkup?.(payment.pix,{amountCents:payment.amountCents})||adminFinanceLabLiveQrBlock({brCode:payment.pix}))+
+   (payment.pix?(globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'')+
+    (globalThis.tamaoPixMarkup?.(payment.pix,{amountCents:payment.amountCents})||adminFinanceLabLiveQrBlock({brCode:payment.pix}))+
     '<label for="admin-finance-real-pix-code">Pix copia e cola</label>'+
     '<textarea class="input" id="admin-finance-real-pix-code" readonly rows="3" autocomplete="off">'+
      esc(payment.pix)+'</textarea>'+
@@ -7858,7 +7859,8 @@ function adminFinanceRealPanel(key){
       code.length>30&&Date.parse(String(r.fixedFeePixExpiresAt||''))>Date.now()+60000;
      return '<article class="notice"><h4>Pix da publicidade</h4>'+
       '<p><strong>'+esc(r.title||'Campanha')+'</strong><br>'+money(r.budgetCents)+' por '+esc(r.durationDays)+' dias</p>'+
-      (payable?(globalThis.tamaoPixMarkup?.(code,{amountCents:r.budgetCents})||adminFinanceLabLiveQrBlock({brCode:code}))+
+      (payable?(globalThis.tamaoPixRecipientHtml?.({scope:'platform'})||'')+
+       (globalThis.tamaoPixMarkup?.(code,{amountCents:r.budgetCents})||adminFinanceLabLiveQrBlock({brCode:code}))+
        '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(code)+'</textarea></label>'+
        action('Copiar código Pix','adminFinanceAdsCopyPix(\''+esc(r.id)+'\')')+
        '<p>Válido até '+esc(new Date(r.fixedFeePixExpiresAt).toLocaleString('pt-BR'))+'. A confirmação aparece automaticamente aqui.</p>':
