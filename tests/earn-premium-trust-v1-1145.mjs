@@ -105,4 +105,18 @@ assert.match(page,/inclusive recompras de um mesmo cliente indicado/);
 assert.match(page,/cada compra qualificada/);
 assert.doesNotMatch(page,/Compras posteriores não geram outra comissão/);
 
+// V1.1163: published illustrations must be finished branded UI, not CSS wireframes or glyph placeholders.
+assert.match(page,/earn-invite-card/);
+assert.match(page,/PÁGINA PESSOAL/);
+assert.match(page,/Compartilhamento identificado/);
+assert.ok((page.match(/class="earn-icon"/g)||[]).length>=10,'All decorative visual surfaces use consistent SVG iconography');
+for(const obsolete of ['earn-art-ring','earn-art-core','earn-art-orbit'])
+ assert.ok(!page.includes(obsolete),'Sketch-like orbital decoration must not return: '+obsolete);
+assert.doesNotMatch(page,/class="earn-benefit-symbol" aria-hidden="true">[✳↗]/);
+assert.doesNotMatch(page,/class="earn-value-simple-icon" aria-hidden="true">[✳↗]/);
+assert.match(css,/\.earn-invite-card\{/);
+assert.match(css,/\.earn-step-glyph \.earn-icon\{/);
+assert.match(page,/SIMULADOR DE COMISSÕES/);
+assert.match(page,/data-earn-fund-total/);
+
 console.log('TAMÃO Rede premium PASS: financial clarity, honest example, valid routes, lazy assets and mobile styles.');
