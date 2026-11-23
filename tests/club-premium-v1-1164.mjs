@@ -63,10 +63,10 @@ for(const required of [
  '@media(max-width:350px)',':focus-visible',
  '[hidden]{display:none!important}'
 ])assert.ok(css.includes(required),'Missing premium CSS safeguard '+required);
-assert.match(boot,/function tamaoEnsureClubPremiumStyles\(page\)/);
-assert.match(boot,/if\(page!=='club'/);
-assert.match(boot,/css\/club-premium\.css/);
-assert.match(boot,/tamaoEnsureClubPremiumStyles\(r\)/);
+assert.match(boot,/if\(r==='club'&&/);
+assert.match(boot,/import\('\/js\/club-premium\.js\?v=1164'\)/);
+assert.match(premium,/css\/club-premium\.css\?v=1164/);
+assert.match(premium,/globalThis\.clubPremiumPage=clubPremiumPage/);
 assert.doesNotMatch(guest,/🎟️|💚|🔎|⭐|🤝|💵/);
 assert.doesNotMatch(privateMember,/🎟️|💚|🔎|⭐|🤝|💵/);
 console.log('V1.1164 PASS — premium Club visitor/member, registered user gate, verified offer, safe benefits, original voucher/checkout and responsive styles');
