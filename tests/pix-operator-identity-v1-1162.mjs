@@ -51,7 +51,7 @@ assert.doesNotMatch(renderRecipient({scope:'merchant',
  merchantName:'<img src=x onerror=alert(1)>'}),/<img/);
 assert.doesNotMatch(renderRecipient({
  scope:'platform',recipientVerified:true,cpfFinal:'77'
-}),/CPF final \\*\\*77/,'No client-controlled flag may publish bank verification');
+}),/CPF final/,'No client-controlled flag may publish bank verification');
 
 assert.match(trust,/class="tamao-pix-trust"/);
 assert.match(buyer,/onlinePayment\.pixPayable===true/);
