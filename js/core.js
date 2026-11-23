@@ -1090,6 +1090,38 @@ if(globalThis.__CHAMA_TEST__){
   if(!body)return '<p role="status">'+(failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>';
   return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>';
  }
+ // V1.1162 — identification shown only beside a payable, caller-verified Pix.
+ // Never rewrite a BR Code, assert a CPF without provider proof or name a
+ // platform operator as the beneficiary of a direct-to-merchant order.
+ function recipientHtml({scope='platform',merchantName='',sellerName='',
+   recipientVerified=false,cpfFinal=''}={}){
+  if(!['platform','merchant','seller'].includes(scope))return '';
+  const name=scope==='platform'?'Carlos Alberto dos Santos Freitas':
+    String(scope==='merchant'?merchantName:sellerName).trim();
+  const official=scope==='platform'
+   ?'RESPONSÁVEL TÉCNICO TAMÃO'
+   :scope==='merchant'?'RECEBIMENTO DIRETO À REVENDA':'VENDEDOR DO PACOTE';
+  const subtitle=scope==='platform'
+   ?'Responsável indicado pelo recebimento da operação'
+   :scope==='merchant'
+     ?'Esta compra é recebida pela revenda, não pelo TAMÃO.'
+     :'Vendedor identificado no registro da compra; confira o recebedor bancário.';
+  // CPF digits must come from a proven recipient, not from browser data or an
+  // unverified seller profile. No such flag is assumed for existing checkouts.
+  const suffix=recipientVerified===true&&/^\d{2}$/.test(String(cpfFinal))
+    ?' • CPF final **'+escape(cpfFinal):'';
+  return '<aside class="tamao-pix-trust" aria-label="Identificação do pagamento Pix">'+
+   '<span class="tamao-pix-trust-kicker">'+official+'</span>'+
+   (name?'<strong class="tamao-pix-trust-name">'+escape(name)+'</strong>':'')+
+   '<p class="tamao-pix-trust-sub">'+subtitle+suffix+'</p>'+
+   '<p class="tamao-pix-trust-proof">Cobrança gerada pelo sistema oficial do TAMÃO.</p>'+
+   '<p class="tamao-pix-trust-check">Antes de pagar, confira no aplicativo do banco o nome e a identificação do recebedor. Em caso de divergência, não conclua o pagamento e contate o suporte do TAMÃO.</p>'+
+   (scope==='platform'&&!suffix?
+    '<small>CPF: os dígitos finais não são divulgados sem conferência da titularidade bancária. O nome acima é a identificação administrativa informada pelo TAMÃO.</small>':'')+
+   '</aside>';
+ }
+
+ globalThis.tamaoPixRecipientHtml=recipientHtml;
  globalThis.tamaoPixCodeValid=valid;
  globalThis.tamaoPixMarkup=markup;
  globalThis.tamaoPixLoadEncoder=load;
