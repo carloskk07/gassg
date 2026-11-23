@@ -17,6 +17,7 @@ on:
       - 'js/clube-coupon-shop.js'
       - 'tests/club-premium-browser-v1-1164.mjs'
       - 'js/earn-premium.js'
+      - 'tests/ux-trust-browser-v1-1167.mjs'
       - 'tests/discovery-visual-browser-v1-1166.mjs'
       - 'tests/global-visual-browser-v1-1165.mjs'
       - 'tests/earn-premium-browser-v1-1145.mjs'
@@ -141,6 +142,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/discovery-visual-browser-v1-1166.mjs
+
+      - name: "V1.1167 Chrome UX: nonblocking support, finished sponsor preview and Clube"
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/ux-trust-browser-v1-1167.mjs
 
       - name: Check real painted advertisement CTA in isolated Chrome at 360 and 1120 px
         env:
