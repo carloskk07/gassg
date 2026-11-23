@@ -111,11 +111,8 @@
 .earn-signature .earn-step-num{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#29714e;font-size:10px;font-weight:900;letter-spacing:.13em}
 .earn-signature .earn-step-num span{font-size:16px;color:#8eafa0}
 .earn-signature .earn-step-glyph{display:flex;align-items:center;justify-content:center;width:55px;height:55px;margin:26px 0 20px;border:1px solid #cfe3d3;border-radius:17px;background:#edf5ed;color:#2e8059}
-.earn-signature .earn-glyph-link span{width:22px;height:13px;border:3px solid #2a875e;border-radius:20px;transform:rotate(-40deg);margin-inline:-5px}
 .earn-signature .earn-glyph-check{font-size:29px;font-weight:850}
 .earn-signature .earn-glyph-ledger{display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:6px;padding:12px}
-.earn-signature .earn-glyph-ledger span{height:3px;border-radius:3px;background:#2a865e;width:100%}
-.earn-signature .earn-glyph-ledger span:nth-child(2){width:65%}
 .earn-signature .earn-step-grid h3{margin:0 0 9px;font-size:19px;line-height:1.24;letter-spacing:-.036em;color:#194932}
 .earn-signature .earn-step-grid p{margin:0;color:#607669;font-size:13px;line-height:1.7}
 .earn-signature .earn-process-action{display:flex;align-items:center;justify-content:flex-end;gap:17px;flex-wrap:wrap;margin-top:18px}
@@ -128,12 +125,6 @@
 .earn-signature .earn-value-tag,.earn-signature .earn-value-mini{color:#26764f;font-size:10px;font-weight:900;letter-spacing:.125em}
 .earn-signature .earn-value-tag{position:absolute;top:24px;left:25px;z-index:2}
 .earn-signature .earn-value-art{position:relative;display:grid;place-items:center;height:150px;margin:28px 0 0;overflow:hidden}
-.earn-signature .earn-art-ring{position:absolute;width:180px;height:180px;border:1px solid #6ba98966;border-radius:50%;box-shadow:0 0 0 31px #5da57a15,0 0 0 59px #5da57a0b}
-.earn-signature .earn-art-core{display:grid;place-items:center;width:63px;height:63px;border-radius:20px;background:#0b6043;color:#fff;font-size:36px;font-weight:900;letter-spacing:-.12em;box-shadow:0 11px 23px #0e543532;z-index:1}
-.earn-signature .earn-art-core span{color:#eecb93}
-.earn-signature .earn-art-orbit{position:absolute;width:23px;height:23px;border:4px solid #eff8ee;border-radius:50%;background:#d9b479}
-.earn-signature .earn-art-orbit-one{top:14%;left:26%}
-.earn-signature .earn-art-orbit-two{bottom:12%;right:26%;background:#56a776}
 .earn-signature .earn-value-content{display:flex;flex:1;flex-direction:column;padding:10px 24px 24px}
 .earn-signature .earn-value-content h3,.earn-signature .earn-value-simple h3{margin:0 0 11px;color:#194b33;font-size:22px;line-height:1.17;letter-spacing:-.038em;font-weight:850}
 .earn-signature .earn-value-content p,.earn-signature .earn-value-simple p{margin:0 0 19px;color:#597161;font-size:13px;line-height:1.7}
@@ -620,4 +611,79 @@
  .earn-signature .earn-hero h1{margin-top:16px;margin-bottom:10px}
  .earn-signature .earn-hero-earning{margin-top:12px}
  .earn-signature .earn-hero-actions{margin-top:13px}
+}
+
+/* V1.1163 — finished visuals, no decorative wireframes or placeholder pictograms.
+   Presentation-only changes: the commission and pooled-benefit calculators are untouched. */
+.earn-signature .earn-icon{display:block;width:26px;height:26px;flex:none;overflow:visible}
+.earn-signature .earn-hero-earning-mark{background:#0b6346;color:#f8dfaa;box-shadow:0 5px 15px #0a573425}
+.earn-signature .earn-hero-earning-mark .earn-icon{width:26px;height:26px}
+.earn-signature .earn-benefit-board .earn-assurance .earn-benefit-symbol{
+ display:grid;place-items:center;width:56px;height:56px;min-height:56px;margin:15px 0 11px;
+ border:1px solid #bbd8c8;border-radius:17px;background:linear-gradient(145deg,#e1f1e5,#f6f9f2);
+ color:#0d7550;box-shadow:0 7px 17px #0a4d3311
+}
+.earn-signature .earn-benefit-board .earn-assurance .earn-benefit-symbol-page{
+ background:linear-gradient(140deg,#f8f0dc,#fffaf0);border-color:#e4d3a8;color:#996822
+}
+.earn-signature .earn-benefit-board .earn-assurance .earn-benefit-symbol .earn-icon{width:31px;height:31px}
+.earn-signature .earn-value-art{
+ display:flex;align-items:center;justify-content:center;position:relative;
+ height:190px;min-height:190px;margin:36px 0 2px;padding:12px 18px 9px;
+ overflow:hidden;background:linear-gradient(90deg,transparent,rgba(211,231,207,.45) 25%,rgba(222,236,216,.35) 74%,transparent)
+}
+.earn-signature .earn-invite-card{
+ position:relative;display:flex;flex-direction:column;gap:6px;width:100%;max-width:295px;
+ min-width:0;min-height:166px;padding:14px 16px 12px;
+ background:linear-gradient(145deg,#ffffff,#f9fbf6);border:1px solid #c5d9c9;
+ border-radius:16px;box-shadow:0 15px 29px #0d4e3530,0 2px 3px #0f463016;
+ color:#193d2c
+}
+.earn-signature .earn-invite-card::before{
+ content:"";position:absolute;top:0;right:18px;width:62px;height:3px;border-radius:0 0 5px 5px;background:#c6a16b
+}
+.earn-signature .earn-invite-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.earn-signature .earn-invite-card-brand{display:inline-flex;align-items:baseline;gap:6px;color:#104630;font-weight:900;font-size:14px;letter-spacing:-.04em}
+.earn-signature .earn-invite-card-brand small{font-size:8px;letter-spacing:.09em;color:#7d906e}
+.earn-signature .earn-invite-card-seal{display:grid;place-items:center;width:25px;height:25px;color:#14805a}
+.earn-signature .earn-invite-card-seal .earn-icon{width:24px;height:24px}
+.earn-signature .earn-invite-card-kicker{color:#9b733d;font-size:8px;font-weight:900;letter-spacing:.13em}
+.earn-signature .earn-invite-card>strong{max-width:25ch;color:#143e2d;font-size:15px;font-weight:850;line-height:1.24;letter-spacing:-.025em}
+.earn-signature .earn-invite-card-meta{color:#617769;font-size:9px;line-height:1.55}
+.earn-signature .earn-invite-card-foot{
+ display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:7px;
+ border-top:1px solid #e4ece4;color:#2c7554;font-size:9px;font-weight:800;line-height:1.45
+}
+.earn-signature .earn-invite-card-foot .earn-icon{width:15px;height:15px}
+.earn-signature .earn-value-simple-icon{
+ display:grid;place-items:center;width:69px;height:69px;margin:39px 0 22px;
+ border:1px solid #bcd7c7;border-radius:19px;color:#116c4b;
+ background:linear-gradient(140deg,#e0f0e3,#f6faf4);box-shadow:0 9px 20px #17492d13
+}
+.earn-signature .earn-value-simple-icon-business{
+ background:linear-gradient(145deg,#f6edd8,#fffaf0);color:#987038;border-color:#e3d2ac
+}
+.earn-signature .earn-value-simple-icon .earn-icon{width:34px;height:34px}
+.earn-signature .earn-step-glyph{
+ display:grid;place-items:center;width:58px;height:58px;margin:23px 0 20px;
+ border:1px solid #c5dccb;border-radius:17px;
+ background:linear-gradient(135deg,#e4f2e8,#f7faf4);color:#126e4b;
+ box-shadow:0 8px 20px #1b624014;padding:0
+}
+.earn-signature .earn-step-glyph .earn-icon{width:31px;height:31px}
+.earn-signature .earn-glyph-check{background:linear-gradient(135deg,#e6f3e6,#f5faf2);color:#0e784e}
+.earn-signature .earn-glyph-ledger{display:grid;place-items:center;padding:0;background:linear-gradient(135deg,#f7edda,#fffaf0);color:#936b31;border-color:#e5d6b8}
+@media(max-width:740px){
+ .earn-signature .earn-step-glyph{grid-row:span 2;width:52px;height:52px;margin:0}
+ .earn-signature .earn-value-art{height:190px;min-height:190px}
+}
+@media(max-width:540px){
+ .earn-signature .earn-value-simple-icon{width:58px;height:58px;margin:20px 0 17px}
+ .earn-signature .earn-value-simple-icon .earn-icon{width:30px;height:30px}
+ .earn-signature .earn-invite-card{max-width:min(100%,290px);min-height:166px}
+ .earn-signature .earn-benefit-board .earn-assurance .earn-benefit-symbol{width:48px;height:48px;min-height:48px}
+ .earn-signature .earn-benefit-board .earn-assurance .earn-benefit-symbol .earn-icon{width:27px;height:27px}
+}
+@media(prefers-reduced-motion:reduce){
+ .earn-signature .earn-value-simple-icon,.earn-signature .earn-invite-card{transition:none}
 }
