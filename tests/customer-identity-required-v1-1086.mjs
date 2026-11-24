@@ -40,6 +40,30 @@ context.liveRuntime.status='failed';
 assert.match(context.runtimeStrip(),/Serviço temporariamente indisponível/,'Real failures must remain visible');
 context.liveRuntime.status='unsafe-origin';
 assert.match(context.runtimeStrip(),/ATENDIMENTO INDISPONÍVEL NESTA ORIGEM/);
+const portalNotice=(message,blocked)=>'<div class="demo-strip'+(blocked?' blocked-strip':'')+'"><span>'+message+'</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+context.adminPortalRequested=()=>true;
+context.adminRuntime={status:'unauthenticated'};
+for(const [status,message,blocked] of [
+ ['unauthenticated','Admin • acesso por e-mail autorizado',false],
+ ['no-access','Esta conta não tem acesso ao Admin',true],
+ ['unavailable','Admin temporariamente indisponível',true]
+]){
+ context.adminRuntime.status=status;
+ assert.equal(context.runtimeStrip(),portalNotice(message,blocked));
+}
+context.adminPortalRequested=()=>false;
+context.merchantPortalRequested=()=>true;
+context.merchantRuntime={status:'unauthenticated'};
+for(const [status,message,blocked] of [
+ ['unauthenticated','Painel da revenda • acesso seguro por e-mail',false],
+ ['no-access','Esta conta ainda não está vinculada a uma revenda',true],
+ ['unsafe-origin','Acesse pelo endereço oficial do Parceiro',true],
+ ['unavailable','Painel da revenda indisponível no momento',true]
+]){
+ context.merchantRuntime.status=status;
+ assert.equal(context.runtimeStrip(),portalNotice(message,blocked));
+}
+
 
 for(const name of ['tamao-order-name','tamao-order-phone','tamao-order-email'])
  assert.ok(home.includes(name));
