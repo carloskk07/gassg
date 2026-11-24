@@ -118,6 +118,19 @@ jobs:
           # disposable local start. Do not remove payment/auth env safeguards.
           env -u SUPABASE_INTERNAL_IMAGE_REGISTRY \
             supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+      - name: Disaster recovery drill on synthetic ledger (disposable container only)
+        run: |
+          set -euo pipefail
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          bash -n tests/isolated-db-restore-drill.sh
+          bash -n scripts/release-db-restore-isolated.sh
+          # Use the same PostgreSQL version as the isolated stack, never a hosted database.
+          mapfile -t containers < <(docker ps --filter 'name=^/supabase_db_' --format '{{.ID}}')
+          test "${#containers[@]}" -eq 1
+          container="${containers[0]}"
+          docker cp scripts/release-db-restore-isolated.sh "$container:/tmp/tamao-ci-restore-helper.sh"
+          docker exec -i -e TAMAO_DISPOSABLE_RESTORE_DRILL=1 "$container" bash -s -- /tmp/tamao-ci-restore-helper.sh < tests/isolated-db-restore-drill.sh
       - name: Native Pix and legacy instrument retirement on actual disposable Postgres
         run: node tests/isolated-embedded-pix.mjs
       - name: Verify real schema, RLS, missing merchant and clean local orders
