@@ -90,6 +90,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
+      actions: read
       pages: write
       id-token: write
       issues: write
@@ -106,6 +107,25 @@ jobs:
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: _site
+      # Artifact upload completion can precede visibility in the Actions API.
+      # Fail closed if the exact attempt is still unavailable; never deploy an older artifact.
+      - name: Confirm exact demo artifact is visible before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEMO_ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            if gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+              -f name="$DEMO_ARTIFACT" --jq '.artifacts[] | select(.expired == false) | .name' \
+              | grep -Fxq "$DEMO_ARTIFACT"; then
+              echo "Exact demo artifact confirmed: $DEMO_ARTIFACT"
+              exit 0
+            fi
+            sleep 4
+          done
+          echo "::error::Exact demo artifact did not become visible in time"
+          exit 1
       - name: Deploy demo (never TAMÃO production)
         id: deployment
         uses: actions/deploy-pages@v4
