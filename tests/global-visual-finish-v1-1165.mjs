@@ -21,6 +21,16 @@ assert.match(html,/onload="this\.onload=null;this\.rel='stylesheet'"/);
 assert.match(visual,/--vf-ticket:|--vf-wallet:|--vf-calendar:|--vf-shield:/);
 assert.match(visual,/data:image\/svg\+xml/);
 assert.match(visual,/-webkit-mask:var\(--vf-symbol/);
+for(const name of ['bag','ticket','search','calendar','wallet','shield','store','megaphone','users','pin','receipt','clock','box','car','spark']){
+ const line=visual.split('\n').find(row=>row.trimStart().startsWith('--vf-'+name+':'));
+ assert.ok(line,'Missing shared icon '+name);
+ const svg=decodeURIComponent(line.split('data:image/svg+xml,')[1].split('");')[0]);
+ assert.match(svg,/viewBox="0 0 24 24"/);
+ assert.match(svg,/fill="black"/);
+ assert.doesNotMatch(svg,/stroke-width=/,'Filled icon regressed to outline: '+name);
+ assert.match(svg,/<(?:path|circle)\b/);
+}
+
 for(const selector of [
  '.tamao-quick-path-icon','.tamao-benefit-emoji','.visitor-path-icon',
  '.tamao-home-service .intent-icon','.tamao-home-coupon-icon',
