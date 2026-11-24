@@ -229,12 +229,12 @@ function sponsorsLandingPremium(){
    <span class="sponsor-premium-eyebrow"><span class="sponsor-premium-dot" aria-hidden="true"></span> PUBLICIDADE LOCAL NO TAMÃO</span>
    <h1 class="page-title">Sua marca merece <em>ser vista</em> por quem vive a sua cidade.</h1>
    <p class="page-lead">Apresente sua empresa, seus serviços e suas novidades em um espaço pensado para conectar negócios e pessoas. Escolha a região e prepare sua campanha com clareza.</p>
+   <p class="sponsor-premium-starting"><strong>R$ 0,02 por visualização elegível</strong> <span>· Recargas a partir de R$ 19,90, sem pacote de dias</span></p>
    <div class="sponsor-premium-actions">
     <button type="button" class="primary sponsor-premium-main-cta" onclick="sponsorDemoContinue()">Criar meu anúncio <span aria-hidden="true">→</span></button>
     <button type="button" class="sponsor-premium-link" onclick="sponsorJumpTo('sponsor-formats')">Conhecer os formatos <span aria-hidden="true">↗</span></button>
    </div>
    <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Proposta gratuita</span></div>
-   <p class="sponsor-premium-starting"><strong>R$ 0,02 por visualização elegível</strong> <span>· Recargas a partir de R$ 19,90, sem pacote de dias</span></p>
   </div>
   <aside class="sponsor-premium-visual" data-demo-placement="${demo.placement}" aria-label="Prévia ilustrativa de anúncio identificado">
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
