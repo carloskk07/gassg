@@ -33,7 +33,8 @@ pg_restore --list "$archive" >/dev/null || { echo "RESTORE_BLOCKED: unreadable a
 # We only CONNECT to localhost. A port-forward to production is NOT an
 # isolated destination; the operator must verify their local PostgreSQL.
 export PGHOST=127.0.0.1 PGHOSTADDR=127.0.0.1 PGSSLMODE=prefer PGCONNECT_TIMEOUT=10
-unset PGSERVICE || true
+# Do not allow inherited libpq service files to override or break the explicit local connection.
+unset PGSERVICE PGSERVICEFILE || true
 # Fail if there is an existing database of the same name; never reuse or drop.
 if psql -XAtq -d postgres -v ON_ERROR_STOP=1 -v target="$target" \
   -c "select 1 from pg_database where datname='$target'" 2>/dev/null | grep -qx 1; then
