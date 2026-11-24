@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
+import {writeBackupBrandingPages} from './build-backup-branding-pages.mjs';
 import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
 import {writeDiscoveryLandingPages,DISCOVERY_LANDING_SLUGS} from './build-discovery-landings.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from './strip-admin-css.mjs';
@@ -614,6 +615,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha,role),'utf8');
     writePortalRobots(target,role);
+    if(role==='customer')writeBackupBrandingPages(target);
     if(role==='customer')writePublicLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
