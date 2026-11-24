@@ -38,7 +38,8 @@ const routes=[
  {name:'learn',hash:'#learn',icon:'.learn-premium .learn-benefit-symbol'},
  {name:'sponsors',hash:'#sponsors',icon:'.sponsor-premium-format-icon'},
  {name:'earn',hash:'#earn',icon:'.earn-benefit-symbol'},
- {name:'club',hash:'#club',icon:'.club-premium-feature-icon'}
+ {name:'club',hash:'#club',icon:'.club-premium-feature-icon'},
+ {name:'contact',hash:'#contact',icon:'.contact-purpose-grid .trust-card>span'}
 ];
 const makeInspect=icon=>`JSON.stringify((()=>{const root=document.querySelector('#app');const e=document.querySelector(${JSON.stringify(icon)});const pseudo=e?getComputedStyle(e,'::before'):null;const mask=pseudo?(pseudo.webkitMaskImage||pseudo.maskImage):'';const x=document.querySelector('h1:not(.tamao-preboot h1)');const html=document.documentElement;return {ready:!!root&&!!x&&!root.querySelector('.tamao-preboot'),heading:x?.textContent?.trim()?.slice(0,90),icon:!!e,mask:String(mask||''),width:innerWidth,scroll:html.scrollWidth,style:!!document.querySelector('link[href*="visual-finish.css"]'),studioLabels:document.querySelector('.sponsor-placement-faux-products')?.textContent?.trim()||'',skeletons:document.querySelectorAll('.sponsor-placement-faux-products span:empty,.sponsor-placement-faux-lines span:empty').length};})())`;
 const reports=[];
@@ -53,19 +54,27 @@ try{
     await sleep(170);
     const answer=await send('Runtime.evaluate',{expression:makeInspect(page.icon),returnByValue:true,awaitPromise:true});
     if(answer?.result?.value)item=JSON.parse(answer.result.value);
-    if(item?.ready&&item.style&&item.icon&&(!['home','learn','sponsors'].includes(page.name)||item.mask?.includes('data:image/svg+xml')))break;
+    if(item?.ready&&item.style&&item.icon&&(!['home','learn','sponsors','contact'].includes(page.name)||item.mask?.includes('data:image/svg+xml')))break;
    }
    assert.ok(item?.ready&&item.style&&item.icon,`Route ${page.name} not loaded at ${width}: ${JSON.stringify(item)}`);
    assert.ok(item.scroll<=width+2,`Horizontal overflow ${page.name}@${width}: ${JSON.stringify(item)}`);
-   if(['home','learn','sponsors'].includes(page.name)){
+   if(['home','learn','sponsors','contact'].includes(page.name)){
     assert.match(item.mask,/data:image\/svg\+xml/i,`Finished icon missing in ${page.name}@${width}: ${JSON.stringify(item)}`);
+   }
+   if(page.name==='contact'){
+    const form=await send('Runtime.evaluate',{expression:"JSON.stringify((()=>({icons:[...document.querySelectorAll('.contact-purpose-grid .trust-card>span')].map(e=>getComputedStyle(e,'::before').maskImage),submit:document.querySelector('#public-request-submit').getBoundingClientRect().height,font:parseFloat(getComputedStyle(document.querySelector('#public-contact-value')).fontSize),ack:document.querySelector('#public-request-ack').checked}))())",returnByValue:true});
+    const data=JSON.parse(form.result.value);
+    assert.equal(data.icons.length,3);
+    assert.ok(data.icons.every(mask=>mask.includes('data:image/svg+xml')));
+    assert.ok(data.submit>=44&&data.font>=16);
+    assert.equal(data.ack,false,'Never preselect privacy consent');
    }
    if(page.name==='sponsors'){
     assert.equal(item.skeletons,0,'Do not draw empty skeleton cards as ad placements');
     assert.match(item.studioLabels,/Produtos e serviços/);
     assert.match(item.studioLabels,/Publicidade identificada/);
    }
-   if(['home','learn','sponsors'].includes(page.name)){
+   if(['home','learn','sponsors','contact'].includes(page.name)){
     const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
     fs.writeFileSync(path.join(out,'visual-finish-'+page.name+'-'+width+'.png'),Buffer.from(shot.data,'base64'));
    }
