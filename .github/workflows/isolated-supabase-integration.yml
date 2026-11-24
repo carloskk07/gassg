@@ -116,6 +116,10 @@ jobs:
           # default. An explicit override DISABLES the CLI's registry
           # fallback (ECR -> GHCR -> Docker Hub); remove it ONLY for this
           # disposable local start. Do not remove payment/auth env safeguards.
+          # A previous disposable job may release its Docker port shortly
+          # after completion. Wait only, never kill unrelated containers.
+          python3 tests/disposable-port-readiness.py
+          python3 scripts/wait-disposable-ports.py --timeout 60 54321 54322
           env -u SUPABASE_INTERNAL_IMAGE_REGISTRY \
             supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Disaster recovery drill on synthetic ledger (disposable container only)
