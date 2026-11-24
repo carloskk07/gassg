@@ -112,6 +112,23 @@ try{
   if(ready)break;await sleep(150);
  }
  assert.equal(ready,true,'Editor scripts/styles must load from actual Agenda');
+ const landing=await evaluate(`(()=>{
+  const section=document.createElement('section');section.className='section agenda';
+  document.body.appendChild(section);
+  const style=getComputedStyle(section),layout={display:style.display,gap:parseFloat(style.rowGap)};
+  section.remove();
+  const link=[...document.querySelectorAll('.agenda-top-links a')].find(a=>a.textContent.trim()==='Minha agenda');
+  const previousRender=window.render,previousMode=agendaRuntime.ownerMode,previousError=agendaRuntime.error;
+  const before=location.href;let renders=0;
+  window.render=()=>{renders++};
+  agendaRuntime.ownerMode=false;
+  try{link?.click();return {...layout,found:!!link,ownerMode:agendaRuntime.ownerMode,sameUrl:location.href===before,renders}}
+  finally{window.render=previousRender;agendaRuntime.ownerMode=previousMode;agendaRuntime.error=previousError}
+ })()`);
+ assert.equal(landing.display,'grid','Standalone Agenda must preserve the shared layout grid');
+ assert.ok(landing.gap>=12,'Agenda sections need breathing space');
+ assert.ok(landing.found&&landing.ownerMode&&landing.sameUrl&&landing.renders===1,'My Agenda should open the owner flow directly without reloading');
+
  for(const width of [320,360,390,768,1280]){
   await send('Emulation.setDeviceMetricsOverride',{width,height:900,screenWidth:width,screenHeight:900,deviceScaleFactor:1,mobile:width<768});
   const setup=await evaluate('('+installFixture.toString()+')()');
