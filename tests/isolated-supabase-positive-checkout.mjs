@@ -269,6 +269,48 @@ const blocked=await call('get-order',outsider.token,{orderId:first.body.orderId}
 assert.equal(blocked.status,404);
 assert.equal(blocked.body.error,'ORDER_NOT_FOUND');
 
+// Bounded HTTP concurrency exercise using the real local Edge and Auth stack.
+// This is a smoke test, not a claim about hosted capacity or a traffic SLA.
+const burstStarted=performance.now();
+const boundedTimings=[];
+for(let batch=0;batch<3;batch++){
+ const results=await Promise.all(Array.from({length:8},async(_,index)=>{
+  const permitted=index%2===0;
+  const started=performance.now();
+  const result=await call('get-order',permitted?buyer.token:outsider.token,{orderId:first.body.orderId});
+  boundedTimings.push(performance.now()-started);
+  return {permitted,result};
+ }));
+ for(const {permitted,result} of results){
+  assert.equal(result.status,permitted?200:404,'concurrent order reads must preserve authorization');
+  if(permitted){
+   assert.equal(result.body.role,'customer');
+   assert.equal(result.body.status,'OFFERED_TO_MERCHANT');
+   assert.equal(result.body.items?.length,1);
+  }else assert.equal(result.body.error,'ORDER_NOT_FOUND');
+ }
+}
+const parallelReplays=await Promise.all(Array.from({length:4},async()=>{
+ const started=performance.now();
+ const result=await call('create-order',buyer.token,request,{'Idempotency-Key':idempotency});
+ boundedTimings.push(performance.now()-started);
+ return result;
+}));
+for(const result of parallelReplays){
+ assert.equal(result.status,201,'completed checkout replay must remain safe under concurrent HTTP requests');
+ assert.equal(result.body.orderId,first.body.orderId);
+}
+assert.equal(sql('SELECT count(*) FROM public.orders'),'1','read burst and checkout retries must never duplicate order');
+assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name='create-order'"),'1');
+assert.equal(sql("SELECT consumed_at IS NOT NULL FROM public.quotes WHERE id="+q(quote.quoteId)+"::uuid"),'t');
+const sortedTimings=[...boundedTimings].sort((a,b)=>a-b);
+console.log('BOUNDED_CHECKOUT_HTTP_LOAD '+JSON.stringify({
+ requests:sortedTimings.length,authorizedReads:12,deniedReads:12,completedReplays:4,
+ maxParallel:8,elapsedMs:Math.round(performance.now()-burstStarted),
+ p95Ms:Math.round(sortedTimings[Math.ceil(sortedTimings.length*0.95)-1]),
+ maxMs:Math.round(sortedTimings.at(-1)),orders:1,duplicateOrders:0
+}));
+
 const merchantView=await call('merchant-orders',owner.token,{merchantId});
 assert.equal(merchantView.status,200,'merchant dashboard: '+JSON.stringify(merchantView.body).slice(0,420));
 assert.equal(merchantView.body.merchant?.merchantId,merchantId);
