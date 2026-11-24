@@ -327,6 +327,34 @@ console.log('BOUNDED_CHECKOUT_HTTP_LOAD '+JSON.stringify({
  maxMs:Math.round(sortedTimings.at(-1)),orders:1,duplicateOrders:0
 }));
 
+// Exercise the EXISTING 120/60s quota close to its threshold, without
+// creating hundreds of requests or modifying the production quota.
+const quotaActor=await createActor('quota-boundary');
+const remainingWindow=()=>Number(sql("SELECT 60-extract(epoch FROM clock_timestamp())::numeric%60"));
+if(remainingWindow()<15){
+ await new Promise(resolve=>setTimeout(resolve,Math.ceil((remainingWindow()+0.4)*1000)));
+}
+assert.ok(remainingWindow()>=14,'quota test requires enough time in this fixed window');
+const bucket=sql("SELECT to_timestamp(floor(extract(epoch FROM clock_timestamp())/60)*60)::text");
+sql("INSERT INTO public.api_rate_limits(user_id,action_name,window_started_at,request_count,updated_at) VALUES("+
+ q(quotaActor.id)+"::uuid,'get-order',"+q(bucket)+"::timestamptz,118,clock_timestamp())");
+const quotaRace=await Promise.all(Array.from({length:4},()=>call('get-order',quotaActor.token,{orderId:first.body.orderId})));
+assert.deepEqual(quotaRace.map(x=>x.status).sort((a,b)=>a-b),[404,404,429,429],
+ 'only the remaining two requests may enter order lookup; concurrent excess must be rate-limited');
+for(const result of quotaRace){
+ assert.equal(result.body.error,result.status===429?'RATE_LIMITED':'ORDER_NOT_FOUND');
+ assert.deepEqual(Object.keys(result.body).sort(),['error','message'],'quota or denial cannot disclose order details');
+}
+assert.equal(sql("SELECT request_count FROM public.api_rate_limits WHERE user_id="+q(quotaActor.id)+
+ "::uuid AND action_name='get-order' AND window_started_at="+q(bucket)+"::timestamptz"),'122',
+ 'atomic counters must count all four concurrent attempts');
+const unaffectedBuyer=await call('get-order',buyer.token,{orderId:first.body.orderId});
+assert.equal(unaffectedBuyer.status,200,'a limited account must not block a different legitimate buyer');
+assert.equal(unaffectedBuyer.body.role,'customer');
+assert.equal(sql('SELECT count(*) FROM public.orders'),'1');
+assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name='create-order'"),'1');
+console.log('PASS: real local HTTP quota boundary under contention (2 private denials, 2 rate limits); legitimate buyer unaffected; no duplicate order.');
+
 const merchantView=await call('merchant-orders',owner.token,{merchantId});
 assert.equal(merchantView.status,200,'merchant dashboard: '+JSON.stringify(merchantView.body).slice(0,420));
 assert.equal(merchantView.body.merchant?.merchantId,merchantId);
