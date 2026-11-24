@@ -20,12 +20,13 @@
   .agenda-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#125c3d;font-size:19px;font-weight:900;letter-spacing:-.03em}
   .agenda-brand img{height:37px;width:37px}
   .agenda-top-links{display:flex;flex-wrap:wrap;gap:10px}
-  .agenda-top-links a{padding:8px 12px;text-decoration:none;color:#176345;border-radius:10px;font-weight:750}
+  .agenda-top-links a{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;text-decoration:none;color:#176345;border-radius:10px;font-weight:750}
   .agenda-top-links a:hover{background:#eaf5ee}
+  .agenda-top-links a:focus-visible,.agenda-brand:focus-visible{outline:3px solid #b38b45;outline-offset:3px}
   .agenda-site-footer{text-align:center;padding:25px 15px 35px;border-top:1px solid #e3ebe5;color:#52705c}
   .agenda-site-footer a{margin:0 8px}
   .section-kicker{display:inline-block;font-size:11px;font-weight:850;letter-spacing:.12em;color:#2c8e5e}
-  .tiny{font-size:12px}.muted{color:#637568}.section{display:block}
+  .tiny{font-size:12px}.muted{color:#637568}.section:not(.agenda){display:block}
   @media(max-width:540px){.agenda-site-head{align-items:flex-start;flex-direction:column;padding:13px 16px}.agenda-top-links a{padding:5px 8px;font-size:13px}}
  </style>
 </head>
@@ -36,7 +37,7 @@
    <a href="/">Produtos</a>
    <a href="/#professionals">Profissionais</a>
    <a href="/agenda/exemplo/">Ver página exemplo</a>
-   <a href="/agenda/">Minha agenda</a>
+   <a href="/agenda/" onclick="if(location.pathname.replace(/\/+$/,'')==='/agenda'&amp;&amp;typeof agendaStartOwner==='function'){event.preventDefault();agendaStartOwner()}">Minha agenda</a>
   </nav>
  </header>
  <div id="app"><main class="agenda"><p role="status">Preparando os agendamentos…</p></main></div>
