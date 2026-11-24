@@ -135,6 +135,12 @@ jobs:
           container="${containers[0]}"
           docker cp scripts/release-db-restore-isolated.sh "$container:/tmp/tamao-ci-restore-helper.sh"
           docker exec -i -e TAMAO_DISPOSABLE_RESTORE_DRILL=1 "$container" bash -s -- /tmp/tamao-ci-restore-helper.sh < tests/isolated-db-restore-drill.sh
+      - name: End-to-end encrypted PostgreSQL recovery (synthetic fixture only)
+        env:
+          TAMAO_DISPOSABLE_ENCRYPTED_ROUNDTRIP: '1'
+        run: |
+          bash -n tests/isolated-encrypted-db-roundtrip.sh
+          bash tests/isolated-encrypted-db-roundtrip.sh
       - name: Native Pix and legacy instrument retirement on actual disposable Postgres
         run: node tests/isolated-embedded-pix.mjs
       - name: Verify real schema, RLS, missing merchant and clean local orders
