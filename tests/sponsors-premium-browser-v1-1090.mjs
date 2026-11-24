@@ -62,6 +62,10 @@ try{
   assert.match(first.heroBackground,/gradient/);
   assert.match(first.adLabel,/PUBLICIDADE IDENTIFICADA/);
   assert.match(first.adNote,/ilustrativa/);
+  const commercialOrder=await evaluate("(()=>{const price=document.querySelector('.sponsor-premium-starting');const cta=document.querySelector('.sponsor-premium-main-cta');return {text:price?.textContent||'',before:!!price&&!!cta&&price.getBoundingClientRect().bottom<=cta.getBoundingClientRect().top+2}})()");
+  assert.match(commercialOrder.text,/R\$ 0,02 por visualização elegível/);
+  assert.match(commercialOrder.text,/R\$ 19,90/);
+  assert.equal(commercialOrder.before,true,'Commercial conditions must be visible before starting a campaign');
   assert.ok(first.ctaHeight>=44,'Sponsor CTA too small at '+width);
   assert.ok(first.ctaLeft>=-2&&first.ctaRight<=width+2,'Sponsor CTA outside viewport at '+width);
   assert.equal(first.faqCount,6,'Commercial FAQ includes per-view pricing and eligibility');
