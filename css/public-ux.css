@@ -146,7 +146,7 @@
 .tamao-storefront .city-price-heading{display:flex;align-items:center;justify-content:space-between;gap:24px}
 .tamao-storefront .city-price-heading h1{margin:9px 0 10px;font-size:clamp(30px,3.5vw,44px);line-height:1.08;letter-spacing:-.045em;color:#153e2d}
 .tamao-storefront .city-price-heading h1 span{color:#08734f;white-space:nowrap}
-.tamao-storefront .city-price-heading p{margin:0;max-width:48ch;font-size:15px;line-height:1.5;color:#526a5b}
+.tamao-storefront .city-price-heading p{margin:0;max-width:62ch;font-size:15px;line-height:1.5;color:#526a5b}
 .tamao-storefront .city-price-controls{flex:0 1 230px;display:grid;justify-items:end;gap:0;margin:0}
 .tamao-storefront-location{display:grid;gap:5px;text-align:right}
 .tamao-storefront-location small{font-size:10px;letter-spacing:.09em;font-weight:800;color:#5a7565}
@@ -167,10 +167,10 @@
 .tamao-storefront-step>span{margin-inline:6px;color:#9aac9f}
 .tamao-storefront .home-discover-filter{margin:0;gap:7px}
 .tamao-storefront .home-discover-filter button{min-height:44px;padding:9px 17px;font-size:12px}
-.tamao-storefront .home-discover-status{margin:10px 0 14px;font-size:11px;color:#5b7464;line-height:1.45}
+.tamao-storefront .home-discover-status{margin:9px 0 12px;font-size:12px;color:#526a5b;line-height:1.45}
 .tamao-storefront .home-discover-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .tamao-storefront .home-discover-grid .home-discover-tile{display:flex;align-items:stretch;min-height:190px;padding:12px;border:1px solid #dbe7df;border-radius:16px;background:#fafcf9;box-shadow:none;transition:transform .16s,border-color .16s,box-shadow .16s}
-.tamao-storefront .home-discover-art{height:100px;min-height:100px;margin:0 0 12px;background:transparent}
+.tamao-storefront .home-discover-art{height:100px;min-height:100px;margin:0 0 9px;background:transparent}
 .tamao-storefront .home-discover-art :is(.product-art,.product-photo){width:auto;max-width:100%;max-height:100px;object-fit:contain}
 .tamao-storefront .home-discover-tile strong{margin:0;font-size:14px;line-height:1.4;text-align:left}
 .tamao-storefront .home-discover-action{margin-top:auto;padding-top:9px;font-size:12px;line-height:1.35;font-weight:750}

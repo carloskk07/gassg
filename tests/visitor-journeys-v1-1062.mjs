@@ -7,7 +7,7 @@ const template=page.match(/<template id="tamao-home-journeys-template">([\s\S]*?
 assert.ok(template,'O painel de caminhos diretos deve existir no HTML público');
 const html=template[1];
 assert.match(html,/aria-labelledby="tamao-quick-paths-title"/);
-assert.match(html,/O que você quer fazer hoje\?/);
+assert.match(html,/<h2 id="tamao-quick-paths-title">Serviços e atalhos<\/h2>/);
 for(const [link,label] of [
   ['href="/agenda/"','Agendar horário'],
   ['href="#professionals"','Encontrar profissionais'],

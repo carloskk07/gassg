@@ -181,8 +181,8 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
     <section class="tamao-quick-paths" aria-labelledby="tamao-quick-paths-title">
       <div class="tamao-quick-paths-heading"><div>
         <span class="section-kicker">SEU TAMÃO, DO SEU JEITO</span>
-        <h2 id="tamao-quick-paths-title">O que você quer fazer hoje?</h2>
-        <p>Escolha uma opção e vá direto ao que precisa.</p>
+        <h2 id="tamao-quick-paths-title">Serviços e atalhos</h2>
+        <p>Encontre atendimento, agende horários ou acesse sua conta.</p>
       </div></div>
       <div class="tamao-quick-paths-grid">
         <button type="button" class="tamao-quick-path tamao-quick-path-primary" onclick="homeDiscoverFocus()">
@@ -302,12 +302,12 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
 </aside>
 </template>
   <template id="tamao-home-strip-template">
-<div class="tamao-storefront-benefit-strip"><div><strong>Mais motivos para fazer parte do TAMÃO</strong><span>Clube, cashback, indicações, serviços e oportunidades para negócios.</span></div><a href="#tamao-all-benefits">Conhecer todas as vantagens ↓</a></div></div>
+<div class="tamao-storefront-benefit-strip"><div><strong>Conheça as vantagens do TAMÃO</strong><span>Cupons, cashback e oportunidades da Rede.</span></div><a href="#tamao-all-benefits" onclick="const target=document.getElementById('tamao-all-benefits');if(target){event.preventDefault();target.scrollIntoView({block:'start'});target.querySelector('h2')?.focus({preventScroll:true})}">Explorar benefícios ↓</a></div>
   </template>
   <template id="tamao-home-benefits-template">
 <section id="tamao-all-benefits" class="section tamao-all-benefits" aria-label="Descubra todas as vantagens do TAMÃO">
     <div class="tamao-benefits-heading"><span class="section-kicker">UM TAMÃO DE VANTAGENS</span>
-      <h2>Tem muito mais para você no TAMÃO.</h2>
+      <h2 tabindex="-1">Tem muito mais para você no TAMÃO.</h2>
       <p>Comprar, economizar, encontrar serviços, indicar pessoas ou fazer seu negócio aparecer. Tudo começa escolhendo o que faz sentido para você.</p></div>
     <div class="tamao-benefits-grid">
       <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🔎</span><h3>Compare e escolha com tranquilidade</h3><p>Veja produtos, preços e entrega para seu CEP. Acompanhe seus pedidos em um só lugar.</p><button type="button" onclick="homeDiscoverFocus()">Explorar produtos <span aria-hidden="true">→</span></button></article>
