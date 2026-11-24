@@ -45,7 +45,9 @@ if bash "$1" "$work/bad.dump" "$bad_db" > "$work/bad.log" 2>&1; then
 fi
 grep -Fq 'checksum mismatch' "$work/bad.log"
 assert_sql 'corrupt archive leaves no database' postgres "select count(*) from pg_database where datname='$bad_db'" 0
-bash "$1" "$archive" "$target_db"
+# Regression: an inherited empty service file or bogus service name must not
+# prevent an explicitly local restore, or redirect it elsewhere.
+PGSERVICE=tamao_nonexistent_ci_service PGSERVICEFILE="" bash "$1" "$archive" "$target_db"
 assert_sql 'restored ledger count and sum' "$target_db" 'select count(*),sum(amount_cents) from public.recovery_ledger' '3|1375'
 assert_sql 'restored RLS and browser grants' "$target_db" "select relrowsecurity, has_table_privilege('anon','public.recovery_ledger','SELECT'), has_table_privilege('authenticated','public.recovery_ledger','SELECT') from pg_class where oid='public.recovery_ledger'::regclass" 't|f|t'
 assert_sql 'restored denial policy' "$target_db" "select count(*) from pg_policy where polrelid='public.recovery_ledger'::regclass and polname='recovery_deny_fixture'" 1
