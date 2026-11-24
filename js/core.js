@@ -857,11 +857,7 @@ function runtimeStrip(){
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
     return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
   }
-  // A guest is a normal unauthenticated customer, not a backend outage.
-  // Checkout remains gated by verified account/profile and server validation.
-  if(route()==='order'&&globalThis.liveRuntime?.status==='guest'){
-    return '<div class="demo-strip calm-strip"><span>Identifique-se para consultar ofertas e concluir seu pedido.</span></div>';
-  }
+  if(route()==='order'&&globalThis.liveRuntime?.status==='guest')return '<div class="demo-strip calm-strip"><span>Identifique-se para consultar ofertas e concluir seu pedido.</span></div>';
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
@@ -869,11 +865,6 @@ function runtimeStrip(){
     return '<div class="demo-strip live-strip"><span>● OPERAÇÃO ATIVA • consulte opções reais para o seu endereço</span></div>';
   }
   if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Preparando sua experiência…</span></div>';
-  // Marketing routes may remain useful during a backend interruption. Be
-  // transparent but do not give them the urgent checkout failure treatment.
-  if(['home','learn','earn','club','refer','merchants','privacy','terms','contact'].includes(route())){
-    return '<div class="demo-strip calm-strip"><span>Consulta indisponível no momento. Conheça o TAMÃO e tente novamente em instantes.</span></div>';
-  }
   return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
 function siteFooter({adminPortal=false}={}){
