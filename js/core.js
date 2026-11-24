@@ -826,22 +826,23 @@ function housekeeping(){
 }
 
 function runtimeStrip(){
+  const portalNotice=(message,style='')=>'<div class="demo-strip'+style+'"><span>'+message+'</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   if(globalThis.adminPortalRequested?.()){
     const status=globalThis.adminRuntime?.status||'loading';
     if(status==='ready')return '<div class="demo-strip live-strip"><span>● ADMIN • área protegida</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
     if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Verificando seu acesso ao Admin…</span></div>';
-    if(status==='unauthenticated')return '<div class="demo-strip"><span>Admin • acesso por e-mail autorizado</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Esta conta não tem acesso ao Admin</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    return '<div class="demo-strip blocked-strip"><span>Admin temporariamente indisponível</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='unauthenticated')return portalNotice('Admin • acesso por e-mail autorizado');
+    if(status==='no-access')return portalNotice('Esta conta não tem acesso ao Admin',' blocked-strip');
+    return portalNotice('Admin temporariamente indisponível',' blocked-strip');
   }
   if(globalThis.merchantPortalRequested?.()){
     const status=globalThis.merchantRuntime?.status||'loading';
     if(status==='ready')return '<div class="demo-strip live-strip"><span>● PAINEL DA REVENDA • pedidos e entregas</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
     if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Verificando seu acesso à revenda…</span></div>';
-    if(status==='unauthenticated')return '<div class="demo-strip"><span>Painel da revenda • acesso seguro por e-mail</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Esta conta ainda não está vinculada a uma revenda</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='unsafe-origin')return '<div class="demo-strip blocked-strip"><span>Acesse pelo endereço oficial do Parceiro</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='unauthenticated')return portalNotice('Painel da revenda • acesso seguro por e-mail');
+    if(status==='no-access')return portalNotice('Esta conta ainda não está vinculada a uma revenda',' blocked-strip');
+    if(status==='unsafe-origin')return portalNotice('Acesse pelo endereço oficial do Parceiro',' blocked-strip');
+    return portalNotice('Painel da revenda indisponível no momento',' blocked-strip');
   }
   if(globalThis.__CHAMA_TEST__===true){
     if(globalThis.CHAMA_INTERNAL_PILOT===true){
@@ -857,6 +858,8 @@ function runtimeStrip(){
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
     return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
   }
+  if(route()==='tracking'&&globalThis.liveRuntime?.status==='guest')return '';
+  if(route()==='order'&&globalThis.liveRuntime?.status==='guest')return '<div class="demo-strip calm-strip"><span>Identifique-se para consultar ofertas e concluir seu pedido.</span></div>';
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
@@ -864,11 +867,6 @@ function runtimeStrip(){
     return '<div class="demo-strip live-strip"><span>● OPERAÇÃO ATIVA • consulte opções reais para o seu endereço</span></div>';
   }
   if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Preparando sua experiência…</span></div>';
-  // Marketing routes may remain useful during a backend interruption. Be
-  // transparent but do not give them the urgent checkout failure treatment.
-  if(['home','learn','earn','club','refer','merchants','privacy','terms','contact'].includes(route())){
-    return '<div class="demo-strip calm-strip"><span>Consulta indisponível no momento. Conheça o TAMÃO e tente novamente em instantes.</span></div>';
-  }
   return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
 function siteFooter({adminPortal=false}={}){

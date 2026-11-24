@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const backend=read('js/backend.js'),signup=read('js/welcome-bonus.js');
 const home=read('index.html'),growth=read('js/growth.js'),buyer=read('js/customer.js');
@@ -21,6 +22,68 @@ assert.match(home,/id="tamao-welcome-phone"/);
 assert.match(growth,/id="clube-visitor-coupon-name"/);
 assert.match(growth,/id="clube-visitor-coupon-phone"/);
 assert.match(buyer,/tamaoAccountGateMarkup\(\)/);
+const identity=home.match(/<template id="tamao-checkout-identity-template">([\s\S]*?)<\/template>/)?.[1]||'';
+assert.ok(identity.includes('data-tamao-account-context="checkout-login"'));
+assert.ok(identity.indexOf('data-tamao-account-context="checkout-login"')<identity.indexOf('name="full_name"'),'Existing customers should see their own entry first');
+const core=read('js/core.js');
+const strip=core.slice(core.indexOf('function runtimeStrip(){'),core.indexOf('function siteFooter('));
+const context=vm.createContext({route:()=> 'order',liveRuntime:{status:'guest'},liveBanner:()=> 'blocked'});
+vm.runInContext(strip,context);
+assert.match(context.runtimeStrip(),/Identifique-se para consultar ofertas/);
+assert.doesNotMatch(context.runtimeStrip(),/Serviço temporariamente indisponível/);
+assert.ok(buyer.includes("!testDemo&&liveMode&&!ready&&liveRuntime?.status!=='guest'"),'Checkout must not repeat the outage message for guests');
+assert.match(buyer,/Entre na conta usada na compra para consultar seus pedidos/);
+const trackingStart=buyer.indexOf('function liveTracking(){');
+const trackingTail=buyer.slice(trackingStart);
+const trackingEnd=trackingTail.indexOf('\nfunction ',1);
+assert.ok(trackingStart>=0&&trackingEnd>0,'Tracking runtime must be available');
+const trackingContext=vm.createContext({
+ liveRuntime:{status:'guest'},liveReady:()=>false,shell:value=>value,esc:value=>String(value)
+});
+vm.runInContext(trackingTail.slice(0,trackingEnd),trackingContext);
+const guestTracking=trackingContext.liveTracking();
+assert.match(guestTracking,/Entre na conta usada na compra/);
+assert.doesNotMatch(guestTracking,/customerRefreshOrders\(\)|indisponível/);
+trackingContext.liveRuntime.status='loading';
+assert.match(trackingContext.liveTracking(),/Preparando a consulta/);
+assert.doesNotMatch(trackingContext.liveTracking(),/customerRefreshOrders\(\)/);
+trackingContext.liveRuntime.status='unavailable';
+const failedTracking=trackingContext.liveTracking();
+assert.match(failedTracking,/Não foi possível abrir sua sessão/);
+assert.match(failedTracking,/customerRefreshOrders\(\)/);
+
+context.route=()=> 'tracking';
+assert.equal(context.runtimeStrip(),'','Guest tracking must not show an outage banner');
+context.route=()=> 'order';
+context.liveRuntime.status='failed';
+assert.match(context.runtimeStrip(),/Serviço temporariamente indisponível/,'Real failures must remain visible');
+context.liveRuntime.status='unsafe-origin';
+assert.match(context.runtimeStrip(),/ATENDIMENTO INDISPONÍVEL NESTA ORIGEM/);
+const portalNotice=(message,blocked)=>'<div class="demo-strip'+(blocked?' blocked-strip':'')+'"><span>'+message+'</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+context.adminPortalRequested=()=>true;
+context.adminRuntime={status:'unauthenticated'};
+for(const [status,message,blocked] of [
+ ['unauthenticated','Admin • acesso por e-mail autorizado',false],
+ ['no-access','Esta conta não tem acesso ao Admin',true],
+ ['unavailable','Admin temporariamente indisponível',true]
+]){
+ context.adminRuntime.status=status;
+ assert.equal(context.runtimeStrip(),portalNotice(message,blocked));
+}
+context.adminPortalRequested=()=>false;
+context.merchantPortalRequested=()=>true;
+context.merchantRuntime={status:'unauthenticated'};
+for(const [status,message,blocked] of [
+ ['unauthenticated','Painel da revenda • acesso seguro por e-mail',false],
+ ['no-access','Esta conta ainda não está vinculada a uma revenda',true],
+ ['unsafe-origin','Acesse pelo endereço oficial do Parceiro',true],
+ ['unavailable','Painel da revenda indisponível no momento',true]
+]){
+ context.merchantRuntime.status=status;
+ assert.equal(context.runtimeStrip(),portalNotice(message,blocked));
+}
+
+
 for(const name of ['tamao-order-name','tamao-order-phone','tamao-order-email'])
  assert.ok(home.includes(name));
 assert.match(edge,/CUSTOMER_VERIFIED_ACCOUNT_REQUIRED/);

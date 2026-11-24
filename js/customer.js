@@ -988,7 +988,7 @@ function orderPage(){
   let liveNotice='';
   if(internalPilot){
     liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Ambiente interno.</strong><br>Esta jornada não gera venda, cobrança, entrega ou alteração no banco operacional.</div>';
-  }else if(!testDemo&&liveMode&&!ready){
+  }else if(!testDemo&&liveMode&&!ready&&liveRuntime?.status!=='guest'){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
       : liveRuntime?.status==='unsafe-origin'
@@ -2173,8 +2173,8 @@ function liveTracking(){
   if(!globalThis.liveReady?.()){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
-      : 'Não foi possível abrir sua sessão de compra agora.';
-    return shell(`<section class="page"><h1 class="page-title">Seus pedidos</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" role="status">${esc(message)}</div>${liveRuntime?.status!=='loading'?retry:''}</section>`);
+      : liveRuntime?.status==='guest'?'Entre na conta usada na compra para consultar seus pedidos.':'Não foi possível abrir sua sessão de compra agora.';
+    return shell(`<section class="page"><h1 class="page-title">Seus pedidos</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" role="status">${esc(message)}</div>${['loading','guest'].includes(liveRuntime?.status)?'':retry}</section>`);
   }
 
   const o=liveRuntime.order;
