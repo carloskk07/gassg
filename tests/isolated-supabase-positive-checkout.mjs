@@ -273,12 +273,18 @@ assert.equal(blocked.body.error,'ORDER_NOT_FOUND');
 // This is a smoke test, not a claim about hosted capacity or a traffic SLA.
 const burstStarted=performance.now();
 const boundedTimings=[];
-for(let batch=0;batch<3;batch++){
- const results=await Promise.all(Array.from({length:8},async(_,index)=>{
+const loadStages=[];
+const parallelLevels=[8,16,24];
+for(const concurrency of parallelLevels){
+ const stageStarted=performance.now();
+ const stageTimings=[];
+ const results=await Promise.all(Array.from({length:concurrency},async(_,index)=>{
   const permitted=index%2===0;
   const started=performance.now();
   const result=await call('get-order',permitted?buyer.token:outsider.token,{orderId:first.body.orderId});
-  boundedTimings.push(performance.now()-started);
+  const elapsed=performance.now()-started;
+  boundedTimings.push(elapsed);
+  stageTimings.push(elapsed);
   return {permitted,result};
  }));
  for(const {permitted,result} of results){
@@ -287,8 +293,18 @@ for(let batch=0;batch<3;batch++){
    assert.equal(result.body.role,'customer');
    assert.equal(result.body.status,'OFFERED_TO_MERCHANT');
    assert.equal(result.body.items?.length,1);
-  }else assert.equal(result.body.error,'ORDER_NOT_FOUND');
+  }else {
+   assert.equal(result.body.error,'ORDER_NOT_FOUND');
+   assert.deepEqual(Object.keys(result.body).sort(),['error','message'],'foreign order denial must not leak order data');
+  }
  }
+ stageTimings.sort((a,b)=>a-b);
+ loadStages.push({
+  concurrentRequests:concurrency,authorized:concurrency/2,denied:concurrency/2,
+  elapsedMs:Math.round(performance.now()-stageStarted),
+  p95Ms:Math.round(stageTimings[Math.ceil(concurrency*0.95)-1]),
+  maxMs:Math.round(stageTimings.at(-1))
+ });
 }
 const parallelReplays=await Promise.all(Array.from({length:4},async()=>{
  const started=performance.now();
@@ -305,8 +321,8 @@ assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name=
 assert.equal(sql("SELECT consumed_at IS NOT NULL FROM public.quotes WHERE id="+q(quote.quoteId)+"::uuid"),'t');
 const sortedTimings=[...boundedTimings].sort((a,b)=>a-b);
 console.log('BOUNDED_CHECKOUT_HTTP_LOAD '+JSON.stringify({
- requests:sortedTimings.length,authorizedReads:12,deniedReads:12,completedReplays:4,
- maxParallel:8,elapsedMs:Math.round(performance.now()-burstStarted),
+ requests:sortedTimings.length,authorizedReads:24,deniedReads:24,completedReplays:4,
+ maxParallel:24,stages:loadStages,elapsedMs:Math.round(performance.now()-burstStarted),
  p95Ms:Math.round(sortedTimings[Math.ceil(sortedTimings.length*0.95)-1]),
  maxMs:Math.round(sortedTimings.at(-1)),orders:1,duplicateOrders:0
 }));
