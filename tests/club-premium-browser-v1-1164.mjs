@@ -58,6 +58,29 @@ try{
   assert.equal(item.faq,5);
   assert.match(item.heading,/Cupons e cashback/);
   assert.equal(item.error,null);
+  // Existing users see only the email field; registration remains accessible without a new auth flow.
+  const accountMode=await send('Runtime.evaluate',{expression:`(()=>{const form=document.querySelector('[data-tamao-account-context="club"]');const d=form.querySelector('.club-premium-register-details');const email=form.querySelector('[name=email]');const name=form.querySelector('[name=full_name]');const phone=form.querySelector('[name=phone]');const register=form.querySelector('[name=intent][value=register]');const login=form.querySelector('[name=intent][value=login]');const visible=e=>e.getClientRects().length>0&&e.getBoundingClientRect().height>0;const initial=!d.open&&visible(email)&&visible(login)&&!visible(name)&&!visible(phone)&&!visible(register);d.querySelector('summary').click();const opened=d.open&&visible(name)&&visible(phone)&&visible(register)&&email.required&&register.form===form&&login.form===form&&name.form===form&&phone.form===form;d.querySelector('summary').click();return {initial,opened,closed:!d.open&&!visible(register)}})()`,returnByValue:true});
+  assert.deepEqual(accountMode.result.value,{initial:true,opened:true,closed:true},'Club access disclosure regression at '+size);
+  // Verify the actual HTML form submits the expected intent and identity fields,
+  // intercepting the event before any authentication handler or network request.
+  const submission=await send('Runtime.evaluate',{expression:`(()=>{
+   const form=document.querySelector('[data-tamao-account-context="club"]');
+   const disclosure=form.querySelector('.club-premium-register-details');
+   const email=form.elements.namedItem('email'),name=form.elements.namedItem('full_name'),phone=form.elements.namedItem('phone');
+   const login=form.querySelector('[value=login]'),register=form.querySelector('[value=register]');
+   const captured=[];
+   const intercept=event=>{event.preventDefault();event.stopImmediatePropagation();const data=new FormData(form,event.submitter);captured.push(Object.fromEntries(data.entries()))};
+   form.addEventListener('submit',intercept,true);
+   try{email.value='visual-test@example.invalid';form.requestSubmit(login);disclosure.open=true;name.value='Visual Test';phone.value='(55) 99999-9999';form.requestSubmit(register)}
+   finally{form.removeEventListener('submit',intercept,true);email.value='';name.value='';phone.value='';disclosure.open=false}
+   return captured;
+  })()`,returnByValue:true});
+  assert.equal(submission.result.value.length,2,'Club form must submit two distinct intents');
+  assert.equal(submission.result.value[0].intent,'login');
+  assert.equal(submission.result.value[0].email,'visual-test@example.invalid');
+  assert.equal(submission.result.value[1].intent,'register');
+  assert.equal(submission.result.value[1].full_name,'Visual Test');
+  assert.equal(submission.result.value[1].phone,'(55) 99999-9999');
   // Do not issue an OTP, payment or request: only native disclosure and safe scroll action.
   const disclosure=await send('Runtime.evaluate',{expression:'(()=>{const d=document.querySelector(".club-premium-faq-items details");d.open=false;d.querySelector("summary").click();return d.open})()',returnByValue:true});
   assert.equal(disclosure.result.value,true,'Native FAQ does not work at '+size);

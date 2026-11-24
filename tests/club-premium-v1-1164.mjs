@@ -9,7 +9,7 @@ const premium=read('js/club-premium.js');
 const css=read('css/club-premium.css');
 const boot=read('js/bootstrap.js');
 assert.match(growth,/import\('\/js\/clube-coupon-shop\.js'\)/);
-assert.match(couponShop,/import\('\/js\/club-premium\.js\?v=1164'\)/);
+assert.match(couponShop,/import\('\/js\/club-premium\.js\?v=1168'\)/);
 assert.match(couponShop,/globalThis\.club=globalThis\.clubPremiumPage/);
 assert.doesNotMatch(boot,/club-premium\.js/);
 new vm.Script(premium,{filename:'club-premium.js'});
@@ -36,6 +36,9 @@ for(const must of [
 assert.match(guest,/class="tamao-coupon-price-board card form-stack[^"]*" hidden/);
 assert.match(guest,/<form[^>]*data-tamao-account-context="club"/);
 assert.equal((guest.match(/<details>/g)||[]).length,5);
+assert.match(guest,/<details class="club-premium-register-details">/);
+assert.match(guest,/<input id="clube-visitor-coupon-email"[^>]*required>/);
+assert.match(css,/\.club-premium-register-details:not\(\[open\]\)>\.club-premium-register-fields\{display:none\}/);
 assert.equal((guest.match(/class="card club-premium-benefit"/g)||[]).length,3);
 assert.doesNotMatch(guest,/SEU CASHBACK DISPONÍVEL|my-private-vouchers/);
 assert.doesNotMatch(guest,/R\$ ?8,90|R\$ ?19,90|QR Code Pix|compra garantida|economia garantida/i);
@@ -66,7 +69,7 @@ for(const required of [
  '@media(max-width:350px)',':focus-visible',
  '[hidden]{display:none!important}'
 ])assert.ok(css.includes(required),'Missing premium CSS safeguard '+required);
-assert.match(premium,/css\/club-premium\.css\?v=1164/);
+assert.match(premium,/css\/club-premium\.css\?v=1168/);
 assert.match(premium,/globalThis\.clubPremiumPage=clubPremiumPage/);
 assert.doesNotMatch(guest,/🎟️|💚|🔎|⭐|🤝|💵/);
 assert.doesNotMatch(privateMember,/🎟️|💚|🔎|⭐|🤝|💵/);

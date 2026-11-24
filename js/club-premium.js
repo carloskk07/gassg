@@ -35,24 +35,30 @@ if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-prem
  <aside class="club-premium-entry-card" id="club-premium-account" aria-labelledby="club-premium-account-title">
   <div class="club-premium-card-top"><span class="club-premium-card-monogram">T<span>•</span></span><span>ACESSO AO CLUBE</span></div>
   <h2 id="club-premium-account-title">Sua conta. Suas vantagens.</h2>
-  <p>Entre com seu e-mail ou faça seu primeiro cadastro. O acesso é confirmado pela sua caixa de entrada.</p>
+  <p>Acesse com seu e-mail. Se ainda não tem conta, faça seu cadastro gratuito logo abaixo.</p>
   <form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
-   <label for="clube-visitor-coupon-name">Nome e sobrenome (para criar conta)</label>
-   <input id="clube-visitor-coupon-name" name="full_name" class="input" type="text" autocomplete="name" placeholder="Como podemos chamar você?" maxlength="100">
-   <label for="clube-visitor-coupon-phone">Telefone com DDD (para criar conta)</label>
-   <input id="clube-visitor-coupon-phone" name="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999" maxlength="18">
    <label for="clube-visitor-coupon-email">Seu e-mail</label>
    <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-   <button type="submit" class="primary" name="intent" value="login">Entrar no meu Clube →</button>
-   <button type="submit" class="secondary tamao-club-register" name="intent" value="register">Primeiro acesso? Criar minha conta</button>
+   <button type="submit" class="primary" name="intent" value="login">Enviar link de acesso →</button>
+   <details class="club-premium-register-details">
+    <summary><span>Primeiro acesso? <strong>Criar minha conta</strong></span><span class="club-premium-register-chevron" aria-hidden="true"></span></summary>
+    <div class="club-premium-register-fields">
+     <p>Use o e-mail acima e complete seus dados para criar sua conta gratuita.</p>
+     <label for="clube-visitor-coupon-name">Nome e sobrenome</label>
+     <input id="clube-visitor-coupon-name" name="full_name" class="input" type="text" autocomplete="name" placeholder="Como podemos chamar você?" maxlength="100">
+     <label for="clube-visitor-coupon-phone">Telefone com DDD</label>
+     <input id="clube-visitor-coupon-phone" name="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999" maxlength="18">
+     <button type="submit" class="secondary tamao-club-register" name="intent" value="register">Criar minha conta gratuita →</button>
+    </div>
+   </details>
    <p data-welcome-signup-status role="status" aria-live="polite"></p>
    <small>Confira sua caixa de entrada para confirmar o acesso. Não solicitamos senha nem pagamento para entrar.</small>
   </form>
  </aside>
 </header>
-<div class="club-premium-trustbar" aria-label="Como protegemos seus benefícios"><span>${clubPremiumIcon('receipt')} <strong>Histórico na sua conta</strong> para consultar o que foi reconhecido</span><span>${clubPremiumIcon('shield')} <strong>Sem crédito fictício:</strong> benefícios passam por validação</span><span>${clubPremiumIcon('pin')} <strong>Uso regional:</strong> disponibilidade depende do CEP</span></div>
+<div class="club-premium-trustbar" aria-label="Como protegemos seus benefícios"><span>${clubPremiumIcon('receipt')} <strong>Histórico na sua conta</strong> para consultar o que foi reconhecido</span><span>${clubPremiumIcon('shield')} <strong>Benefícios validados:</strong> benefícios passam por validação</span><span>${clubPremiumIcon('pin')} <strong>Uso regional:</strong> disponibilidade depende do CEP</span></div>
 <aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado" id="club-premium-offers">
- <div class="club-premium-offer-heading"><span class="section-kicker">PACOTE DE CUPONS · CATÁLOGO CONFERIDO</span><h2>Condições do pacote em destaque</h2><p>O preço e as condições abaixo vêm do catálogo oficial, não de um exemplo.</p></div>
+ <div class="club-premium-offer-heading"><span class="section-kicker">PACOTE DE CUPONS · CATÁLOGO CONFERIDO</span><h2>Condições do pacote em destaque</h2><p>Confira o preço e as condições do pacote disponível no catálogo oficial.</p></div>
  <div class="club-premium-offer-data"><p class="tamao-club-face" data-coupon-face></p><p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p><p data-coupon-minimum></p><p data-coupon-availability></p></div>
  <details class="tamao-benefits-details"><summary>Regras, validade e disponibilidade</summary><p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP. Veja validade e condições ao usar. Entrar não gera cobrança. Confira no Clube se a compra está habilitada antes de pagar.</p></details>
 </aside>
@@ -73,7 +79,7 @@ if(!member)return shell(`<section class="page tamao-club-visitor tamao-club-prem
  </ol>
 </section>
 <section class="club-premium-faq" aria-labelledby="club-premium-faq-title">
- <div class="club-premium-section-heading"><span class="club-premium-section-index">03 / TRANSPARÊNCIA</span><h2 id="club-premium-faq-title">Dúvidas importantes.<br><em>Respostas sem enrolação.</em></h2><p>Consulte as condições completas antes de adquirir um pacote ou usar qualquer benefício.</p><button type="button" class="club-premium-text-action" onclick="go('terms')">Ler os Termos de Uso <span aria-hidden="true">→</span></button></div>
+ <div class="club-premium-section-heading"><span class="club-premium-section-index">03 / TRANSPARÊNCIA</span><h2 id="club-premium-faq-title">Dúvidas importantes.<br><em>Tudo o que você precisa saber.</em></h2><p>Consulte as condições completas antes de adquirir um pacote ou usar qualquer benefício.</p><button type="button" class="club-premium-text-action" onclick="go('terms')">Ler os Termos de Uso <span aria-hidden="true">→</span></button></div>
  <div class="club-premium-faq-items">
   <details><summary>Preciso pagar para entrar no Clube?<span aria-hidden="true">+</span></summary><p>Não. O cadastro e a consulta ao Clube não geram cobrança. Pacotes de cupons, quando habilitados, possuem preço e condições próprios.</p></details>
   <details><summary>Posso utilizar cupons em qualquer cidade?<span aria-hidden="true">+</span></summary><p>Não necessariamente. A utilização depende de revendas elegíveis, produtos e atendimento ao seu CEP, além de prazo e pedido mínimo de cada cupom.</p></details>
@@ -143,7 +149,7 @@ if(typeof document!=='undefined'&&!document.querySelector('link[data-tamao-club-
  const link=document.createElement('link');
  link.rel='stylesheet';
  link.setAttribute('data-tamao-club-premium','');
- link.href='./css/club-premium.css?v=1164';
+ link.href='./css/club-premium.css?v=1168';
  link.onload=()=>{if(typeof route==='function'&&route()==='club')render();};
  document.head.appendChild(link);
 }
