@@ -1,0 +1,26 @@
+name: TAMÃO encrypted recovery package (offline only)
+on:
+  pull_request:
+    paths:
+      - 'scripts/release-db-decrypt-checkpoint.py'
+      - 'tests/offline-decrypt-checkpoint.sh'
+      - '.github/workflows/encrypted-recovery-package.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/release-db-decrypt-checkpoint.py'
+      - 'tests/offline-decrypt-checkpoint.sh'
+      - '.github/workflows/encrypted-recovery-package.yml'
+permissions:
+  contents: read
+jobs:
+  offline-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate and recover synthetic encrypted archive
+        run: |
+          python3 -m py_compile scripts/release-db-decrypt-checkpoint.py
+          bash -n tests/offline-decrypt-checkpoint.sh
+          bash tests/offline-decrypt-checkpoint.sh
