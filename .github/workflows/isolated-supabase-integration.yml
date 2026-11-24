@@ -387,6 +387,10 @@ jobs:
         run: node tests/isolated-coupon-refund-review-claim-v1-865.mjs
       - name: V1.866 immutable financial triage and refunded coupon history on disposable PostgreSQL
         run: node tests/isolated-coupon-refund-triage-v1-866.mjs
+      - name: Agenda concurrent contention and request replay (disposable only)
+        env:
+          TAMAO_DISPOSABLE_CONCURRENCY: '1'
+        run: node tests/isolated-agenda-concurrency.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
