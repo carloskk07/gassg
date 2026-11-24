@@ -6,7 +6,10 @@ assert.equal(process.env.CI,'true');
 assert.equal(process.env.TAMAO_DISPOSABLE_QUEUE_RACE,'1');
 assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
 assert.equal(process.env.SUPABASE_DB_PASSWORD||'','');
-const env={...process.env,PGPASSWORD:'postgres',PGHOSTADDR:'127.0.0.1',PGCONNECT_TIMEOUT:'10',PGSSLMODE:'disable',PGSERVICE:'',PGSERVICEFILE:''};
+const env={...process.env,PGPASSWORD:'postgres',PGHOSTADDR:'127.0.0.1',PGCONNECT_TIMEOUT:'10',PGSSLMODE:'disable'};
+// Remove libpq service selectors; empty values still select a service file.
+delete env.PGSERVICE;
+delete env.PGSERVICEFILE;
 const args=q=>['--host=127.0.0.1','--port=54322','--username=postgres','--dbname=postgres','--no-psqlrc','--set=ON_ERROR_STOP=1','--tuples-only','--no-align','--quiet','--command='+q];
 const sql=q=>execFileSync('psql',args(q),{env,encoding:'utf8',timeout:30000,stdio:['ignore','pipe','pipe']}).trim();
 const asyncExec=promisify(execFile);
