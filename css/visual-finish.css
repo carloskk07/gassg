@@ -184,3 +184,17 @@
  -webkit-mask:var(--vf-bag) center/contain no-repeat;
  mask:var(--vf-bag) center/contain no-repeat
 }
+
+/* Contact: shared finished iconography and readable, accessible form rhythm. */
+.contact-purpose-grid .trust-card>span{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#e6f2e9;color:#126344;font-size:0;--vf-symbol:var(--vf-megaphone)}
+.contact-purpose-grid .trust-card:nth-child(2)>span{--vf-symbol:var(--vf-hand)}
+.contact-purpose-grid .trust-card:nth-child(3)>span{--vf-symbol:var(--vf-shield)}
+.contact-purpose-grid .trust-card>span::before{content:"";width:23px;height:23px;background:currentColor;-webkit-mask:var(--vf-symbol) center/contain no-repeat;mask:var(--vf-symbol) center/contain no-repeat}
+.legal-page .contact-purpose-grid .trust-card h3{font-size:18px;line-height:1.3;margin:11px 0 6px}
+.legal-page .public-contact-card{display:grid;gap:14px;padding:clamp(16px,3vw,25px)}
+.legal-page .public-contact-card .input-wrap{min-width:0}
+.legal-page .public-contact-card label{font-size:14px;line-height:1.45}
+.legal-page .public-contact-card .input{font-size:16px}
+.legal-page .public-contact-card :is(input,select,textarea,button):focus-visible{outline:3px solid #b58229;outline-offset:2px}
+.legal-page .public-contact-card #public-request-submit{min-height:48px}
+@media(max-width:759px){.legal-page .contact-purpose-grid .trust-card{padding:14px}.legal-page .public-contact-card{gap:12px}}
