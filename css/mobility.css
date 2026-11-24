@@ -571,7 +571,7 @@
 .mobility-page .mobility-hero.mobility-v1144{display:block;margin:0;border:1px solid #d9e3da;border-radius:25px;background:#143b2c;overflow:hidden;box-shadow:0 25px 58px rgba(16,54,38,.1)}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-top{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);min-height:420px;align-items:stretch;background:#143b2c}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;min-height:0;padding:clamp(35px,4.4vw,65px);overflow:hidden;background:radial-gradient(ellipse at 5% 0%,#22593d 0%,transparent 65%),linear-gradient(120deg,#143a2b,#0a3127)}
-.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy:after{content:"T";position:absolute;z-index:-1;right:-.13em;bottom:-.38em;font-family:Georgia,serif;font-size:clamp(280px,32vw,490px);font-weight:700;color:rgba(236,248,233,.035);pointer-events:none;line-height:1}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-hero-copy:after{content:none;position:absolute;z-index:-1;right:-.13em;bottom:-.38em;font-family:Georgia,serif;font-size:clamp(280px,32vw,490px);font-weight:700;color:rgba(236,248,233,.035);pointer-events:none;line-height:1}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-eyebrow{display:inline-flex;align-items:center;gap:10px;color:#e1cf9b;letter-spacing:.17em;font-size:10px;font-weight:900}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-eyebrow-mark{background:#e5ca83;box-shadow:0 0 0 4px rgba(230,202,143,.12)}
 .mobility-page .mobility-hero.mobility-v1144 h1{max-width:12ch;margin:25px 0 18px;color:#fffdf5;font-size:clamp(41px,4.4vw,64px);font-weight:770;letter-spacing:-.055em;line-height:1.035;text-wrap:balance}
@@ -591,7 +591,7 @@
 .mobility-page .mobility-hero.mobility-v1144 .mobility-choice-carro .mobility-choice-number{background:#f4f0e6;border-color:#e8dfca;color:#8b6c37}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy{position:static;z-index:auto;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;flex:1;min-width:0;max-width:none;min-height:0;margin:0;padding:0}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{display:block;max-width:none;color:#153e2c;font-size:clamp(20px,2vw,25px);font-weight:800;line-height:1.16;letter-spacing:-.042em}
-.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;margin:6px 0 0;max-width:none;color:#5b7664;font-size:12px;font-weight:500;line-height:1.5}
+.mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;margin:6px 0 0;max-width:none;color:#496757;font-size:14px;font-weight:500;line-height:1.5}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{display:grid;place-items:center;flex:none;width:42px;height:42px;min-height:42px;margin:0;padding:0;border:1px solid #d5e6d8;border-radius:50%;background:#f2f9f2;color:#167246;font-size:24px;font-weight:500;line-height:1;transition:transform .2s,background .2s}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card:hover .mobility-choice-cta{background:#dfecdf;transform:translate(2px,-2px)}
 .mobility-page .mobility-hero.mobility-v1144 .mobility-select-footnote{margin:18px 0 0;color:#667d6b;font-size:11px;line-height:1.55}
@@ -634,7 +634,7 @@
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card{min-height:91px;padding:14px 14px;gap:12px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choice-number{width:40px;height:40px;font-size:15px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{font-size:22px;margin:0}
- .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;font-size:11px;margin-top:4px}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{display:block;font-size:13px;margin-top:4px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{width:37px;height:37px;min-height:37px;font-size:21px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-select-footnote{margin:12px 0 0;font-size:11px}
  .mobility-page .mobility-clarity{margin:11px 0 15px;padding:19px;grid-template-columns:1fr}
@@ -653,7 +653,7 @@
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-provider-card{min-height:83px;gap:10px;padding:12px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choice-number{width:36px;height:36px;font-size:13px}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy strong{font-size:21px}
- .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{font-size:10px;line-height:1.35}
+ .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-copy small{font-size:12px;line-height:1.4}
  .mobility-page .mobility-hero.mobility-v1144 .mobility-choices .mobility-choice-cta{width:33px;height:33px;min-height:33px}
  .mobility-page .mobility-clarity{padding:17px}
  .mobility-page .mobility-clarity ul{grid-template-columns:1fr;gap:13px}

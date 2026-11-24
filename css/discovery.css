@@ -281,7 +281,7 @@
 }
 .discovery-professionals .pros-hero-copy{
  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
- padding:clamp(35px,5vw,66px) clamp(28px,4.8vw,60px);
+ padding:clamp(30px,3.5vw,46px) clamp(28px,4vw,50px);
  min-width:0;position:relative;z-index:2;
 }
 .discovery-professionals .pros-eyebrow{
@@ -294,9 +294,9 @@
 }
 .discovery-professionals .pros-eyebrow-sep{color:#b9c6bc;font-weight:500}
 .discovery-professionals .pros-hero h1{
- font-size:clamp(40px,4.45vw,58px);line-height:1.075;letter-spacing:-.057em;
- font-weight:800;color:#143c31;max-width:14.6ch;
- text-wrap:balance;margin:23px 0 16px;
+ font-size:clamp(40px,4vw,52px);line-height:1.1;letter-spacing:-.045em;
+ font-weight:800;color:#143c31;max-width:17ch;
+ text-wrap:balance;margin:19px 0 14px;
 }
 .discovery-professionals .pros-hero h1 em{
  display:block;color:#a67d48;font-weight:400;
@@ -305,10 +305,10 @@
 }
 .discovery-professionals .pros-hero-lead{
  margin:0;max-width:46ch;color:#506a5a;
- font-size:clamp(14px,1.35vw,16px);line-height:1.72;
+ font-size:clamp(14px,1.35vw,16px);line-height:1.6;
 }
 .discovery-professionals .pros-hero-actions{
- display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:27px;width:100%;
+ display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:22px;width:100%;
 }
 .discovery-professionals .pros-hero-actions button{
  display:inline-flex;align-items:center;justify-content:space-between;gap:11px;
@@ -328,7 +328,7 @@
 .discovery-professionals .pros-hero-secondary:hover{background:#eef6ed}
 .discovery-professionals .pros-hero-actions span{font-size:15px}
 .discovery-professionals .pros-hero-assurances{
- margin-top:27px;padding-top:18px;border-top:1px solid #dce5d9;
+ margin-top:21px;padding-top:14px;border-top:1px solid #dce5d9;
  display:flex;gap:10px 17px;flex-wrap:wrap;
 }
 .discovery-professionals .pros-hero-assurances span{
@@ -374,11 +374,11 @@
 }
 .discovery-professionals .pros-photo-barber{
  width:36%;height:39%;top:11%;right:4%;border-radius:10px 85px 10px 10px;
- transform:rotate(3deg);
+ transform:none;
 }
 .discovery-professionals .pros-photo-electric{
  width:35%;height:38%;bottom:12%;right:4%;border-radius:10px 10px 70px 10px;
- transform:rotate(-3deg);
+ transform:none;
 }
 .discovery-professionals .pros-photo-note{
  position:absolute;right:21px;bottom:13px;color:#577161;font-size:9px;font-weight:750;letter-spacing:.01em;
