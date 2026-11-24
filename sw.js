@@ -72,6 +72,8 @@ self.addEventListener('fetch',event=>{
     event.respondWith(url.href===AUTH_SDK_URL?networkFirst(req):fetch(req));return
   }
   if(req.mode==='navigate'){
+    // Independent OAuth information and legal pages must never read or overwrite the PWA shell.
+    if(/^\/backup-seguro(?:\/|$)/i.test(url.pathname))return;
     event.respondWith(navigationNetworkFirst(req));
     return;
   }
