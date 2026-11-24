@@ -165,6 +165,10 @@ jobs:
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
             --username=postgres --dbname=postgres --no-psqlrc \
             --set=ON_ERROR_STOP=1 --file=tests/sql/payment-reconciliation-queue.sql
+      - name: Payment reconciliation concurrent workers and completion race (disposable only)
+        env:
+          TAMAO_DISPOSABLE_QUEUE_RACE: '1'
+        run: node tests/isolated-payment-queue-concurrency.mjs
       - name: Merchant billing rejects absent and foreign membership before any reservation (ROLLBACK)
         run: |
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
