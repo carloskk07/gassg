@@ -49,6 +49,9 @@ assert.match(view,/0 de 4 requisitos comprovados/);
 const pendingMerchantView=ctx.view({launchReadiness:waiting,merchants:[{status:'pending'}]});
 assert.match(pendingMerchantView,/Já existe revenda cadastrada em análise/);
 assert.match(pendingMerchantView,/antes de cadastrar outra/);
+assert.match(pendingMerchantView,/adminOpenTask\('partners-verification'\)/);
+assert.match(pendingMerchantView,/onclick="adminOpenTask\('partners-verification'\)">Resolver próxima etapa/);
+assert.doesNotMatch(pendingMerchantView,/onclick="adminSetSection\('partners'\)"/);
 assert.match(pendingMerchantView,/Confira o vínculo existente/);
 assert.match(pendingMerchantView,/Confira os meios já cadastrados/);
 assert.match(pendingMerchantView,/Não homologa Pix, cobranças, cupons, cashback, comissões, repasses ou estornos/);
@@ -95,6 +98,10 @@ assert.equal(ctx.model({...allSignals,securityBlockers:['unknown'],readyToEnable
   'security blockers fail closed');
 const eligible={...allSignals,readyToEnable:true,canActivateOperation:true};
 assert.equal(ctx.model(eligible).readyForAdminReview,true);
+for(const incomplete of [{...eligible,securityBlockers:undefined},{...eligible,securityBlockers:null},{...eligible,commerceEnabled:undefined},{...eligible,operationMode:undefined}]){
+ assert.equal(ctx.model(incomplete).readyForAdminReview,false,'incomplete readiness must fail closed');
+}
+assert.match(ctx.view({launchReadiness:{...eligible,securityBlockers:undefined}}),/Bloqueios de segurança: não informado/);
 assert.match(ctx.view({launchReadiness:eligible}),/Requisitos comerciais comprovados/);
 assert.match(ctx.view({launchReadiness:eligible}),/Isso ainda não ativa vendas/);
 assert.doesNotMatch(ctx.view({launchReadiness:eligible}),/onclick="adminSetOperationMode/);
@@ -107,6 +114,7 @@ assert.equal(ctx.view({launchReadiness:waiting}),'');
 role='readonly';
 assert.match(ctx.view({launchReadiness:waiting}),/admin-launch-worklist/);
 assert.doesNotMatch(ctx.view({launchReadiness:waiting}),/adminSetSection\('partners'\)/);
+assert.doesNotMatch(ctx.view({launchReadiness:waiting,merchants:[{status:'pending'}]}),/adminOpenTask\('partners-verification'\)/);
 
 for(const mark of ['.admin-launch-worklist','.admin-launch-worklist-steps',
  '.admin-launch-meter','@media(max-width:570px)','prefers-reduced-motion:reduce'])

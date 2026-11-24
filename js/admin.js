@@ -12065,12 +12065,12 @@ function adminLaunchWorklistModel(readiness,merchants=[]){
       detail:pendingMerchantExists
         ?'Já existe revenda cadastrada em análise. Revise elegibilidade, documentação e catálogo antes de cadastrar outra.'
         :'Cadastre uma revenda, valide seus produtos e confirme um catálogo vendável.',
-      section:'partners',ready:supply?.realSupplyConfigured===true&&count('configuredMerchantCount')>0},
+      section:'partners',task:pendingMerchantExists?'partners-verification':null,ready:supply?.realSupplyConfigured===true&&count('configuredMerchantCount')>0},
     {key:'merchant_owner_required',title:'Responsável operacional',
       detail:pendingMerchantExists
         ?'Este indicador só conta revendas elegíveis. Confira o vínculo existente e a representação antes de adicionar outro responsável.'
         :'Vincule um responsável ativo e verifique a representação da empresa.',
-      section:'partners',ready:count('ownerReadyMerchantCount')>0},
+      section:'partners',task:pendingMerchantExists?'partners-verification':null,ready:count('ownerReadyMerchantCount')>0},
     {key:'merchant_payment_required',title:'Recebimento da revenda',
       detail:pendingMerchantExists
         ?'Este indicador só conta revendas elegíveis. Confira os meios já cadastrados e sua habilitação antes de duplicá-los.'
@@ -12088,8 +12088,8 @@ function adminLaunchWorklistModel(readiness,merchants=[]){
     typeof r.portalsSourceSha==='string'&&r.portalsSourceSha.length>=7;
   const authorized=r.canActivateOperation===true&&r.readyToEnable===true;
   const canConsiderActivation=completed===checks.length&&portalsVerified&&
-    blockers.length===0&&authorized;
-  return {checks,completed,next,portalsVerified,blockerCount:blockers.length,
+    Array.isArray(r.securityBlockers)&&blockers.length===0&&authorized&&typeof r.commerceEnabled==='boolean'&&typeof r.operationMode==='string';
+  return {checks,completed,next,portalsVerified,blockerCount:Array.isArray(r.securityBlockers)?blockers.length:'não informado',
     readyForAdminReview:canConsiderActivation,
     mode:String(r.operationMode||'UNKNOWN').toUpperCase(),
     serverVerified:readiness!=null&&typeof readiness==='object'&&
@@ -12102,10 +12102,11 @@ function adminLaunchWorklist(d){
   const model=adminLaunchWorklistModel(d?.launchReadiness,d?.merchants);
   const next=model.next;
   const canAccess=(s)=>adminRoleCanSection(s);
+  const navigate=step=>step.task?"adminOpenTask('"+step.task+"')":"adminSetSection('"+step.section+"')";
   const steps=model.checks.map((step,i)=>{
     const done=step.ready===true;
     const action=canAccess(step.section)?
-      '<button type="button" class="secondary small" onclick="adminSetSection(\''+step.section+'\')">'+
+      '<button type="button" class="secondary small" onclick="'+navigate(step)+'">'+
       (done?'Revisar':'Resolver')+' →</button>':'';
     return '<li class="'+(done?'is-ready':'is-blocked')+'">'+
       '<span class="admin-launch-step-mark" aria-hidden="true">'+(done?'✓':String(i+1))+'</span>'+
@@ -12124,7 +12125,7 @@ function adminLaunchWorklist(d){
     summary='Resolva os itens pendentes antes de considerar a abertura comercial. Revenda cadastrada não é revenda habilitada; publicação não libera pedidos.';
   }
   const nextAction=next&&canAccess(next.section)?
-    '<button type="button" class="primary" onclick="adminSetSection(\''+next.section+'\')">Resolver próxima etapa →</button>':
+    '<button type="button" class="primary" onclick="'+navigate(next)+'">Resolver próxima etapa →</button>':
     '<button type="button" class="secondary" onclick="adminSetSection(\'system\')">Verificar sistema →</button>';
   return '<section class="section admin-launch-worklist" aria-label="Roteiro da primeira operação real">'+
     '<div class="admin-launch-worklist-head"><div><span class="section-kicker">PRIMEIRA OPERAÇÃO COMERCIAL</span>'+
@@ -12244,7 +12245,7 @@ function adminExecutiveNextDecision(d,role,now=Date.now(),syncedAt=null){
   const readiness=d?.launchReadiness;
   if(readiness?.commerceEnabled===false
     &&['superadmin','operations','readonly'].includes(role)){
-    const launch=adminLaunchWorklistModel(readiness);
+    const launch=adminLaunchWorklistModel(readiness,d?.merchants);
     if(launch.serverVerified&&launch.next&&can(launch.next.section)){
       return choice('setup','Prepare a próxima etapa comercial',launch.next.title+
         '. Nenhuma cidade é aberta automaticamente.',launch.next.section,'Ver próxima etapa');
