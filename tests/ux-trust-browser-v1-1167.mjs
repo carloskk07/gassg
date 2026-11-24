@@ -85,6 +85,10 @@ try{
     assert.match(status.clubText,/Benefícios claros no Clube TAMÃO/);
     if(width===1280)assert.ok(status.clubHeight<230,'Desktop Club headline still consumes the entire screen');
    }
+   if(route==='home'){
+    const result=await send('Runtime.evaluate',{expression:`JSON.stringify((()=>{const target=document.getElementById('tamao-all-benefits');const link=document.querySelector('.tamao-storefront-benefit-strip a');if(!target||!link)return {found:false};const hash=location.hash;link.click();return {found:true,sameRoute:location.hash===hash,focused:document.activeElement===target.querySelector('h2')}})())`,returnByValue:true});
+    assert.deepEqual(JSON.parse(result.result.value),{found:true,sameRoute:true,focused:true},'Home benefits link must scroll and focus without changing SPA route');
+   }
    if(route==='home'&&status.emptyStorefront){
     assert.match(status.emptyStorefront,/Sem ofertas confirmadas/);
     assert.match(status.emptyStorefront,/O pedido só avança com uma revenda e um preço confirmados/);
