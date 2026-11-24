@@ -52,6 +52,20 @@ const built=buildLivePortals({
 assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
+  for(const page of ['','privacidade','termos']){
+    const file=path.join(dir,'backup-seguro',page,'index.html');
+    assert.equal(fs.existsSync(file),role==='customer','OAuth branding must be customer-only');
+    if(role==='customer'){
+      const doc=fs.readFileSync(file,'utf8');
+      assert.match(doc,/TAMÃO Backup Seguro/);
+      assert.ok(!/<script\b|<form\b/i.test(doc),'Public OAuth page must not require JavaScript or login');
+      assert.ok(doc.includes('href="/backup-seguro/privacidade/"'));
+      assert.ok(doc.includes('href="/backup-seguro/termos/"'));
+      assert.ok(doc.includes('href="https://tamao.com.br/backup-seguro/'+(page?page+'/':'')+'"'));
+      if(page==='')assert.ok(doc.includes('https://www.googleapis.com/auth/drive.file'));
+      if(page==='privacidade')assert.ok(doc.includes('https://developers.google.com/terms/api-services-user-data-policy'));
+    }
+  }
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
   const editorExists=fs.existsSync(path.join(dir,'js','merchant-ui-state.js'));
   assert.equal(editorExists,role==='merchant','Deferred merchant editor must be partner-only');
