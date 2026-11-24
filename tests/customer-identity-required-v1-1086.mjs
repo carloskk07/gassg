@@ -33,6 +33,25 @@ assert.match(context.runtimeStrip(),/Identifique-se para consultar ofertas/);
 assert.doesNotMatch(context.runtimeStrip(),/Serviço temporariamente indisponível/);
 assert.ok(buyer.includes("!testDemo&&liveMode&&!ready&&liveRuntime?.status!=='guest'"),'Checkout must not repeat the outage message for guests');
 assert.match(buyer,/Entre na conta usada na compra para consultar seus pedidos/);
+const trackingStart=buyer.indexOf('function liveTracking(){');
+const trackingTail=buyer.slice(trackingStart);
+const trackingEnd=trackingTail.indexOf('\nfunction ',1);
+assert.ok(trackingStart>=0&&trackingEnd>0,'Tracking runtime must be available');
+const trackingContext=vm.createContext({
+ liveRuntime:{status:'guest'},liveReady:()=>false,shell:value=>value,esc:value=>String(value)
+});
+vm.runInContext(trackingTail.slice(0,trackingEnd),trackingContext);
+const guestTracking=trackingContext.liveTracking();
+assert.match(guestTracking,/Entre na conta usada na compra/);
+assert.doesNotMatch(guestTracking,/customerRefreshOrders\(\)|indisponível/);
+trackingContext.liveRuntime.status='loading';
+assert.match(trackingContext.liveTracking(),/Preparando a consulta/);
+assert.doesNotMatch(trackingContext.liveTracking(),/customerRefreshOrders\(\)/);
+trackingContext.liveRuntime.status='unavailable';
+const failedTracking=trackingContext.liveTracking();
+assert.match(failedTracking,/Não foi possível abrir sua sessão/);
+assert.match(failedTracking,/customerRefreshOrders\(\)/);
+
 context.route=()=> 'tracking';
 assert.equal(context.runtimeStrip(),'','Guest tracking must not show an outage banner');
 context.route=()=> 'order';
