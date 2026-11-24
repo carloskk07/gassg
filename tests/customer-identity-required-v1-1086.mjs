@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const backend=read('js/backend.js'),signup=read('js/welcome-bonus.js');
 const home=read('index.html'),growth=read('js/growth.js'),buyer=read('js/customer.js');
@@ -21,6 +22,20 @@ assert.match(home,/id="tamao-welcome-phone"/);
 assert.match(growth,/id="clube-visitor-coupon-name"/);
 assert.match(growth,/id="clube-visitor-coupon-phone"/);
 assert.match(buyer,/tamaoAccountGateMarkup\(\)/);
+const identity=home.match(/<template id="tamao-checkout-identity-template">([\s\S]*?)<\/template>/)?.[1]||'';
+assert.ok(identity.includes('data-tamao-account-context="checkout-login"'));
+assert.ok(identity.indexOf('data-tamao-account-context="checkout-login"')<identity.indexOf('name="full_name"'),'Existing customers should see their own entry first');
+const core=read('js/core.js');
+const strip=core.slice(core.indexOf('function runtimeStrip(){'),core.indexOf('function siteFooter('));
+const context=vm.createContext({route:()=> 'order',liveRuntime:{status:'guest'},liveBanner:()=> 'blocked'});
+vm.runInContext(strip,context);
+assert.match(context.runtimeStrip(),/Identifique-se para consultar ofertas/);
+assert.doesNotMatch(context.runtimeStrip(),/Serviço temporariamente indisponível/);
+context.liveRuntime.status='failed';
+assert.match(context.runtimeStrip(),/Serviço temporariamente indisponível/,'Real failures must remain visible');
+context.liveRuntime.status='unsafe-origin';
+assert.match(context.runtimeStrip(),/ATENDIMENTO INDISPONÍVEL NESTA ORIGEM/);
+
 for(const name of ['tamao-order-name','tamao-order-phone','tamao-order-email'])
  assert.ok(home.includes(name));
 assert.match(edge,/CUSTOMER_VERIFIED_ACCOUNT_REQUIRED/);
