@@ -55,6 +55,9 @@ try{
   assert.equal(data.hidden,true);
   assert.ok(data.scroll<=width+2,'Horizontal overflow '+width+' '+data.scroll);
   assert.ok(data.ctaVisible&&data.ctaFits,'Main merchant CTA clipped '+width);
+  const composition=await evaluate("(()=>{const copy=document.querySelector('.hero .copy').getBoundingClientRect(),visual=document.querySelector('.hero .visual').getBoundingClientRect();return {copyFirst:copy.top<visual.top||copy.left<visual.left}})()");
+  assert.ok(composition.copyFirst,'Split layout should prioritize participant information at '+width);
+
   const u=new URL(data.href);
   assert.equal(u.origin,'https://tamao.com.br');
   assert.equal(u.searchParams.get('ref'),ref);
