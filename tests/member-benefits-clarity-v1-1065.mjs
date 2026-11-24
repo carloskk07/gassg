@@ -57,6 +57,19 @@ assert.match(html,/tamao-statement-waiting/);
 assert.match(html,/tamao-statement-complete/);
 assert.match(html,/aria-label="Filtrar extrato"/);
 assert.match(html,/Ver mais lançamentos/);
+assert.match(html,/aria-busy="false"/);
+ctx.boundaryRow={...entries[0],occurredAt:'2026-12-01T01:30:00Z'};
+vm.runInContext('tamaoBenefitStatement.items=[boundaryRow];',ctx);
+const boundary=ctx.tamaoBenefitsStatementPanel();
+assert.match(boundary,/Novembro de 2026/,'Statement month must follow the Brazilian operational timezone');
+assert.doesNotMatch(boundary,/Dezembro de 2026/);
+vm.runInContext('tamaoBenefitStatement.items=[];tamaoBenefitStatement.hasMore=false;',ctx);
+assert.match(ctx.tamaoBenefitsStatementPanel(),/Nenhum lançamento nesta categoria/);
+vm.runInContext('tamaoBenefitStatement.busy=true;',ctx);
+const loading=ctx.tamaoBenefitsStatementPanel();
+assert.match(loading,/aria-busy="true"/);
+assert.doesNotMatch(loading,/Nenhum lançamento nesta categoria/);
+
 assert.doesNotMatch(html,/<script>alert\(1\)<\/script>/,'Origins must stay escaped');
 assert.match(html,/&lt;script&gt;/);
 assert.ok(code.includes('tamaoBenefitsStatementStillCurrent')&&

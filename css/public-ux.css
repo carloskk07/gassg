@@ -271,9 +271,9 @@
 .tamao-statement-entry-label small{color:#5a7163;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .tamao-statement-kind{display:inline-block;font-size:11px;line-height:1.3;font-weight:800;color:#1d6745;background:#ebf7ee;padding:4px 9px;border-radius:100px}
 .tamao-statement-entry-money{display:grid;justify-items:end;gap:7px;min-width:0;text-align:right;overflow-wrap:anywhere}
-.tamao-statement-entry-money strong{font-size:15px;line-height:1.35;color:#164b34;font-variant-numeric:tabular-nums}
-.tamao-statement-status{font-size:12px;font-weight:750;color:#456654}
-.tamao-statement-waiting .tamao-statement-status{color:#92652c}
+.tamao-statement-entry-money strong{font-size:17px;line-height:1.35;color:#164b34;font-variant-numeric:tabular-nums}
+.tamao-statement-status{font-size:13px;font-weight:750;color:#456654}
+.tamao-statement-waiting .tamao-statement-status{color:#80531e}
 .tamao-statement-inactive .tamao-statement-status{color:#8f4b4b}
 .tamao-statement-entry-detail{margin:11px 0 0;padding-top:10px;border-top:1px solid #eaf0eb;color:#526c5b;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
 @media(max-width:580px){
@@ -878,3 +878,6 @@
  .sponsor-premium-v1090 .sponsor-preview-pills span,
  .sponsor-premium-v1090 .sponsor-preview-after span{font-size:9px}
 }
+
+.tamao-member-benefit-statement .tamao-statement-empty{padding:21px;border:1px solid #d9e9de;border-radius:15px;background:#f7faf7;color:#254c38}
+.tamao-statement-empty p{margin:6px 0 0;color:#526c5b;font-size:14px;line-height:1.55}

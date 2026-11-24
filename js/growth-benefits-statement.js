@@ -123,10 +123,10 @@ function tamaoBenefitsStatementPanel(){
     const date=new Date(e.occurredAt);
     const validDate=Number.isFinite(date.getTime());
     const when=validDate?
-      new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).format(date):
+      new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',year:'numeric',timeZone:'America/Sao_Paulo'}).format(date):
       'Data indisponível';
     const period=validDate?
-      new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(date):
+      new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'America/Sao_Paulo'}).format(date):
       'Data a confirmar';
     const monthTitle=period.charAt(0).toLocaleUpperCase('pt-BR')+period.slice(1);
     const monthHeading=previousMonth===period?'':'<h3 class="tamao-statement-month">'+
@@ -155,9 +155,9 @@ function tamaoBenefitsStatementPanel(){
     '<p>Veja de onde veio cada crédito, comissão e desconto e acompanhe as conferências.</p>'+
     '</div></div>'+
     '<nav class="field-row tamao-statement-filters" aria-label="Filtrar extrato">'+tabs+'</nav>'+
-    '<div class="form-stack" aria-live="polite">'+entries+
+    '<div class="form-stack" aria-live="polite" aria-busy="'+String(state.busy)+'">'+entries+
     (!entries&&!state.busy&&!state.error?
-      '<p class="muted tiny">Ainda não há lançamentos nesta categoria. Os benefícios aparecem aqui quando são registrados.</p>':'')+
+      '<div class="card flat tamao-statement-empty"><strong>Nenhum lançamento nesta categoria</strong><p>Os benefícios aparecem aqui quando são registrados. Consulte outras categorias para ver seu histórico.</p></div>':'')+
     (state.error?'<div class="notice" role="alert">'+esc(state.error)+
       ' <button class="ghost small" onclick="tamaoBenefitsStatementFetch(true)">Tentar novamente</button></div>':'')+
     (state.busy?'<p class="muted tiny" role="status">Conferindo seus lançamentos…</p>':'')+
