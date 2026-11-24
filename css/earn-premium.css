@@ -441,7 +441,7 @@
  display:flex;align-items:center;justify-content:space-between;gap:12px;
  padding:11px 13px;
  list-style:none;cursor:pointer;color:#f9e7b9;
- font-size:11px;line-height:1.4;font-weight:850;
+ font-size:13px;line-height:1.4;font-weight:800;
 }
 .earn-signature .earn-simulator-settings summary::-webkit-details-marker{display:none}
 .earn-signature .earn-simulator-settings-toggle{display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:7px;background:rgba(234,210,148,.15);font-size:17px;transition:transform .18s}
@@ -507,7 +507,7 @@
 @media(max-width:540px){
  .earn-signature .earn-stage.earn-benefit-simulator{padding:19px 16px}
  .earn-signature .earn-simulator-total>strong{font-size:clamp(37px,11vw,49px)}
- .earn-signature .earn-simulator-settings summary{font-size:11px}
+ .earn-signature .earn-simulator-settings summary{font-size:12px}
  .earn-signature .earn-benefit-board .earn-assurance>article{min-height:240px}
  .earn-signature .earn-benefit-board .earn-assurance .earn-benefit-figure{font-size:30px}
  .earn-signature .earn-benefit-board .earn-assurance .earn-benefit-figure small{font-size:9px}
@@ -536,7 +536,7 @@
 }
 .earn-signature .earn-simulator-breakdown>div+div{border-left:1px solid #c3dbc530}
 .earn-signature .earn-simulator-breakdown span{
- color:#b6d3c2;font-size:9px;font-weight:850;letter-spacing:.065em;
+ color:#d4e7da;font-size:11px;font-weight:800;letter-spacing:.025em;
  line-height:1.4;
 }
 .earn-signature .earn-simulator-breakdown strong{
@@ -590,13 +590,13 @@
 @media(max-width:990px){
  .earn-signature .earn-simulator-breakdown>div{padding:10px 8px}
  .earn-signature .earn-simulator-breakdown strong{font-size:16px}
- .earn-signature .earn-simulator-breakdown span{font-size:8px}
+ .earn-signature .earn-simulator-breakdown span{font-size:10px}
 }
 @media(max-width:540px){
  .earn-signature .earn-simulator-breakdown{margin-top:12px}
  .earn-signature .earn-simulator-breakdown strong{font-size:clamp(14px,4vw,18px)}
  .earn-signature .earn-simulator-breakdown>div{padding:10px 6px}
- .earn-signature .earn-simulator-breakdown span{font-size:8px;letter-spacing:0}
+ .earn-signature .earn-simulator-breakdown span{font-size:10px;letter-spacing:0}
 }
 @media(max-width:350px){
  .earn-signature .earn-simulator-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -687,3 +687,10 @@
 @media(prefers-reduced-motion:reduce){
  .earn-signature .earn-value-simple-icon,.earn-signature .earn-invite-card{transition:none}
 }
+
+/* Calculator finish: readable details, obvious customization and comfortable touch targets. */
+.earn-signature .earn-simulator-settings summary{min-height:46px}
+.earn-signature .earn-simulator-settings summary:focus-visible,.earn-signature .earn-try-switch button:focus-visible{outline:3px solid #f2ce84;outline-offset:2px}
+.earn-signature .earn-simulator-breakdown span{overflow-wrap:anywhere}
+.earn-signature .earn-try-switch button{min-height:44px}
+.earn-signature .earn-simulator-settings-body input{min-height:44px}
