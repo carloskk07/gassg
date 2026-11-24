@@ -37,6 +37,9 @@ if (( (8#$dir_perms & 8#77) != 0 )); then
   echo "BACKUP_BLOCKED: destination directory grants group/other access (use chmod 700)" >&2
   exit 3
 fi
+# Explicit PGHOST is the connection authority. Ignore inherited libpq service
+# selectors and numeric-address overrides rather than using an unintended server.
+unset PGSERVICE PGSERVICEFILE PGHOSTADDR || true
 export PGSSLMODE=require PGCONNECT_TIMEOUT=15
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="$backups_dir/tamao-prod-before-v1-164-$stamp.dump"
