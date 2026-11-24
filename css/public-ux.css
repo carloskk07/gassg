@@ -290,14 +290,14 @@
 .sponsor-premium-v1090{max-width:1140px;margin-inline:auto;color:#163e30}
 .sponsor-premium-v1090 :is(#sponsor-formats,#sponsor-pricing,#sponsor-faq){scroll-margin-top:96px}
 .sponsor-premium-v1090 .sponsor-premium-hero{position:relative;overflow:hidden;background:radial-gradient(circle at 94% 8%,#1d8b5e55 0,transparent 43%),linear-gradient(128deg,#082a23 0%,#0a4936 68%,#0d6547 100%);border:1px solid #25654c;border-radius:30px;padding:clamp(24px,4vw,49px);box-shadow:0 24px 55px #0d493124}
-.sponsor-premium-v1090 .sponsor-hero-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.88fr);align-items:center;gap:clamp(20px,4vw,52px)}
+.sponsor-premium-v1090 .sponsor-hero-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.88fr);align-items:start;gap:clamp(20px,4vw,52px)}
 .sponsor-premium-v1090 .sponsor-hero-copy{min-width:0}
 .sponsor-premium-v1090 .sponsor-premium-eyebrow{display:inline-flex;align-items:center;gap:9px;padding:9px 13px;background:#ffffff12;border:1px solid #ffffff35;border-radius:100px;font-size:10px;line-height:1.4;letter-spacing:.14em;font-weight:900;color:#e4f4e8}
 .sponsor-premium-dot{height:8px;width:8px;display:inline-block;flex:none;background:#f5c465;border-radius:100%;box-shadow:0 0 0 4px #f5c46521}
-.sponsor-premium-v1090 .sponsor-hero-copy .page-title{margin:23px 0 15px;max-width:19ch;font-size:clamp(33px,4.6vw,60px);line-height:1.06;letter-spacing:-.055em;color:#fff;text-wrap:balance}
+.sponsor-premium-v1090 .sponsor-hero-copy .page-title{margin:18px 0 12px;max-width:19ch;font-size:clamp(33px,4.15vw,54px);line-height:1.08;letter-spacing:-.045em;color:#fff;text-wrap:balance}
 .sponsor-premium-v1090 .sponsor-hero-copy .page-title em{font-style:normal;color:#f6d18c}
 .sponsor-premium-v1090 .sponsor-hero-copy .page-lead{max-width:53ch;color:#deeee4;font-size:clamp(14px,1.55vw,17px);line-height:1.7;letter-spacing:-.01em}
-.sponsor-premium-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:25px}
+.sponsor-premium-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:18px}
 .sponsor-premium-v1090 .sponsor-premium-main-cta{display:inline-flex;align-items:center;justify-content:center;gap:16px;min-height:51px;padding:12px 21px;background:#f6ca71;color:#203e2d;border:1px solid #edc371;box-shadow:0 10px 25px #041f172f;font-size:14px;font-weight:900}
 .sponsor-premium-v1090 .sponsor-premium-main-cta:hover{background:#fbe0a4;border-color:#ffe0a0}
 .sponsor-premium-link{border:1px solid #c9e7d25a;border-radius:13px;padding:12px 17px;min-height:50px;background:#ffffff12;color:#fff;font-size:13px;font-weight:800;cursor:pointer}
@@ -456,7 +456,7 @@
 
 
 /* V1.1091 — buyer-facing advert placements, no fabricated campaigns or inventory. */
-.sponsor-premium-v1090 .sponsor-premium-starting{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 9px;margin:18px 0 0;color:#deeee4;font-size:12px;line-height:1.45}
+.sponsor-premium-v1090 .sponsor-premium-starting{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 9px;margin:16px 0 0;color:#deeee4;font-size:13px;line-height:1.45}
 .sponsor-premium-starting strong{font-size:18px;color:#f6d18c;letter-spacing:-.02em}
 .sponsor-premium-starting span{color:#bddac9}
 .sponsor-premium-placements{margin:42px 0 54px}
