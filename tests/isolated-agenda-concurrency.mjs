@@ -22,6 +22,9 @@ sql(`begin;
 insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,is_anonymous,created_at,updated_at)
 select id,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',id::text||'@example.org',now(),false,now(),now()
 from unnest(array[${ids.map(id=>"'"+id+"'::uuid").join(',')}]) as t(id);
+-- Use the same verified owner context required by the existing Agenda SQL tests.
+set local "request.jwt.claim.sub"='${owner}';
+do $ begin if not public.discovery_verified_account() then raise exception 'AGENDA_CI_OWNER_NOT_VERIFIED'; end if; end $;
 insert into public.agenda_pages(id,owner_id,slug,title,about,city,published)
 values('${page}','${owner}','ci-race-${page}','Agenda concorrência CI','Fixture descartável','São Gabriel',true);
 insert into public.agenda_services(id,page_id,owner_id,title,duration_min,price_cents)
