@@ -857,6 +857,11 @@ function runtimeStrip(){
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
     return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
   }
+  // A guest is a normal unauthenticated customer, not a backend outage.
+  // Checkout remains gated by verified account/profile and server validation.
+  if(route()==='order'&&globalThis.liveRuntime?.status==='guest'){
+    return '<div class="demo-strip calm-strip"><span>Identifique-se para consultar ofertas e concluir seu pedido.</span></div>';
+  }
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
