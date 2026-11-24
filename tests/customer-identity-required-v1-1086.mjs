@@ -31,6 +31,11 @@ const context=vm.createContext({route:()=> 'order',liveRuntime:{status:'guest'},
 vm.runInContext(strip,context);
 assert.match(context.runtimeStrip(),/Identifique-se para consultar ofertas/);
 assert.doesNotMatch(context.runtimeStrip(),/Serviço temporariamente indisponível/);
+assert.ok(buyer.includes("!testDemo&&liveMode&&!ready&&liveRuntime?.status!=='guest'"),'Checkout must not repeat the outage message for guests');
+assert.match(buyer,/Entre na conta usada na compra para consultar seus pedidos/);
+context.route=()=> 'tracking';
+assert.equal(context.runtimeStrip(),'','Guest tracking must not show an outage banner');
+context.route=()=> 'order';
 context.liveRuntime.status='failed';
 assert.match(context.runtimeStrip(),/Serviço temporariamente indisponível/,'Real failures must remain visible');
 context.liveRuntime.status='unsafe-origin';
