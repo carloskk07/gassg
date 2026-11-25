@@ -507,7 +507,12 @@ function discoveryOwnerPage(){
          ?tamaoParticipantNativePanel(pageKind,id):'')+'</article>';
   }).join('');
   const kind=s.editor?.vertical||s.kind;
-  const d=s.editor||(kind==='professionals'&&preset?{occupation:preset.name}:{});
+  // Account metadata is only an editable contact suggestion, never proof of identity.
+  const savedPhone=String(s.user?.user_metadata?.phone||'').trim();
+  const digits=/^[+0-9().\s-]+$/.test(savedPhone)?savedPhone.replace(/\D/g,''):'';
+  const contact=/^[1-9][0-9]{9,10}$/.test(digits)?'+55'+digits:
+    /^55[1-9][0-9]{9,10}$/.test(digits)?'+'+digits:'';
+  const d=s.editor||{...(kind==='professionals'&&preset?{occupation:preset.name}:{}),whatsapp_e164:contact};
   const form='<form id="discovery-owner-form" class="discovery-owner-form" onsubmit="return discoveryOwnerSave(event)">'+
     '<h2>'+(s.editor?.id?'Editar rascunho':'Novo anúncio')+'</h2>'+
     (s.editor?.id?'<p class="tiny muted">Tipo: '+esc(kind)+'</p>':
