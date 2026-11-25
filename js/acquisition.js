@@ -240,12 +240,12 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'merchant\')">Cadastrar outra empresa</button></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CONTATO COMERCIAL</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div><button class="primary" onclick="go(\'sponsors\')">Criar anúncio agora</button><button class="secondary" onclick="reopenPrelaunchLead(\'merchant\')">Outro contato</button></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">ANUNCIE NO TAMÃO</span><h2>Seu comércio merece ser encontrado.</h2>',
-      '<p>Comece apenas com o nome do comércio e seu WhatsApp. Anunciar é diferente de receber pedidos pela plataforma.</p>',
+      '<div class="lead-copy"><span class="section-kicker">CONTATO COMERCIAL</span><h2>Converse com o TAMÃO.</h2>',
+      '<p>Anunciar é diferente de receber pedidos pela plataforma. Para criar sua campanha, <button class="text-link" onclick="go(\'sponsors\')">acesse a publicidade</button>.</p>',
       '<div class="lead-proof"><span>✓ Entre sem papelada nesta etapa</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Vendas pelo TAMÃO são opcionais</span></div></div>',
       '<div class="lead-form card flat partner-lead-form">',
         '<div class="merchant-lead-form-head"><strong>Comece em poucos segundos</strong><small>Nome do comércio e WhatsApp. O restante você informa depois, se precisar.</small></div>',
@@ -269,7 +269,7 @@ function prelaunchMerchantLeadSection(){
         '</div></details>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Seu contato é usado para apresentar opções de anúncio. Verificações específicas só serão solicitadas para operações que as exijam.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero anunciar no TAMÃO →</button>',
+        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Solicitar contato →</button>',
         '<div id="partner-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div>',
     '</div></section>'
