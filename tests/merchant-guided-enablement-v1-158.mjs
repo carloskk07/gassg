@@ -95,3 +95,46 @@ assert.ok(!sandbox.draw({...rt,merchant:{merchantId:'c1',memberRole:'driver'}}),
 const missing=sandbox.draw({...rt,enablement:{...rt.enablement,merchant_id:'different'}});
 assert.ok(missing.includes('Verificação ainda não concluída'),'stale data of other merchant never displayed');
 console.log('V1.158: isolation owner/manager, canonical readiness, fast poll budget, secure UI and XSS validated.');
+
+
+// Readiness is positive only for the complete, current, authoritative server report.
+const required=['merchant_status','cnpj','representation','product_authority','operation_mode',
+ 'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+ 'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+const complete={...rt,enablement:{merchant_id:'c1',ready:true,checked_at:new Date().toISOString(),
+ checks:required.map(key=>({key,label:key,ok:true,owner:'system'}))}};
+const positive=sandbox.draw(complete);
+assert.match(positive,/Apta naquele momento/);
+assert.match(positive,/status-pill online/);
+assert.match(positive,/Não encontramos pendências agora/);
+for(const [label,report] of [
+ ['missing checks',{...complete.enablement,checks:[]}],
+ ['only authority',{...complete.enablement,checks:[complete.enablement.checks.at(-1)]}],
+ ['missing authority',{...complete.enablement,checks:complete.enablement.checks.slice(0,-1)}],
+ ['missing inventory',{...complete.enablement,checks:complete.enablement.checks.filter(x=>x.key!=='inventory')}],
+ ['duplicate key',{...complete.enablement,checks:[...complete.enablement.checks,complete.enablement.checks[0]]}],
+ ['negative authority',{...complete.enablement,checks:complete.enablement.checks.map(x=>x.key==='quote_authority'?{...x,ok:false}:x)}],
+ ['contradictory stock',{...complete.enablement,checks:complete.enablement.checks.map(x=>x.key==='inventory'?{...x,ok:false}:x)}],
+ ['missing time',{...complete.enablement,checked_at:null}],
+ ['invalid time',{...complete.enablement,checked_at:'invalid'}],
+ ['old time',{...complete.enablement,checked_at:new Date(Date.now()-181000).toISOString()}],
+ ['future time',{...complete.enablement,checked_at:new Date(Date.now()+60000).toISOString()}]
+]){
+ const html=sandbox.draw({...complete,enablement:report});
+ assert.match(html,/Prontidão não confirmada/,label);
+ assert.doesNotMatch(html,/Apta naquele momento|Não encontramos pendências agora/,label);
+ assert.match(html,/Aguardando confirmação/,label);
+}
+for(const state of [{enablementLoading:true},{enablementError:'Falha de conexão'}]){
+ const html=sandbox.draw({...complete,...state});
+ assert.doesNotMatch(html,/Apta naquele momento|Não encontramos pendências agora/);
+ assert.match(html,/Aguardando confirmação/);
+}
+const pending=sandbox.draw({...complete,enablement:{...complete.enablement,ready:false,
+ checks:complete.enablement.checks.map(x=>x.key==='inventory'?{...x,ok:false,owner:'merchant',action:'Confirme preço e estoque'}:
+ x.key==='quote_authority'?{...x,ok:false}:x)}});
+assert.match(pending,/Configurações pendentes/);
+assert.match(pending,/Confirme preço e estoque/);
+assert.match(pending,/2 pendência\(s\)/);
+assert.doesNotMatch(pending,/Apta naquele momento|Não encontramos pendências agora/);
+console.log('PASS: readiness requires current complete canonical evidence, rejects stale, missing, contradictory and failed checks.');
