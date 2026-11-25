@@ -25,6 +25,8 @@ jobs:
             echo "Checking $f"
             node --check "$f"
           done
+      - name: Commercial readiness summary privacy and operator action contract
+        run: node tests/launch-readiness-summary.mjs
       - name: V1.1039 original TAMÃO logo must remain unmodified in all portals
         run: node tests/original-tamao-wordmark-v1-1039.mjs
       - name: V1.1040 universal network invitations for active TAMÃO modules

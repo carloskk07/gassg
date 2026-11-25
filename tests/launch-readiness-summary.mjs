@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {buildSummary} from '../scripts/launch-readiness-summary.mjs';
+const baseline={ok:true,source:'github_oidc_edge',readiness:{portalsFresh:true,securityBlockers:[],unresolvedWarnings:[],blockers:[],commerceEnabled:false,readyToEnable:false}};
+const s=buildSummary({...baseline,readiness:{...baseline.readiness,unresolvedWarnings:['real_supply_required','merchant_owner_required'],blockers:['real_supply_required','<secret>'],warningDetails:[{reason:'PRIVATE_TEST_SENTINEL'}]}});
+assert.match(s,/Validar o primeiro fornecedor real/);
+assert.match(s,/Vincular responsável/);
+assert.match(s,/1 códigos adicionais/);
+assert.equal(s.match(/Validar o primeiro fornecedor real/g).length,1);
+assert.doesNotMatch(s,/PRIVATE_TEST_SENTINEL|<secret>/);
+assert.match(s,/Comércio: desabilitado/);
+assert.doesNotMatch(s,/requisitos informados satisfeitos/);
+assert.match(buildSummary({...baseline,readiness:{...baseline.readiness,readyToEnable:true}}),/requisitos informados satisfeitos/);
+assert.match(buildSummary({...baseline,readiness:{...baseline.readiness,readyToEnable:true,securityBlockers:['live_portals_verification_required']}}),/bloqueio de segurança/);
+assert.throws(()=>buildSummary({...baseline,readiness:{...baseline.readiness,portalsFresh:false}}));
+assert.throws(()=>buildSummary({...baseline,readiness:{...baseline.readiness,blockers:null}}));
+console.log('Readiness summary: sanitization, deduplication, authority separation and fail-closed contract OK.');
