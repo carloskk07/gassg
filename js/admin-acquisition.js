@@ -7539,11 +7539,24 @@ function adminEnablementMerchantCard(entry){
   const checks=Array.isArray(entry?.checks)?entry.checks:[];
   const failed=checks.filter(x=>x?.ok!==true);
   const plan=adminEnablementActionPlan(checks);
-  const ready=entry?.ready===true;
+  const required=['merchant_status','cnpj','representation','product_authority','operation_mode',
+    'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+    'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+  const keys=new Set(checks.map(x=>x?.key));
+  const checked=Date.parse(String(entry?.checked_at||''));
+  const current=Number.isFinite(checked)&&checked<=Date.now()&&Date.now()-checked<=180000;
+  const complete=keys.size===checks.length&&required.every(key=>keys.has(key))&&
+    checks.every(x=>typeof x?.ok==='boolean')&&typeof entry?.ready==='boolean'&&
+    entry.ready===checks.find(x=>x?.key==='quote_authority')?.ok&&(!entry.ready||failed.length===0);
+  const confirmed=current&&complete;
+  const ready=confirmed&&entry.ready===true;
   const name=String(entry?.merchant_name||'Revenda');
   const state=String(entry?.state||'');
   const city=String(entry?.city||'');
   const main=plan.admin[0]||plan.merchant[0]||plan.platform[0]||plan.system[0]||null;
+  const phase=!confirmed?'Atualizar diagnóstico':ready?'Apta naquele momento':
+    plan.admin.length?'Validar cadastro':plan.merchant.length?'Preparar operação':
+    plan.platform.length?'Conferir abertura comercial':'Conferir disponibilidade';
   const location=city&&state?city+' / '+state:'Município ainda não informado';
   const merchantId=String(entry?.merchant_id||'');
   const canOpenControls=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(merchantId)
@@ -7551,17 +7564,18 @@ function adminEnablementMerchantCard(entry){
     &&Array.isArray(adminRuntime?.data?.merchants)
     &&adminRuntime.data.merchants.some(m=>m?.id===merchantId);
   const makeWorklist=(title,items,detail)=>items.length?
-    '<div class="notice" style="margin-top:8px"><strong>'+title+' ('+items.length+')</strong>'+
+    '<div class="notice" style="margin-top:8px"><strong>'+title+'</strong>'+
       '<p class="tiny muted">'+detail+'</p>'+
-      '<div class="list" style="margin-top:8px">'+items.slice(0,2).map(adminEnablementCheckRow).join('')+'</div>'+
-      (items.length>2?'<p class="tiny muted">Mais '+(items.length-2)+' requisito(s) no detalhamento completo abaixo.</p>':'')+
+      '<div class="list" style="margin-top:8px">'+items.slice(0,1).map(adminEnablementCheckRow).join('')+'</div>'+
+      (items.length>1?'<p class="tiny muted">As demais verificações estão no detalhamento abaixo.</p>':'')+
       '</div>':'';
   return '<article class="card flat" style="margin-bottom:12px">'+
     '<div class="section-head"><div><span class="section-kicker">'+esc(location)+'</span><h3>'+esc(name)+'</h3>'+
       '<p class="tiny muted">CNPJ '+esc(entry?.cnpj||'não confirmado')+' • Cadastro '+esc(entry?.merchant_status||'desconhecido')+'</p></div>'+
-      '<span class="status-pill '+(ready?'online':'offline')+'">'+(ready?'Apta para cotação':failed.length+' bloqueio(s)')+'</span></div>'+
-    (main&&!ready?'<p class="tiny"><strong>Próxima ação:</strong> '+esc(main.action||'Revisar habilitação')+'</p>':
-       '<p class="tiny"><strong>Verificação atual:</strong> todos os requisitos do motor de cotações foram satisfeitos neste instante.</p>')+
+      '<span class="status-pill '+(ready?'online':'offline')+'">'+esc(phase)+'</span></div>'+
+    (!confirmed?'<p class="tiny"><strong>Atualize o diagnóstico.</strong> As informações abaixo são orientações do último retorno, não uma confirmação atual.</p>':
+      main&&!ready?'<p class="tiny"><strong>Próxima ação:</strong> '+esc(main.action||'Revisar habilitação')+'</p>':
+      '<p class="tiny"><strong>Verificação atual:</strong> todos os requisitos do motor de cotações foram satisfeitos neste instante.</p>')+
     (canOpenControls&&plan.admin.length?
       '<button class="secondary small" type="button" onclick="adminMerchantReturnToControls(\''+esc(merchantId)+'\')">Abrir validações desta revenda no Admin</button>':
       '')+
@@ -7574,7 +7588,7 @@ function adminEnablementMerchantCard(entry){
         'Controles gerais não podem ser resolvidos alterando esta revenda.')+
       (plan.system.length?'<p class="tiny muted" style="margin-top:8px">A cotação final continua condicionada à aprovação de todos os requisitos pelo servidor.</p>':'')+
       '</div>':'')+
-    '<details><summary>Verificar todos os '+checks.length+' requisitos ('+failed.length+' pendente(s))</summary>'+
+    '<details><summary>Ver diagnóstico técnico completo ('+failed.length+' pendente(s))</summary>'+
       '<div class="list" style="margin-top:12px">'+checks.map(adminEnablementCheckRow).join('')+'</div></details>'+
     '</article>';
 }
@@ -7583,7 +7597,17 @@ function adminEnablementSection(d){
   const items=Array.isArray(adminRuntime.enablementMerchants)?adminRuntime.enablementMerchants:[];
   const loaded=adminRuntime.enablementLoaded===true;
   const fetching=adminRuntime.enablementLoading===true;
-  const ready=items.filter(x=>x?.ready===true).length;
+  const now=Date.now();
+  const required=['merchant_status','cnpj','representation','product_authority','operation_mode',
+    'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+    'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+  const ready=items.filter(x=>{
+    const checks=Array.isArray(x?.checks)?x.checks:[];
+    const checked=Date.parse(String(x?.checked_at||''));
+    const keys=new Set(checks.map(c=>c?.key));
+    return x?.ready===true&&Number.isFinite(checked)&&checked<=now&&now-checked<=180000&&
+      keys.size===checks.length&&required.every(key=>keys.has(key))&&checks.every(c=>c?.ok===true);
+  }).length;
   const blocked=items.length-ready;
   const withIssues=items.filter(x=>(x?.blocker_count||0)>0);
   const global=withIssues.filter(x=>(x?.checks||[]).some(c=>c?.scope==='global'&&c?.ok!==true)).length;
@@ -7592,13 +7616,13 @@ function adminEnablementSection(d){
     ||String(a.merchant_name||'').localeCompare(String(b.merchant_name||''),'pt-BR'));
   return '<section class="section">'+
     '<div class="section-head"><div><span class="section-kicker">JORNADA DA REVENDA</span><h2>Central de habilitação operacional</h2>'+
-      '<p>Entenda cada requisito que impede uma revenda de aparecer nas ofertas. Este diagnóstico é somente leitura, reflete as regras vigentes e nunca substitui o motor de cotações.</p></div>'+
+      '<p>Identifique a próxima ação de cada revenda. O detalhamento técnico fica disponível para conferência, sem substituir o motor de cotações.</p></div>'+
       '<button type="button" class="secondary small" onclick="adminLoadEnablement()" '+(fetching?'disabled':'')+'>↻ Revalidar agora</button></div>'+
     (adminRuntime.enablementError?'<div class="notice danger">'+esc(adminRuntime.enablementError)+'</div>':'')+
     '<div class="merchant-kpis">'+
       '<div class="kpi"><span class="label">Revendas avaliadas</span><strong>'+items.length+'</strong></div>'+
       '<div class="kpi"><span class="label">Aptas agora</span><strong>'+ready+'</strong><small>Prontidão pode mudar a qualquer momento</small></div>'+
-      '<div class="kpi"><span class="label">Com bloqueios</span><strong>'+blocked+'</strong></div>'+
+      '<div class="kpi"><span class="label">A preparar ou conferir</span><strong>'+blocked+'</strong></div>'+
       '<div class="kpi"><span class="label">Afetadas por controles globais</span><strong>'+global+'</strong></div>'+
     '</div>'+
     '<div class="tiny muted" style="margin:10px 0">Diagnóstico '+esc(adminRelativeTime(adminRuntime.enablementCheckedAt))+
