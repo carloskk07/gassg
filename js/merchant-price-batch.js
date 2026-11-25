@@ -19,24 +19,29 @@ async function merchantLiveConfirmReviewedPrices(){
     .map(p=>({...p})); // immutable snapshot: later refreshes cannot move the baseline
   if(!chosen.length)return toast('Marque os preços e estoques que você conferiu.');
   if(chosen.length>12)return toast('Confira até 12 produtos por vez.');
+  const pricingMatches=(row,p)=>row?.pricingMode===p.pricingMode&&
+    row.minPriceCents===p.minPriceCents&&row.maxPriceCents===p.maxPriceCents&&
+    row.pricingStrategy===p.pricingStrategy;
   for(const p of chosen){
     const code=p.productCode;
-    const number=id=>Number(document.getElementById(id+'-'+code)?.value);
+    const raw=id=>String(document.getElementById(id+'-'+code)?.value??'').trim();
+    const money=id=>/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw(id))?Math.round(Number(raw(id).replace(',','.'))*100):NaN;
     const mode=String(document.getElementById('live-pricing-mode-'+code)?.value||'');
     const strategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'');
-    const unchanged=Math.round(number('live-price')*100)===p.priceCents&&
-      number('live-stock')===p.availableStock&&
+    const unchanged=money('live-price')===p.priceCents&&
+      /^\d{1,6}$/.test(raw('live-stock'))&&Number(raw('live-stock'))===p.availableStock&&
       document.getElementById('live-active-'+code)?.checked===true&&
       mode===(p.pricingMode||'fixed')&&
-      (mode!=='range'||(Math.round(number('live-min-price')*100)===p.minPriceCents&&
-        Math.round(number('live-max-price')*100)===p.maxPriceCents&&
-        strategy===(p.pricingStrategy||'balanced')));
+      (mode!=='range'||(money('live-min-price')===p.minPriceCents&&
+        money('live-max-price')===p.maxPriceCents&&
+        strategy===(p.pricingStrategy||'balanced')&&
+        Number.isSafeInteger(p.minPriceCents)&&Number.isSafeInteger(p.maxPriceCents)&&
+        p.minPriceCents>0&&p.minPriceCents<=p.priceCents&&p.priceCents<=p.maxPriceCents&&p.maxPriceCents<=1000000));
     if(!unchanged||!Number.isFinite(Date.parse(String(p.updatedAt||'')))){
       toast('Existem alterações ainda não salvas ou dados antigos em '+code+'. Salve esse produto antes de confirmar em conjunto.');
       return;
     }
   }
-  if(typeof confirm!=='function'||!confirm('Confirmar que você conferiu os preços e estoques salvos de '+chosen.length+' produto(s)? Cada produto será registrado separadamente.'))return;
   const merchantId=String(rt.merchant?.merchantId||'');
   const userId=String(rt.session?.user?.id||'');
   const epoch=rt.accessEpoch;
@@ -49,6 +54,8 @@ async function merchantLiveConfirmReviewedPrices(){
       now.status==='ready'&&['owner','manager'].includes(String(now.merchant?.memberRole||''));
   };
   if(!same())return toast('Confirme seu acesso à revenda antes de revisar preços.');
+  if(typeof confirm!=='function'||!confirm('Confirmar que você conferiu os preços e estoques salvos de '+chosen.length+' produto(s)? Cada produto será registrado separadamente.'))return;
+  if(!same())return;
   merchantBulkPriceBusy=true;
   let completed=0,reason='';
   try{
@@ -58,13 +65,13 @@ async function merchantLiveConfirmReviewedPrices(){
       if(!same()||
          now.actionPending===true||!current||current.updatedAt!==p.updatedAt||
          current.priceCents!==p.priceCents||current.availableStock!==p.availableStock||
-         current.active!==true)throw new Error('O cadastro mudou. Atualize e revise os produtos restantes.');
+         current.active!==true||!pricingMatches(current,p))throw new Error('O cadastro mudou. Atualize e revise os produtos restantes.');
       await merchantUpdateProductLive(p.productCode,p.priceCents,p.availableStock,true);
       if(!same())throw new Error('O operador ou a revenda mudou durante a conferência.');
       const refreshed=(globalThis.merchantRuntime?.catalog||[]).find(x=>x.productCode===p.productCode);
       if(!refreshed||refreshed.priceCents!==p.priceCents||
-         refreshed.availableStock!==p.availableStock||
-         !merchantTimestampFresh(refreshed.priceConfirmedAt))
+         refreshed.availableStock!==p.availableStock||refreshed.active!==true||
+         !pricingMatches(refreshed,p)||!merchantTimestampFresh(refreshed.priceConfirmedAt))
         throw new Error('Confirmação sem leitura atualizada. Revise a situação antes de continuar.');
       completed++;
     }
