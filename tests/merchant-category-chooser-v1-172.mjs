@@ -112,6 +112,7 @@ const addContext=vm.createContext({
  merchantUpdateProductLive:(...args)=>{calls++;return pending}
 });
 vm.runInContext('const merchantCatalogSaving=new Set();\n'+take('merchantCatalogAvailableChoices')+
+ '\n'+take('merchantNewProductValues')+
  '\n'+take('merchantLiveAddRegisteredProduct',true)+
  ';this.add=merchantLiveAddRegisteredProduct;',addContext);
 const first=addContext.add(),twice=addContext.add();
