@@ -133,7 +133,11 @@ assert.match(edge,/financialIntegrityRisk:bounded\?null:unbackedConsumption>0/);
 assert.match(edge,/coverage:bounded\|\|failedSettlement>0\|\|unbackedConsumption>0/);
 assert.match(edge,/salesEnabled:couponSalesEnabled/);
 assert.match(edge,/const couponSalesEnabled=release\?\.enabled===true/);
-assert.match(admin,/\$\{adminFinanceRenderPart\('Clube financeiro',\(\)=>adminClubeFinanceView\(\)\)\}/);
+// The canonical view remains unchanged; the official bundle defers it until
+// the authorized financial workspace is open. Keep the read-only and owner
+// isolation tests below running against the actual view implementation.
+assert.match(admin,/\$\{adminBillingViewsReady\(\)\?adminFinanceRenderPart\('Clube financeiro',\(\)=>adminClubeFinanceView\(\)\):adminBillingViewsPlaceholder\(\)\}/);
+assert.match(admin,/function adminBillingViewsAllowed\(\)\{\s*return adminReady\(\)&&adminRuntime\.section==='finance'&&\['superadmin','finance'\]\.includes\(adminCurrentRole\(\)\)&&\s*adminRoleCanSection\('finance'\)&&\['billing','policy'\]\.includes\(adminFinanceWorkspaceCurrent\(\)\)/);
 const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);

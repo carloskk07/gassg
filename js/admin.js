@@ -3919,6 +3919,40 @@ function adminFinanceDeferredView(){
  if(!adminFinanceViewsLoading)queueMicrotask(()=>adminFinanceViewsLoad());
  return '<section class="section"><p role="status" class="muted">Carregando área financeira…</p></section>';
 }
+// Commercial billing and Club reports are not needed for Admin entry.
+let adminBillingViewsLoading=null,adminBillingViewsError='';
+function adminBillingViewsAllowed(){
+ return adminReady()&&adminRuntime.section==='finance'&&['superadmin','finance'].includes(adminCurrentRole())&&
+  adminRoleCanSection('finance')&&['billing','policy'].includes(adminFinanceWorkspaceCurrent());
+}
+function adminBillingViewsReady(){
+ return typeof adminMerchantBillingSection==='function'&&typeof adminMobilityBillingSection==='function'&&
+  typeof adminClubeFinanceView==='function'&&typeof adminClubeReleaseReportsView==='function';
+}
+async function adminBillingViewsLoad(){
+ if(!adminBillingViewsAllowed())return false;
+ if(adminBillingViewsReady())return true;
+ if(!adminBillingViewsLoading){
+  adminBillingViewsError='';
+  adminBillingViewsLoading=new Promise((resolve,reject)=>{
+   if(!adminActivationModuleUrl){reject(Error('Módulo indisponível nesta publicação.'));return;}
+   const url=new URL('admin-billing-club-views.js',adminActivationModuleUrl);
+   url.search=new URL(adminActivationModuleUrl).search;
+   const tag=document.createElement('script');tag.src=url.href;tag.async=true;
+   tag.onload=()=>{if(adminBillingViewsReady())resolve(true);else{tag.remove?.();reject(Error('Não foi possível inicializar os relatórios.'));}};
+   tag.onerror=()=>reject(Error('Não foi possível carregar os relatórios.'));
+   adminAppendDeferredModule(tag,reject);
+  }).catch(error=>{adminBillingViewsError=String(error?.message||error);return false;})
+   .finally(()=>{adminBillingViewsLoading=null;if(adminBillingViewsAllowed())render();});
+ }
+ return adminBillingViewsLoading;
+}
+function adminBillingViewsPlaceholder(){
+ if(!adminBillingViewsAllowed())return '<div class="notice">Área disponível aos perfis financeiros autorizados.</div>';
+ if(adminBillingViewsError)return '<section class="section"><p role="alert" class="notice danger">'+esc(adminBillingViewsError)+'</p><button type="button" class="secondary" onclick="adminBillingViewsLoad()">Tentar novamente</button></section>';
+ if(!adminBillingViewsLoading)queueMicrotask(()=>adminBillingViewsLoad());
+ return '<section class="section"><p role="status" class="muted">Carregando relatórios financeiros…</p></section>';
+}
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
@@ -12686,8 +12720,7 @@ function adminPage(){
 `):'';
   const financeBillingContent=(sectionActive('finance')&&financeSelection==='billing')?(`
     ${adminFinanceRenderPart('Pagamentos interrompidos',()=>adminInterruptedSalePaymentWatch(d))}
-    ${adminFinanceRenderPart('Cobranças',()=>adminMerchantBillingSection(d))}
-    ${adminFinanceRenderPart('Taxas de moto e carro',()=>adminMobilityBillingSection(d))}
+    ${adminBillingViewsReady()?adminFinanceRenderPart('Cobranças',()=>adminMerchantBillingSection(d))+adminFinanceRenderPart('Taxas de moto e carro',()=>adminMobilityBillingSection(d)):adminBillingViewsPlaceholder()}
 `):'';
   const financeReconciliationContent=(sectionActive('finance')&&financeSelection==='reconciliation')?(`
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
@@ -12704,7 +12737,7 @@ function adminPage(){
     ${adminFinanceRenderPart('Benefícios da Rede',()=>adminGrowthBenefitPreviewView())}
     ${adminFinanceRenderPart('Venda do Clube',()=>adminCouponCommercialReleaseView())}
     ${adminFinanceRenderPart('Prévia de cupons',()=>adminClubeCouponPreviewView())}
-    ${adminFinanceRenderPart('Clube financeiro',()=>adminClubeFinanceView())}
+    ${adminBillingViewsReady()?adminFinanceRenderPart('Clube financeiro',()=>adminClubeFinanceView()):adminBillingViewsPlaceholder()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `):'';
   const financeAreas={

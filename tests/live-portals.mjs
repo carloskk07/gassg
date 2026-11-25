@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import vm from 'node:vm';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,splitAdminOperationalViews,splitAdminFinanceTestViews,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,splitAdminOperationalViews,splitAdminFinanceTestViews,splitAdminBillingClubViews,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from '../scripts/cloudflare-native-routes-v1-1073.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
@@ -111,6 +111,50 @@ assert.equal(financialDraws,financialBefore);
 financeSection='finance';workspace='homologation';
 assert.equal(await financial.adminFinanceViewsLoad(),true);
 assert.equal(financialAttempts.length,2);
+const billingViews=splitAdminBillingClubViews(financeViews.startup);
+assert.ok(Buffer.byteLength(billingViews.deferred)>50000);
+for(const name of ['adminMerchantBillingSection','adminMobilityBillingSection','adminClubeFinanceView','adminClubeReleaseReportsView']){
+ assert.ok(billingViews.deferred.includes('function '+name+'('));
+ assert.ok(!billingViews.startup.includes('function '+name+'('));
+}
+assert.ok(billingViews.startup.includes("let adminLastRenderedEditorScope="));
+assert.equal(billingViews.startup.length+billingViews.deferred.length,financeViews.startup.length);
+const billingStart=canonicalAdmin.indexOf('let adminBillingViewsLoading=null');
+const billingEnd=canonicalAdmin.indexOf('let adminAdvancedNavOpen=',billingStart);
+const billingAttempts=[],billingQueue=[];
+let billingRole='finance',billingSection='overview',billingWorkspace='summary',billingDraws=0,billingAllowed=true;
+const billingContext=vm.createContext({URL,adminActivationModuleUrl:'https://admin.tamao.com.br/js/admin-activations.js?v=test-sha',
+ adminRuntime:{get section(){return billingSection}},adminReady:()=>true,adminCurrentRole:()=>billingRole,
+ adminRoleCanSection:()=>billingAllowed,adminFinanceWorkspaceCurrent:()=>billingWorkspace,esc:String,
+ queueMicrotask:fn=>billingQueue.push(fn),render:()=>billingDraws++,
+ document:{createElement:()=>({remove(){this.removed=true;}})},
+ adminAppendDeferredModule:(tag,reject)=>billingAttempts.push({tag,reject})});
+vm.runInContext(canonicalAdmin.slice(billingStart,billingEnd),billingContext);
+assert.equal(await billingContext.adminBillingViewsLoad(),false);
+billingSection='finance';billingWorkspace='billing';billingRole='readonly';
+assert.equal(await billingContext.adminBillingViewsLoad(),false);
+billingRole='finance';billingAllowed=false;
+assert.equal(await billingContext.adminBillingViewsLoad(),false);
+billingAllowed=true;
+assert.match(billingContext.adminBillingViewsPlaceholder(),/Carregando/);
+billingQueue.shift()();
+const billingFirst=billingContext.adminBillingViewsLoad();
+assert.equal(billingAttempts.length,1);
+assert.equal(billingAttempts[0].tag.src,'https://admin.tamao.com.br/js/admin-billing-club-views.js?v=test-sha');
+billingAttempts[0].reject(Error('timeout'));
+assert.equal(await billingFirst,false);
+assert.match(billingContext.adminBillingViewsPlaceholder(),/Tentar novamente/);
+const billingRetry=billingContext.adminBillingViewsLoad();
+assert.equal(billingAttempts.length,2);
+for(const name of ['adminMerchantBillingSection','adminMobilityBillingSection','adminClubeFinanceView','adminClubeReleaseReportsView'])
+ billingContext[name]=()=>name;
+billingSection='overview';const billingBefore=billingDraws;
+billingAttempts[1].tag.onload();
+assert.equal(await billingRetry,true);
+assert.equal(billingDraws,billingBefore);
+billingSection='finance';billingWorkspace='policy';billingRole='superadmin';
+assert.equal(await billingContext.adminBillingViewsLoad(),true);
+assert.equal(billingAttempts.length,2);
 const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
 assert.ok(sharedAdminClasses.has('admin-entity-grid'),'Merchant shared class needs explicit preservation');
 const optimizedComponents=stripAdminOnlyCss(originalComponents,{sharedAdminClasses});
@@ -189,6 +233,10 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  const optionalBilling=path.join(dir,'js','admin-billing-club-views.js');
+  assert.equal(fs.existsSync(optionalBilling),role==='admin');
+  assert.ok(!html.includes('src="./js/admin-billing-club-views.js?v=test-sha"'));
+  assert.ok(!sw.includes("'./js/admin-billing-club-views.js?v=test-sha'"));
   const optionalFinance=path.join(dir,'js','admin-finance-test-views.js');
   assert.equal(fs.existsSync(optionalFinance),role==='admin');
   assert.ok(!html.includes('src="./js/admin-finance-test-views.js?v=test-sha"'));
@@ -199,7 +247,8 @@ for(const {role,path:dir} of built){
   assert.ok(!sw.includes("'./js/admin-operational-views.js?v=test-sha'"));
   if(role==='admin'){
    assert.equal(fs.readFileSync(optionalOperational,'utf8'),operational.deferred);
-   assert.equal(fs.readFileSync(path.join(dir,'js','admin.js'),'utf8'),financeViews.startup);
+   assert.equal(fs.readFileSync(path.join(dir,'js','admin.js'),'utf8'),billingViews.startup);
+   assert.equal(fs.readFileSync(path.join(dir,'js','admin-billing-club-views.js'),'utf8'),billingViews.deferred);
    assert.equal(fs.readFileSync(path.join(dir,'js','admin-finance-test-views.js'),'utf8'),financeViews.deferred);
   }
   // A customer/merchant release must neither execute, precache nor ship
