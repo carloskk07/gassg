@@ -281,6 +281,8 @@ console.log('PASS: exact persisted owner business profile gates UI success, pres
 console.log('PASS: unsaved owner form survives background redraw and is isolated by owner and merchant');
 
 assert.match(draftCtx.draw(ownerRt),/<select id="merchant-business-state"/);
+assert.match(draftCtx.draw(ownerRt),/<option value="">Selecione a UF<\/option>/);
+assert.equal(draftCtx.changed(),true);
 assert.match(draftCtx.draw(ownerRt),/<option value="RS" selected>RS<\/option>/);
 assert.match(draftCtx.draw(ownerRt),/Usar o mesmo telefone/);
 assert.match(draftCtx.draw(ownerRt),/id="merchant-business-phone" class="input" inputmode="numeric"/);
