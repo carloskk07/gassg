@@ -792,6 +792,7 @@ const merchantSample=merchantEconomicsExample(120);
 const referralRateLabel=policyPercent(referralPilotRate());
 const merchantFeeLabel=policyPercent((globalThis.tamaoMerchantPublicPlans?.status==='ready'?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS)[0].bps/10000);
 return shell(`<section class="page tamao-earn-page">
+${typeof tamaoEditorialRecovery==='function'?tamaoEditorialRecovery('earn'):''}
 <div class="tamao-network-hero">
 <div class="tamao-network-intro">
 <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
@@ -837,7 +838,7 @@ return shell(`<section class="page tamao-earn-page">
 }
 
 function learn(){
-return typeof learnPremiumPage==='function'?learnPremiumPage():shell(`<section class="page"><span class="eyebrow">COMO FUNCIONA O TAMÃO</span><h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1><p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Consulte a disponibilidade para seu endereço, confira o valor e aguarde a confirmação da revenda.</p><div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos →</button><button class="secondary" onclick="go('contact')">Falar com o TAMÃO</button></div></section>`);
+return typeof learnPremiumPage==='function'?learnPremiumPage():shell(`<section class="page">${typeof tamaoEditorialRecovery==='function'?tamaoEditorialRecovery('learn'):''}<span class="eyebrow">COMO FUNCIONA O TAMÃO</span><h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1><p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Consulte a disponibilidade para seu endereço, confira o valor e aguarde a confirmação da revenda.</p><div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos →</button><button class="secondary" onclick="go('contact')">Falar com o TAMÃO</button></div></section>`);
 }
 
 async function activateCashAccount(){
