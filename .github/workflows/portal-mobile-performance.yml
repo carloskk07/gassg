@@ -38,18 +38,35 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/portal-mobile-performance.mjs
+          unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+          export NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
           python3 -m http.server 4186 --bind 127.0.0.1 --directory dist/live-portals >/tmp/tamao-perf-http.log 2>&1 &
           SERVER_PID=$!
+          PROFILE="$(mktemp -d /tmp/tamao-perf-chrome.XXXXXX)"
           "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-background-networking --disable-dev-shm-usage \
-            --remote-debugging-port=9226 --remote-debugging-address=127.0.0.1 \
-            --user-data-dir=/tmp/tamao-perf-chrome --proxy-server=http://127.0.0.1:1 \
+            --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 \
+            --user-data-dir="$PROFILE" --proxy-server=http://127.0.0.1:1 \
             --proxy-bypass-list=127.0.0.1 --host-resolver-rules='MAP * ~NOTFOUND, EXCLUDE 127.0.0.1' \
             about:blank >/tmp/tamao-perf-chrome.log 2>&1 &
           CHROME_PID=$!
           trap 'kill "$CHROME_PID" "$SERVER_PID" 2>/dev/null || true' EXIT
-          node scripts/portal-mobile-performance.mjs
+          export CHROME_DEBUG=http://127.0.0.1:9222
+          for attempt in $(seq 1 30); do
+            if curl --noproxy '*' -fsS "$CHROME_DEBUG/json/list" >/tmp/tamao-perf-targets.json; then break; fi
+            if ! kill -0 "$CHROME_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if ! curl --noproxy '*' -fsS "$CHROME_DEBUG/json/list"; then
+            cat /tmp/tamao-perf-chrome.log
+            exit 1
+          fi
+          if ! node scripts/portal-mobile-performance.mjs; then
+            tail -n 80 /tmp/tamao-perf-chrome.log
+            tail -n 40 /tmp/tamao-perf-http.log
+            exit 1
+          fi
       - name: Archive diagnostic report only
         uses: actions/upload-artifact@v4
         with:
