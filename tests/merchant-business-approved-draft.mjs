@@ -145,10 +145,11 @@ const inputValues={
  postalCode:'97300000',city:'Sao Gabriel',state:'RS',
  addressText:'Rua confirmada 123'
 };
+const reuseMessages=[];
 const draftCtx=vm.createContext({
- String,globalThis:{merchantRuntime:ownerRt},
+ String,globalThis:{merchantRuntime:ownerRt},toast:msg=>reuseMessages.push(String(msg)),
  document:{getElementById(id){const field=id.replace('merchant-business-','');
-   return Object.hasOwn(inputValues,field)?{value:inputValues[field]}:null;}},
+   return Object.hasOwn(inputValues,field)?{get value(){return inputValues[field]},set value(v){inputValues[field]=v;}}:null;}},
  esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 });
 vm.runInContext(source+
@@ -278,3 +279,24 @@ assert.equal(submitRt.actionPending,false);
 console.log('PASS: exact persisted owner business profile gates UI success, preserves corrected drafts on failed/stale readback');
 
 console.log('PASS: unsaved owner form survives background redraw and is isolated by owner and merchant');
+
+assert.match(draftCtx.draw(ownerRt),/<select id="merchant-business-state"/);
+assert.match(draftCtx.draw(ownerRt),/<option value="">Selecione a UF<\/option>/);
+assert.equal(draftCtx.changed(),true);
+assert.match(draftCtx.draw(ownerRt),/<option value="RS" selected>RS<\/option>/);
+assert.match(draftCtx.draw(ownerRt),/Usar o mesmo telefone/);
+assert.match(draftCtx.draw(ownerRt),/id="merchant-business-phone" class="input" inputmode="numeric"/);
+inputValues.phone='55988887777';inputValues.whatsapp='55911112222';
+assert.equal(vm.runInContext('merchantBusinessReusePhone()',draftCtx),true);
+assert.equal(inputValues.whatsapp,'55988887777');
+assert.equal(draftCtx.currentDraft().values.whatsapp,'55988887777');
+inputValues.phone='123';
+assert.equal(vm.runInContext('merchantBusinessReusePhone()',draftCtx),false);
+assert.equal(inputValues.whatsapp,'55988887777');
+assert.match(reuseMessages.at(-1),/Informe primeiro o telefone/);
+ownerRt.actionPending=true;
+assert.equal(vm.runInContext('merchantBusinessReusePhone()',draftCtx),false);
+ownerRt.actionPending=false;
+draftCtx.globalThis.merchantRuntime=manager;
+assert.equal(vm.runInContext('merchantBusinessReusePhone()',draftCtx),false);
+console.log('PASS: UF selection and explicit phone reuse preserve the owner draft without a mutation.');

@@ -1610,11 +1610,11 @@ function merchantSetupView(rt){
   return '<section class="merchant-essentials" aria-label="Preparação da revenda">'+
     '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
     '<h2>Prepare sua revenda para vender</h2>'+
-    '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
+    '<p>Revise os dados quando precisar.</p></div>'+
     '<span class="merchant-essentials-count">'+done+' de '+groups.length+' etapas concluídas</span></div>'+
     (next?'<div class="merchant-essentials-next"><strong>Seu próximo passo: '+esc(next.title)+'</strong>'+
       '<button type="button" class="primary" onclick="merchantSetupGo(\''+next.key+'\')">Continuar configuração</button></div>':
-      '<p class="tiny muted">Informações básicas preenchidas. A habilitação para receber pedidos depende das verificações do TAMÃO.</p>')+
+      '<p class="tiny muted">Dados preenchidos. Aguarde a conferência do TAMÃO.</p>')+
     '<div class="merchant-essentials-grid">'+groups.map((group,i)=>{
       const complete=group.items.every(item=>item.done);
       return '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
@@ -1624,7 +1624,7 @@ function merchantSetupView(rt){
           (item.done?'Revisar ':'Configurar ')+esc(item.key==='business'?'empresa':item.key==='products'?'produtos':item.key==='delivery'?'entregas':'pagamentos')+'</button>').join('')+
         '</div><span class="status-pill '+(complete?'online':'offline')+'">'+(complete?'Concluída':'A revisar')+'</span></div>';
     }).join('')+'</div>'+
-    '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente: aprovação, catálogo e cidade ainda exigem validação do TAMÃO.</p>'+
+    '<p class="merchant-essentials-disclaimer">Configurar não libera vendas automaticamente.</p>'+
   '</section>';
 }
 function merchantRevealControl(selector){
@@ -1709,11 +1709,25 @@ function merchantBusinessProfileChanged(){
   return true;
 }
 
+function merchantBusinessReusePhone(){
+  const rt=globalThis.merchantRuntime||{};
+  if(!merchantBusinessDraftKey(rt)||rt.actionPending===true)return false;
+  const phone=document.getElementById('merchant-business-phone');
+  const whatsapp=document.getElementById('merchant-business-whatsapp');
+  if(!phone||!whatsapp)return false;
+  const number=String(phone.value||'').trim();
+  if(!/^\d{10,11}$/.test(number)){
+    toast('Informe primeiro o telefone com DDD e somente números.');
+    phone.focus?.();return false;
+  }
+  whatsapp.value=number;
+  return merchantBusinessProfileChanged();
+}
 function merchantBusinessProfileView(rt){
   if(rt?.merchant?.memberRole!=='owner')return '';
   if(rt.merchant?.status!=='pending')
     return '<div class="notice"><strong>Dados cadastrais sujeitos à revisão.</strong><br>'+
-      'Esta revenda já saiu da fase de cadastro inicial. Para alterar identificação ou endereço, solicite revisão ao TAMÃO; nenhuma aprovação existente é reutilizada automaticamente.</div>';
+      'Para alterar identificação ou endereço, solicite revisão ao TAMÃO. As aprovações serão reconferidas.</div>';
   const saved=rt.merchant?.businessDetails||null;
   const suggestion=rt.merchant?.businessDraft?.source==='previous_owner_application'
     &&rt.merchant?.businessDraft?.suggested===true
@@ -1738,18 +1752,30 @@ function merchantBusinessProfileView(rt){
     '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
       'Complete o endereço para análise do cadastro')+'</span></summary>'+
     '<div class="card flat form-stack">'+
-    (unsaved?'<p class="tiny muted">Seus ajustes ainda não foram salvos. O preenchimento foi mantido nesta aba durante a atualização do painel.</p>':'')+
+    (unsaved?'<p class="tiny muted">Seus ajustes ainda não foram salvos. Foram mantidos nesta aba.</p>':'')+
     (suggestion&&!saved
       ?'<p class="tiny muted"><strong>Dados sugeridos do seu cadastro anterior.</strong> '+
-        'Confira razão social, responsável, telefone, WhatsApp e endereço antes de salvar. '+
+        'Confira os dados antes de salvar. '+
         'Complete CEP, cidade e UF. Nenhum campo foi aprovado automaticamente.</p>'
       :'')+
-    '<p class="tiny muted">Informe e confirme seus dados reais. '+ 
+    '<p class="tiny muted">Confira seus dados reais. '+ 
       'O envio não aprova CNPJ, representação, documentação, ANP ou vendas. '+ 
-      'O TAMÃO precisa conferir os requisitos aplicáveis.</p>'+
-    fields.map(([key,label,max])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+
-      esc(label)+'</label><input id="merchant-business-'+key+'" class="input"'+
-      ' autocomplete="off" maxlength="'+max+'" required oninput="merchantBusinessProfileChanged()" value="'+esc(String(b[key]||''))+'"></div>').join('')+
+      'Aguarde a conferência do TAMÃO.</p>'+
+    fields.map(([key,label,max])=>{
+      const id='merchant-business-'+key;
+      const base='<div class="input-wrap"><label for="'+id+'">'+esc(label)+'</label>';
+      if(key==='state'){
+        const states='AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
+        return base+'<select id="'+id+'" class="input" required onchange="merchantBusinessProfileChanged()">'+
+          '<option value="">Selecione a UF</option>'+states.map(uf=>'<option value="'+uf+'"'+
+          (String(b.state||'').toUpperCase()===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></div>';
+      }
+      const numeric=['phone','whatsapp','postalCode'].includes(key);
+      return base+'<input id="'+id+'" class="input"'+(numeric?' inputmode="numeric"':'')+
+        ' autocomplete="off" maxlength="'+max+'" required oninput="merchantBusinessProfileChanged()" value="'+esc(String(b[key]||''))+'">'+
+        (key==='whatsapp'?'<button type="button" class="secondary small" onclick="merchantBusinessReusePhone()"'+
+         (rt.actionPending?' disabled':'')+'>Usar o mesmo telefone</button>':'')+'</div>';
+    }).join('')+
     '<button class="primary" type="button"'+(rt.actionPending?' disabled':'')+
       ' onclick="merchantBusinessProfileSaveFromUi()">Salvar meus dados para conferência</button>'+
     '</div></details>';
@@ -1860,7 +1886,7 @@ function merchantEnablementAssistantView(rt){
   return '<section class="section" id="merchant-enablement">'+
     '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
       '<h2 tabindex="-1">Deixar minha revenda pronta para vender</h2>'+
-      '<p>Cuide apenas da preparação da sua revenda. As verificações técnicas e administrativas são feitas pelo TAMÃO.</p></div>'+
+      '<p>Prepare sua operação. O TAMÃO verifica os requisitos.</p></div>'+
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
     '<div class="card flat">'+
@@ -1868,15 +1894,15 @@ function merchantEnablementAssistantView(rt){
         (confirmed?(ready?'Tudo conferido':'Há etapas a concluir'):'Aguardando confirmação')+'</span></div>'+
       (Number.isFinite(checkedMs)&&checkedMs<=now?'<small>Última consulta '+esc(formatDateTime(timestamp))+
         (!fresh?' • dados antigos; revalide para confirmar':' • condições podem mudar')+'</small>':'')+
-      (diagnostic&&!confirmed?'<p class="tiny muted" role="status">A consulta atual não confirma a prontidão. Revalide antes de confiar nos indicadores abaixo, que são apenas o último retorno disponível.</p>':'')+
+      (diagnostic&&!confirmed?'<p class="tiny muted" role="status">Consulta sem confirmação atual. Revalide para atualizar os dados.</p>':'')+
       (rt.enablementError?'<div class="notice danger" style="margin-top:10px">Não foi possível verificar os requisitos: '+esc(rt.enablementError)+'</div>':'')+
       (!diagnostic?'<p class="muted tiny">'+(rt.enablementLoading?'Consultando as condições atuais…':'Use Revalidar para consultar a situação da revenda.')+'</p>':
        '<div class="notice" style="margin-top:12px"><strong>'+
         (merchantIssues.length?'Prepare sua operação':ready?'Operação conferida':'Aguarde a conferência do TAMÃO')+
-        '</strong><p class="tiny muted">Produtos, entregas e recebimentos são as informações operacionais. A conexão e a autorização final são verificadas pelo sistema.</p></div>'+
+        '</strong><p class="tiny muted">Conexão e autorização final são verificadas pelo sistema.</p></div>'+
        (lead?'<p class="tiny" style="margin-top:10px"><strong>'+ (confirmed?'Primeira ação:':'Última orientação:') +'</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
         ready?'<p class="tiny" style="margin-top:10px">Não encontramos pendências agora. Sua revenda só aparece para os clientes quando houver produtos e entrega disponíveis para o endereço consultado.</p>':
-        '<p class="tiny" style="margin-top:10px">Não é possível confirmar que todos os requisitos foram atendidos. Revalide a consulta.</p>')+
+        '<p class="tiny" style="margin-top:10px">Revalide para confirmar a prontidão.</p>')+
        '<details style="margin-top:12px"><summary>Ver verificações técnicas e administrativas</summary>'+
        (merchantIssues.length?'<h3 style="margin-top:14px">O que sua revenda pode resolver</h3><div class="list">'+merchantIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        (otherIssues.length?'<h3 style="margin-top:14px">Validações e condições adicionais</h3><div class="list">'+otherIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
@@ -2466,10 +2492,10 @@ function merchantFirstRunView(rt,canGoOnline){
   const lead=model.financialHold
     ?'Há uma restrição financeira. Consulte os detalhes do financeiro para acompanhar a regularização.'
     :model.needsAdminApproval
-      ?'Aprovação ou validações da plataforma estão pendentes. Você pode preparar a operação sem liberar vendas por conta própria.'
+      ?'Aguarde a aprovação do TAMÃO enquanto prepara sua operação.'
       :model.next
         ?'Revise os dados da empresa para que ela possa ser encontrada pelos clientes elegíveis.'
-        :'Os dados básicos estão preenchidos, mas ainda existem verificações necessárias para operar.';
+        :'Dados preenchidos. Aguarde a validação.';
   const groups=[
     {title:'Minha empresa',items:model.steps.filter(step=>step.key==='business')},
     {title:'Produtos e entregas',items:model.steps.filter(step=>['products','delivery'].includes(step.key))},
