@@ -168,12 +168,12 @@ assert.equal(firstSteps.length,4,'owner needs address as an actual first setup s
 assert.equal(firstSteps[0].key,'business');
 assert.equal(firstSteps[0].done,false);
 const freshGuide=guided.first(incomplete,false);
-assert.ok(freshGuide.includes('0 de 4 configurados'));
+assert.ok(freshGuide.includes('0 de 3 etapas concluídas'));
 assert.ok(freshGuide.includes("merchantSetupGo('business')"));
 assert.ok(freshGuide.includes('Informe o endereço e os dados reais'));
 assert.equal((freshGuide.match(/merchantBusinessProfileFocus/g)||[]).length,0,
  'do not duplicate the profile CTA outside the canonical setup step');
-assert.ok(guided.setup(incomplete).includes('0 de 4 preenchidos'));
+assert.ok(guided.setup(incomplete).includes('0 de 3 etapas concluídas'));
 guided.goto('business');
 assert.deepEqual(guideCalls,['business'],'address CTA reuses the existing protected owner form');
 const declared={...incomplete,merchant:{...incomplete.merchant,businessDetails:{
@@ -182,14 +182,14 @@ const declared={...incomplete,merchant:{...incomplete.merchant,businessDetails:{
 const declaredSteps=guided.snapshot(declared);
 assert.equal(declaredSteps[0].done,true);
 assert.match(declaredSteps[0].detail,/aguardando conferência/);
-assert.ok(guided.setup(declared).includes('1 de 4 preenchidos'));
+assert.ok(guided.setup(declared).includes('1 de 3 etapas concluídas'));
 assert.ok(!guided.setup(declared).includes('Aprovado pela ANP'),
  'self-declared business address cannot authorize regulated commerce');
 const manager={...incomplete,merchant:{...incomplete.merchant,memberRole:'manager'}};
 assert.equal(guided.snapshot(manager).length,3,
  'manager must not receive an action reserved for the permanent owner');
 assert.ok(!guided.setup(manager).includes('Dados e endereço'));
-assert.ok(guided.first(manager,false).includes('0 de 3 configurados'));
+assert.ok(guided.first(manager,false).includes('0 de 2 etapas concluídas'));
 assert.ok(!guided.setup(manager).includes("merchantSetupGo('business')"));
 
 const activeNoEdit={...incomplete,merchant:{...incomplete.merchant,status:'active'}};
