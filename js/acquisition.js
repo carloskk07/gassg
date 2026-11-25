@@ -245,7 +245,7 @@ function prelaunchMerchantLeadSection(){
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
       '<div class="lead-copy"><span class="section-kicker">CONTATO COMERCIAL</span><h2>Converse com o TAMÃO.</h2>',
-      '<p>Solicite contato com nome do comércio e WhatsApp. Para criar sua campanha, <button class="text-link" onclick="go(\'sponsors\')">acesse a publicidade</button>.</p>',
+      '<p>Anunciar é diferente de receber pedidos pela plataforma. Para criar sua campanha, <button class="text-link" onclick="go(\'sponsors\')">acesse a publicidade</button>.</p>',
       '<div class="lead-proof"><span>✓ Entre sem papelada nesta etapa</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Vendas pelo TAMÃO são opcionais</span></div></div>',
       '<div class="lead-form card flat partner-lead-form">',
         '<div class="merchant-lead-form-head"><strong>Comece em poucos segundos</strong><small>Nome do comércio e WhatsApp. O restante você informa depois, se precisar.</small></div>',
