@@ -206,6 +206,23 @@ function patchIndex(html,portal,sourceSha){
       patched=patched.replace(tag,'');
     }
   }
+  // Discover the same local scripts in the head rather than after the body
+  // templates and a parser-blocking runtime config. Defer preserves order and
+  // waits for the DOM, so no authentication, route, or config logic changes.
+  const runtimeTag='<script src="./js/runtime-config.js"></script>';
+  if(patched.split(runtimeTag).length!==2)throw new Error('Unexpected runtime config tag');
+  const scriptTags=[...patched.matchAll(/<script defer src="\.\/js\/[a-z0-9-]+\.js"><\/script>/g)].map(m=>m[0]);
+  if(!scriptTags.length||scriptTags.at(-1)!=='<script defer src="./js/bootstrap.js"></script>')
+    throw new Error('Unexpected portal script order');
+  patched=patched.replace(runtimeTag,'');
+  for(const tag of scriptTags){
+    if(patched.split(tag).length!==2)throw new Error('Duplicate portal script tag');
+    patched=patched.replace(tag,'');
+  }
+  const earlyAnchor='<link rel="stylesheet" href="./css/marketing-premium.css" />';
+  if(patched.split(earlyAnchor).length!==2)throw new Error('Missing early portal script anchor');
+  patched=patched.replace(earlyAnchor,earlyAnchor+'\n  '+
+    ['<script defer src="./js/runtime-config.js"></script>',...scriptTags].join('\n  '));
   // A single release identity for every script and stylesheet. This prevents
   // browser/CDN caches from mixing assets across successive deployments.
   // Only release bundles are rewritten; the source index remains convenient
