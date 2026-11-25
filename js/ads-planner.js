@@ -788,6 +788,7 @@ async function tamaoAdsShowCityPublic(){
 }
 
 function tamaoAdsLoadHome(){
+ if(typeof globalThis.tamaoAdsLoadHomeDirect==='function')return globalThis.tamaoAdsLoadHomeDirect();
  if(globalThis.tamaoAdsDisplayHome){
   setTimeout(()=>globalThis.tamaoAdsDisplayHome(),0);return;
  }
