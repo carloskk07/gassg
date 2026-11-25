@@ -56,11 +56,13 @@ assert.ok(
 assert.ok(
   acquisition.includes('ATENDIMENTO POR REGIÃO')
   &&acquisition.includes('AVISO DE DISPONIBILIDADE')
-  &&acquisition.includes('DIVULGUE SUA EMPRESA')
-  &&acquisition.includes('ANUNCIE NO TAMÃO')
-  &&acquisition.includes('Quero anunciar no TAMÃO')
+  &&acquisition.includes('CONTATO COMERCIAL')
+  &&acquisition.includes('Solicitar contato →')
+  &&acquisition.includes('Criar anúncio agora')
+  &&acquisition.includes('acesse a publicidade')
+  &&customer.includes('onclick="go(\'sponsors\')">Quero anunciar minha empresa')
   &&acquisition.includes('Autorizo o TAMÃO a entrar em contato pelo WhatsApp.'),
-  'a captação deve distinguir anúncio rápido de operação de pedidos'
+  'a captação deve distinguir contato opcional, campanha real e operação de pedidos'
 );
 
 assert.ok(
