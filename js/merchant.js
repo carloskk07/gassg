@@ -2329,10 +2329,10 @@ async function merchantQuickCatalogSave(productCode){
   const stockField=document.getElementById('merchant-quick-stock-'+code);
   if(!priceField||!stockField)return toast('Atualize o painel para editar este produto.');
   const raw=String(priceField.value||'').trim(),stockRaw=String(stockField.value||'').trim();
-  const price=Number(raw),stock=Number(stockRaw);
-  const cents=Math.round(price*100);
-  if(!raw||!stockRaw||!Number.isFinite(price)||price<=0||price>10000||
-     !Number.isSafeInteger(cents)||!Number.isInteger(stock)||stock<0||stock>100000){
+  const cents=/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw)?Math.round(Number(raw.replace(',','.'))*100):NaN;
+  const stock=Number(stockRaw);
+  if(!/^\d{1,6}$/.test(stockRaw)||!Number.isSafeInteger(cents)||cents<=0||cents>1000000||
+     !Number.isInteger(stock)||stock<0||stock>100000){
     return toast('Revise o preço e o estoque antes de salvar.');
   }
   let pricing={};
@@ -4120,16 +4120,19 @@ function merchantPriceBatchStart(){
 async function merchantLiveSaveProduct(code){
   if(typeof merchantBulkPriceBusy!=='undefined'&&merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
-  const price=Number(document.getElementById('live-price-'+code)?.value);
-  const stock=Number(document.getElementById('live-stock-'+code)?.value);
-  const active=document.getElementById('live-active-'+code)?.checked===true;
-  const pricingMode=String(document.getElementById('live-pricing-mode-'+code)?.value||'fixed');
-  const pricingStrategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'balanced');
-  const minPrice=Number(document.getElementById('live-min-price-'+code)?.value);
-  const maxPrice=Number(document.getElementById('live-max-price-'+code)?.value);
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code);
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||'')))return toast('Produto inválido.');
+  const read=id=>String(document.getElementById(id+'-'+code)?.value??'').trim();
+  const money=raw=>/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw)?Math.round(Number(raw.replace(',','.'))*100):NaN;
+  const cents=money(read('live-price'));
+  const stockRaw=read('live-stock'),stock=Number(stockRaw);
+  const activeField=document.getElementById('live-active-'+code);
+  const pricingMode=read('live-pricing-mode'),pricingStrategy=read('live-pricing-strategy');
+  const minCents=money(read('live-min-price')),maxCents=money(read('live-max-price'));
+  if(!Number.isSafeInteger(cents)||cents<=0||cents>1000000||!/^\d{1,6}$/.test(stockRaw)||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code+'. Informe zero explicitamente se estiver esgotado.');
+  if(typeof activeField?.checked!=='boolean'||!['fixed','range'].includes(pricingMode))return toast('Atualize o catálogo para conferir a disponibilidade e o modo de preço.');
+  const active=activeField.checked;
   if(pricingMode==='range'){
-    if(!Number.isFinite(minPrice)||!Number.isFinite(maxPrice)||minPrice<=0||maxPrice>10000||minPrice>price||price>maxPrice){
+    if(!Number.isSafeInteger(minCents)||!Number.isSafeInteger(maxCents)||minCents<=0||maxCents>1000000||minCents>cents||cents>maxCents){
       return toast('Na faixa automática: mínimo ≤ preço normal ≤ máximo.');
     }
   }
@@ -4138,11 +4141,11 @@ async function merchantLiveSaveProduct(code){
   merchantCatalogSaving.add(code);
   if(saveButton){saveButton.disabled=true;saveButton.textContent='Salvando…';}
   try{
-    await merchantUpdateProductLive(code,Math.round(price*100),stock,active,{
+    await merchantUpdateProductLive(code,cents,stock,active,{
       pricingMode,
-      minPriceCents:pricingMode==='range'?Math.round(minPrice*100):Math.round(price*100),
-      maxPriceCents:pricingMode==='range'?Math.round(maxPrice*100):Math.round(price*100),
-      pricingStrategy
+      minPriceCents:pricingMode==='range'?minCents:cents,
+      maxPriceCents:pricingMode==='range'?maxCents:cents,
+      pricingStrategy:pricingStrategy||'balanced'
     });
     toast(pricingMode==='range'?'Faixa de preço de '+code+' confirmada':'Preço fixo de '+code+' confirmado');
   }catch(e){toast(String(e?.message||e))}
@@ -4919,7 +4922,7 @@ function merchantLiveCatalog(){
     <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(item.productCode,{icon},"cart"):esc(icon)}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
+        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
         <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label>
           <div class="merchant-catalog-stock-controls"><button type="button" class="secondary" aria-label="Diminuir estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',-1)">−</button>
           <input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.availableStock}">
@@ -4933,8 +4936,8 @@ function merchantLiveCatalog(){
       <div class="form-stack">
         <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo de preço</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
-        <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
         <div class="input-wrap"><label for="live-pricing-strategy-${item.productCode}">Estratégia</label><select id="live-pricing-strategy-${item.productCode}" class="input" ${range?'':'disabled'}><option value="volume" ${item.pricingStrategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${item.pricingStrategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${item.pricingStrategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
       </div>
       <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço informado para este produto.'}</div>
@@ -5000,7 +5003,7 @@ function merchantLiveCatalog(){
           ${addableCategories.map(category=>`<optgroup label="${esc(category)}">${addableProducts.filter(item=>item.categoryName===category).map(item=>`<option value="${esc(item.productCode)}">${esc(item.productName||item.productCode)}</option>`).join('')}</optgroup>`).join('')}
         </select><small class="field-help" id="live-new-registry-count" aria-live="polite">${addableProducts.length} produto(s) para escolher</small></div>
         <div class="field-row">
-          <div class="input-wrap"><label for="live-new-registry-price">Preço</label><select class="input" aria-label="Preço rápido opcional" onchange="this.value&&(this.nextElementSibling.value=this.value)"><option value="">Escolha o preço que conferiu</option><option value="10">R$ 10</option><option value="20">R$ 20</option><option value="50">R$ 50</option><option value="100">R$ 100</option></select><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+          <div class="input-wrap"><label for="live-new-registry-price">Preço</label><select class="input" aria-label="Preço rápido opcional" onchange="this.value&&(this.nextElementSibling.value=this.value)"><option value="">Escolha o preço que conferiu</option><option value="10">R$ 10</option><option value="20">R$ 20</option><option value="50">R$ 50</option><option value="100">R$ 100</option></select><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
           <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-registry-stock'):''}<label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
         </div>
         <button class="primary merchant-catalog-add-btn" id="live-new-registry-add" onclick="merchantLiveAddRegisteredProduct()">Adicionar produto</button>
@@ -5012,7 +5015,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Tamanho do botijão</label><select id="live-new-glp-code" class="input">${merchantCatalogGasOptions(rt)}</select></div>
-      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
       <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-glp-stock'):''}<label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
@@ -5023,7 +5026,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Cadastre o recipiente separadamente da carga. Ex.: P13 cria o SKU P13_CONTAINER.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-container-code">Tamanho do vasilhame</label><select id="live-new-container-code" class="input">${merchantCatalogGasOptions(rt,true)}</select></div>
-      <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
       <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-container-stock'):''}<label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
