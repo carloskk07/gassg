@@ -5008,6 +5008,56 @@ function adminMerchantMissingProfileNotice(m){
     'completar CEP, cidade e UF e clicar em “Salvar meus dados para conferência”. '+
     '<small>Isso não aprova CNPJ/ANP, não confirma representação, preço, estoque ou entrega e não ativa vendas.</small></div>';
 }
+// Consult the existing regional registry without changing compliance decisions.
+function adminMerchantAnpReference(report,merchant,now=Date.now()){
+  const city=String(merchant?.businessDetails?.city||'').trim();
+  const state=String(merchant?.businessDetails?.state||'').trim().toUpperCase();
+  const cnpj=String(merchant?.cnpj||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
+  if(!/^[0-9A-Z]{12}[0-9]{2}$/.test(cnpj)||!city||!state||
+    report?.sourceStatus!=='ok'||report.state!==state||
+    String(report.city||'').trim().toUpperCase()!==city.toUpperCase()||
+    !Array.isArray(report.prospects))return null;
+  const matches=report.prospects.filter(p=>String(p?.cnpj||'').toUpperCase().replace(/[^0-9A-Z]/g,'')===cnpj);
+  if(matches.length!==1)return null;
+  const p=matches[0],checked=Date.parse(p.source_checked_at||''),reportChecked=Date.parse(report.checkedAt||'');
+  const fresh=t=>Number.isFinite(t)&&t<=now&&now-t<=86400000;
+  const reference=String(p.anp_authorization||'').trim();
+  if(!fresh(checked)||!fresh(reportChecked)||!reference||reference.length>240)return null;
+  return {reference,name:String(p.legal_name||''),status:String(p.sigaf_status||'não informado'),checkedAt:p.source_checked_at};
+}
+async function adminConsultMerchantAnp(id){
+  const m=adminPartnerVerificationMutationTarget(id);
+  const panel=document.getElementById('anp-lookup-'+id);
+  const result=document.getElementById('anp-result-'+id);
+  const button=document.getElementById('anp-consult-'+id);
+  if(!m||!panel||!result||!button||button.disabled)return;
+  const city=String(m.businessDetails?.city||'').trim(),state=String(m.businessDetails?.state||'').trim().toUpperCase();
+  if(!city||! /^[A-Z]{2}$/.test(state)){result.textContent='A revenda precisa informar cidade e UF antes da consulta.';return;}
+  const session=adminRuntime.session;
+  const current=()=>adminRuntime.session===session&&adminPartnerVerificationMutationTarget(id)===m&&document.getElementById('anp-lookup-'+id)===panel;
+  button.disabled=true;result.textContent='Consultando a fonte ANP…';
+  const copy=document.getElementById('anp-copy-'+id);
+  if(copy){copy.hidden=true;copy.onclick=null;}
+  try{
+    const report=await adminInvoke({action:'prospect-intelligence',city,state,force:false});
+    if(!current())return;
+    const suggestion=adminMerchantAnpReference(report,m);
+    if(!suggestion){result.textContent='Não foi possível obter uma referência recente e inequívoca para este CNPJ. Confira a fonte oficial manualmente.';return;}
+    result.textContent=suggestion.name+' • Registro '+suggestion.reference+' • Situação SIGAF: '+suggestion.status+' • Consulta '+formatDateTime(suggestion.checkedAt)+'. Confira antes de decidir.';
+    if(copy){
+      copy.hidden=false;
+      copy.onclick=()=>{
+        if(!current())return;
+        const ref=document.getElementById('anpref-'+id);
+        if(!ref||String(ref.value||'').trim())return toast('O campo já contém uma referência. Revise-a antes de substituir.');
+        ref.value=suggestion.reference;
+        ref.focus();
+        toast('Referência preenchida. Nenhuma validação foi salva.');
+      };
+    }
+  }catch(e){if(current())result.textContent='Consulta indisponível. Confira a fonte oficial manualmente.';}
+  finally{if(document.getElementById('anp-consult-'+id)===button)button.disabled=false;}
+}
 function adminMerchantCard(m){
   const c=m.compliance||{};
   const readiness=m.readiness||null;
@@ -5041,6 +5091,7 @@ function adminMerchantCard(m){
       <div class="input-wrap"><label for="${cnpjId}">CNPJ</label><select id="${cnpjId}" class="input"><option value="pending" ${c.cnpj_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.cnpj_status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${c.cnpj_status==='rejected'?'selected':''}>Rejeitado</option></select><small>Última verificação: ${c.cnpj_verified_at?esc(formatDateTime(c.cnpj_verified_at)):'nunca'}</small></div>
       <div class="input-wrap"><label for="${anpId}">ANP</label><select id="${anpId}" class="input"><option value="pending" ${c.anp_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.anp_status==='verified'?'selected':''}>Verificada</option><option value="not_required" ${c.anp_status==='not_required'?'selected':''}>Não se aplica</option><option value="rejected" ${c.anp_status==='rejected'?'selected':''}>Rejeitada</option></select><small>Última verificação: ${c.anp_verified_at?esc(formatDateTime(c.anp_verified_at)):c.anp_status==='not_required'?'não se aplica':'nunca'}</small></div>
     </div>
+    ${canVerifyRepresentation?`<div id="anp-lookup-${m.id}" class="card flat"><strong>Consulta à base ANP</strong><p class="tiny muted">Use o CNPJ e a cidade registrados para localizar a referência. A consulta não comprova representação nem aprova a revenda.</p><div class="order-actions"><button type="button" class="secondary small" id="anp-consult-${m.id}" onclick="adminConsultMerchantAnp('${m.id}')">Consultar registro ANP</button><button type="button" class="secondary small" id="anp-copy-${m.id}" hidden>Usar referência no campo</button></div><p id="anp-result-${m.id}" class="tiny muted" role="status"></p></div>`:''}
     <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
     <div class="input-wrap"><label for="${notesId}">Evidência / observações de compliance</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Fonte consultada, data, resultado e referência da validação"><small>Ao marcar CNPJ como verificado, registre aqui a fonte/evidência. ANP verificada também exige a referência acima.</small></div>
     ${c.verified_by?`<div class="tiny muted">Última decisão de compliance por admin ${esc(String(c.verified_by).slice(0,8))} • ${esc(formatDateTime(c.updated_at))}</div>`:''}
