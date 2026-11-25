@@ -11,7 +11,9 @@ new vm.Script(customer,{filename:'js/customer.js'});
 assert.match(customer,/Anuncie seu comércio\. Receber pedidos pelo TAMÃO é opcional\./);
 assert.match(customer,/onclick="openPrelaunchMerchantLead\(\)">Quero anunciar minha empresa/);
 assert.match(merchant,/Quer só anunciar seu comércio\?/);
-assert.match(merchant,/Cadastro rápido para anunciar/);
+assert.match(merchant,/Crie sua campanha sem cadastrar uma revenda/);
+assert.match(merchant,/https:\/\/tamao\.com\.br\/#sponsors" class="primary small">Criar anúncio/);
+assert.match(merchant,/https:\/\/tamao\.com\.br\/#merchants" class="secondary small">Solicitar contato/);
 assert.match(merchant,/https:\/\/tamao\.com\.br\/#merchants/);
 assert.match(merchant,/merchantLoginFromUi\(\)/,
  'commercial dashboard can still require its proper registration');
