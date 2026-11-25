@@ -5004,7 +5004,7 @@ function merchantLiveCatalog(){
         </select><small class="field-help" id="live-new-registry-count" aria-live="polite">${addableProducts.length} produto(s) para escolher</small></div>
         <div class="field-row">
           <div class="input-wrap"><label for="live-new-registry-price">Preço</label><select class="input" aria-label="Preço rápido opcional" onchange="this.value&&(this.nextElementSibling.value=this.value)"><option value="">Escolha o preço que conferiu</option><option value="10">R$ 10</option><option value="20">R$ 20</option><option value="50">R$ 50</option><option value="100">R$ 100</option></select><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
-          <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-registry-stock'):''}<label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+          <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-registry-stock'):''}<label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" placeholder="Informe o estoque"></div>
         </div>
         <button class="primary merchant-catalog-add-btn" id="live-new-registry-add" onclick="merchantLiveAddRegisteredProduct()">Adicionar produto</button>
       </div>`
@@ -5016,7 +5016,7 @@ function merchantLiveCatalog(){
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Tamanho do botijão</label><select id="live-new-glp-code" class="input">${merchantCatalogGasOptions(rt)}</select></div>
       <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
-      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-glp-stock'):''}<label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-glp-stock'):''}<label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" placeholder="Informe o estoque"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
   </div>`;
@@ -5027,7 +5027,7 @@ function merchantLiveCatalog(){
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-container-code">Tamanho do vasilhame</label><select id="live-new-container-code" class="input">${merchantCatalogGasOptions(rt,true)}</select></div>
       <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
-      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-container-stock'):''}<label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-container-stock'):''}<label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" placeholder="Informe o estoque"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
@@ -5049,22 +5049,40 @@ function merchantLiveCatalog(){
   </section>`);
 }
 
+// A new item must not overwrite an existing SKU or infer an empty stock as zero.
+function merchantNewProductValues(code,prefix){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return null;
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(code))return null;
+  if((Array.isArray(rt.catalog)?rt.catalog:[]).some(item=>item?.productCode===code)){
+    toast('Este produto já está cadastrado. Edite o preço e o estoque no catálogo.');
+    return null;
+  }
+  const priceRaw=String(document.getElementById(prefix+'-price')?.value??'').trim();
+  const stockRaw=String(document.getElementById(prefix+'-stock')?.value??'').trim();
+  const cents=/^\d{1,5}(?:[.,]\d{1,2})?$/.test(priceRaw)?Math.round(Number(priceRaw.replace(',','.'))*100):NaN;
+  const stock=Number(stockRaw);
+  if(!Number.isSafeInteger(cents)||cents<=0||cents>1000000||
+     !/^\d{1,6}$/.test(stockRaw)||!Number.isInteger(stock)||stock<0||stock>100000){
+    toast('Revise preço e estoque. Informe zero explicitamente se estiver esgotado.');
+    return null;
+  }
+  return {cents,stock};
+}
 async function merchantLiveAddRegisteredProduct(){
   const code=String(document.getElementById('live-new-registry-product')?.value||'').trim().toUpperCase();
   const available=merchantCatalogAvailableChoices(globalThis.merchantRuntime||{}).find(item=>item.productCode===code);
-  const price=Number(document.getElementById('live-new-registry-price')?.value);
-  const stock=Number(document.getElementById('live-new-registry-stock')?.value);
   if(!available)return toast('Escolha um produto liberado pela administração');
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000){
-    return toast('Revise preço e estoque');
-  }
+  const values=merchantNewProductValues(code,'live-new-registry');
+  if(!values)return;
   if(merchantCatalogSaving.has(code))return;
   const button=document.getElementById('live-new-registry-add');
   const previous=button?.textContent||'Adicionar produto';
   merchantCatalogSaving.add(code);
   if(button){button.disabled=true;button.textContent='Adicionando…';}
   try{
-    await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stock,true);
     toast(String(available.productName||code)+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
   finally{
@@ -5077,28 +5095,31 @@ async function merchantLiveAddGlp(){
   const code=String(document.getElementById('live-new-glp-code')?.value||'').trim().toUpperCase();
   const match=/^P([1-9][0-9]?)$/.exec(code);
   const kg=match?Number(match[1]):NaN;
-  const price=Number(document.getElementById('live-new-glp-price')?.value);
-  const stock=Number(document.getElementById('live-new-glp-stock')?.value);
   if(!Number.isInteger(kg)||kg<1||kg>90)return toast('Use um código GLP entre P1 e P90');
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque');
+  const values=merchantNewProductValues(code,'live-new-glp');
+  if(!values||merchantCatalogSaving.has(code))return;
+  merchantCatalogSaving.add(code);
   try{
-    await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stock,true);
     toast('Gás P'+kg+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
+  finally{merchantCatalogSaving.delete(code);}
 }
 
 async function merchantLiveAddContainer(){
   const gasCode=String(document.getElementById('live-new-container-code')?.value||'').trim().toUpperCase();
   const match=/^P([1-9][0-9]?)$/.exec(gasCode);
   const kg=match?Number(match[1]):NaN;
-  const price=Number(document.getElementById('live-new-container-price')?.value);
-  const stock=Number(document.getElementById('live-new-container-stock')?.value);
   if(!Number.isInteger(kg)||kg<1||kg>90)return toast('Use um tamanho entre P1 e P90');
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque do vasilhame');
+  const code=gasCode+'_CONTAINER';
+  const values=merchantNewProductValues(code,'live-new-container');
+  if(!values||merchantCatalogSaving.has(code))return;
+  merchantCatalogSaving.add(code);
   try{
-    await merchantUpdateProductLive(gasCode+'_CONTAINER',Math.round(price*100),stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stock,true);
     toast('Vasilhame P'+kg+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
+  finally{merchantCatalogSaving.delete(code);}
 }
 
 function merchantMetrics(){
