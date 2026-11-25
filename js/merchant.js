@@ -1920,10 +1920,18 @@ async function merchantFirstRunReview(){
 const merchantQuickDrafts=new Map();
 function merchantQuickDraftKey(rt,code){
   const merchantId=String(rt?.merchant?.merchantId||'');
-  return merchantId&&/^[A-Z0-9_-]{1,24}$/.test(String(code||''))?merchantId+'::'+code:'';
+  const actor=String(rt?.session?.user?.id||'');
+  const epoch=rt?.accessEpoch;
+  if(rt?.status!=='ready'||!merchantId||!actor||!Number.isSafeInteger(epoch)||
+     !['owner','manager'].includes(String(rt?.merchant?.memberRole||''))||
+     (rt.selectedMerchantId&&String(rt.selectedMerchantId)!==merchantId)||
+     !/^[A-Z0-9_-]{1,24}$/.test(String(code||'')))return '';
+  return actor+'::'+merchantId+'::'+epoch+'::'+code;
 }
 function merchantQuickCatalogVersion(item){
-  return [String(item?.updatedAt||''),Number(item?.priceCents),Number(item?.availableStock)].join('|');
+  return [String(item?.updatedAt||''),Number(item?.priceCents),Number(item?.availableStock),
+    item?.active===true,String(item?.pricingMode||''),Number(item?.minPriceCents),
+    Number(item?.maxPriceCents),String(item?.pricingStrategy||'')].join('|');
 }
 function merchantQuickDraftFor(rt,item){
   const key=merchantQuickDraftKey(rt,item?.productCode);
@@ -1955,9 +1963,10 @@ function merchantQuickCatalogChanged(productCode){
   return !unchanged;
 }
 function merchantQuickHasDrafts(rt){
-  const id=String(rt?.merchant?.merchantId||'');
-  if(!id)return false;
-  return [...merchantQuickDrafts.keys()].some(key=>key.startsWith(id+'::'));
+  const probe=merchantQuickDraftKey(rt,'P13');
+  if(!probe)return false;
+  const prefix=probe.slice(0,-3);
+  return [...merchantQuickDrafts.keys()].some(key=>key.startsWith(prefix));
 }
 function merchantQuickConfirmLeave(){
   if(!merchantQuickHasDrafts(globalThis.merchantRuntime||{}))return true;
@@ -2345,15 +2354,18 @@ async function merchantQuickCatalogSave(productCode){
     pricing={pricingMode:'range',minPriceCents:min,maxPriceCents:max,
       pricingStrategy:String(item.pricingStrategy||'balanced')};
   }
+  const draftKey=merchantQuickDraftKey(rt,code);
+  if(!draftKey)return toast('Atualize sua sessão antes de salvar o produto.');
   try{
     await merchantUpdateProductLive(code,cents,stock,item.active===true,pricing);
-    merchantQuickDrafts.delete(merchantQuickDraftKey(rt,code));
+    if(merchantQuickDraftKey(globalThis.merchantRuntime||{},code)!==draftKey)return;
+    merchantQuickDrafts.delete(draftKey);
     if(globalThis.merchantCatalogHistoryState?.merchantId===String(rt.merchant?.merchantId||'')){
       globalThis.merchantCatalogHistoryState=null; // New server event requires a fresh read.
     }
     if(typeof render==='function')render();
     toast('Preço e estoque de '+code+' confirmados.');
-  }catch(e){toast(String(e?.message||e))}
+  }catch(e){if(merchantQuickDraftKey(globalThis.merchantRuntime||{},code)===draftKey)toast(String(e?.message||e))}
 }
 function merchantAvailabilityGo(key){
   const rt=globalThis.merchantRuntime||{};
