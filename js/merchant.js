@@ -1565,8 +1565,19 @@ function merchantSetupSnapshot(rt){
   const methods=m.paymentMethods||{};
   const enabled=['pix','card','cash'].filter(key=>methods[key]===true);
   const matches=key=>enabled.includes(key)||(['card_credit','card_debit'].includes(key)&&enabled.includes('card'));
-  const routed=Array.isArray(rt?.paymentRoutes)&&rt.paymentRoutes.some(route=>
-    route?.active===true&&matches(String(route.paymentMethod||'')));
+  // The server requires an active delivery route, not an online checkout.
+  // Merchant-confirmed routes need no PSP; device routes need the matching
+  // connected provider account with both direct-sale and validation capability.
+  const accounts=Array.isArray(rt?.receivingAccounts)?rt.receivingAccounts:[];
+  const routed=Array.isArray(rt?.paymentRoutes)&&rt.paymentRoutes.some(route=>{
+    if(route?.active!==true||route.channel!=='delivery'||!matches(String(route.paymentMethod||'')))return false;
+    if(route.verificationMode==='merchant_confirmed')return true;
+    return route.verificationMode==='device'&&Boolean(route.connectionId)&&
+      Boolean(route.provider)&&accounts.some(account=>account?.id===route.connectionId&&
+        account.provider===route.provider&&account.connected===true&&
+        account.capabilities?.canValidateProviderTransactions===true&&
+        account.capabilities?.directSalePaymentsEnabled===true);
+  });
   const owner=String(m.memberRole||'')==='owner';
   const business=m.businessDetails||{};
   const profileComplete=Boolean(business.city&&business.state&&business.postalCode&&business.addressText);
@@ -1582,7 +1593,7 @@ function merchantSetupSnapshot(rt){
       detail:delivery?'Área e taxa de entrega confirmadas':'Escolha sua área, taxa e prazo de entrega',
       done:delivery},
     {key:'payment',title:'Recebimentos',
-      detail:enabled.length&&routed?'Forma de pagamento e rota configuradas':'Escolha como o cliente poderá pagar à sua revenda',
+      detail:enabled.length&&routed?'Forma de pagamento na entrega configurada':'Ative Pix, cartão ou dinheiro na entrega e salve. Não é necessário conectar um provedor para começar.',
       done:Boolean(enabled.length&&routed)}
   ];
 }
