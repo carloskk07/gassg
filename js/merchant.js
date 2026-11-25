@@ -1709,6 +1709,20 @@ function merchantBusinessProfileChanged(){
   return true;
 }
 
+function merchantBusinessReusePhone(){
+  const rt=globalThis.merchantRuntime||{};
+  if(!merchantBusinessDraftKey(rt)||rt.actionPending===true)return false;
+  const phone=document.getElementById('merchant-business-phone');
+  const whatsapp=document.getElementById('merchant-business-whatsapp');
+  if(!phone||!whatsapp)return false;
+  const number=String(phone.value||'').trim();
+  if(!/^\d{10,11}$/.test(number)){
+    toast('Informe primeiro o telefone com DDD e somente números.');
+    phone.focus?.();return false;
+  }
+  whatsapp.value=number;
+  return merchantBusinessProfileChanged();
+}
 function merchantBusinessProfileView(rt){
   if(rt?.merchant?.memberRole!=='owner')return '';
   if(rt.merchant?.status!=='pending')
@@ -1747,9 +1761,21 @@ function merchantBusinessProfileView(rt){
     '<p class="tiny muted">Informe e confirme seus dados reais. '+ 
       'O envio não aprova CNPJ, representação, documentação, ANP ou vendas. '+ 
       'O TAMÃO precisa conferir os requisitos aplicáveis.</p>'+
-    fields.map(([key,label,max])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+
-      esc(label)+'</label><input id="merchant-business-'+key+'" class="input"'+
-      ' autocomplete="off" maxlength="'+max+'" required oninput="merchantBusinessProfileChanged()" value="'+esc(String(b[key]||''))+'"></div>').join('')+
+    fields.map(([key,label,max])=>{
+      const id='merchant-business-'+key;
+      const base='<div class="input-wrap"><label for="'+id+'">'+esc(label)+'</label>';
+      if(key==='state'){
+        const states=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+        return base+'<select id="'+id+'" class="input" required onchange="merchantBusinessProfileChanged()">'+
+          '<option value="">Selecione a UF</option>'+states.map(uf=>'<option value="'+uf+'"'+
+          (String(b.state||'').toUpperCase()===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></div>';
+      }
+      const numeric=['phone','whatsapp','postalCode'].includes(key);
+      return base+'<input id="'+id+'" class="input"'+(numeric?' inputmode="numeric"':'')+
+        ' autocomplete="off" maxlength="'+max+'" required oninput="merchantBusinessProfileChanged()" value="'+esc(String(b[key]||''))+'">'+
+        (key==='whatsapp'?'<button type="button" class="secondary small" onclick="merchantBusinessReusePhone()"'+
+         (rt.actionPending?' disabled':'')+'>Usar o mesmo telefone</button>':'')+'</div>';
+    }).join('')+
     '<button class="primary" type="button"'+(rt.actionPending?' disabled':'')+
       ' onclick="merchantBusinessProfileSaveFromUi()">Salvar meus dados para conferência</button>'+
     '</div></details>';
