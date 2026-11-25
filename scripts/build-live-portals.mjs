@@ -115,6 +115,24 @@ export function splitAdminOperationalViews(source){
  return {startup,deferred};
 }
 
+export function splitAdminFinanceTestViews(source){
+ if(typeof source!=='string')throw new TypeError('Expected canonical admin source');
+ const markers=[["function adminFinanceLabView(","function adminFinanceRenderPart("],["function adminFinanceRealPanel(","function adminFinanceHomologationToggleLab("]];
+ let cursor=0,startup='',deferred='';
+ for(const [start,end] of markers){
+  const a=source.indexOf(start),b=source.indexOf(end,a);
+  if(a<cursor||b<=a||source.indexOf(start,a+1)!==-1||source.indexOf(end,b+1)!==-1)
+   throw new Error('Missing or ambiguous financial view boundary: '+start);
+  startup+=source.slice(cursor,a);deferred+=source.slice(a,b);cursor=b;
+ }
+ startup+=source.slice(cursor);
+ if(startup.length+deferred.length!==source.length||Buffer.byteLength(deferred)<45000)
+  throw new Error('Admin finance view split contract changed');
+ validateClassicScriptSyntax(startup,'admin.js (startup)');
+ validateClassicScriptSyntax(deferred,'admin-finance-test-views.js (deferred)');
+ return {startup,deferred};
+}
+
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -541,7 +559,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(path.join(target,'js','admin-expansion.js'),parts.expansion,'utf8');
       const adminFile=path.join(target,'js','admin.js');
       const operational=splitAdminOperationalViews(fs.readFileSync(adminFile,'utf8'));
-      fs.writeFileSync(adminFile,operational.startup,'utf8');
+      const financeViews=splitAdminFinanceTestViews(operational.startup);
+      fs.writeFileSync(adminFile,financeViews.startup,'utf8');
+      fs.writeFileSync(path.join(target,'js','admin-finance-test-views.js'),financeViews.deferred,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-operational-views.js'),operational.deferred,'utf8');
     }
     // All portals render genuine Pix locally. The encoder is loaded only

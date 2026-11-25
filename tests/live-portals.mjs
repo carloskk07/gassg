@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import vm from 'node:vm';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,splitAdminOperationalViews,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,splitAdminOperationalViews,splitAdminFinanceTestViews,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from '../scripts/cloudflare-native-routes-v1-1073.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
@@ -67,6 +67,50 @@ assert.equal(redraws,before);
 section='catalog';
 assert.equal(advanced.adminAdvancedViewsRender(section,{}),'catalog');
 assert.equal(attempts.length,2);
+const financeViews=splitAdminFinanceTestViews(operational.startup);
+assert.ok(Buffer.byteLength(financeViews.deferred)>45000);
+for(const name of ['adminFinanceLabView','adminFinanceRealPanel','adminFinanceHomologationView']){
+ assert.ok(financeViews.deferred.includes('function '+name+'('));
+ assert.ok(!financeViews.startup.includes('function '+name+'('));
+}
+for(const name of ['adminFinanceLabLiveCreateFromUi','adminFinanceRealAction','adminFinanceLabLiveCheckFromUi'])
+ assert.ok(financeViews.startup.includes('function '+name+'('));
+assert.equal(financeViews.startup.length+financeViews.deferred.length,operational.startup.length);
+const financeStart=canonicalAdmin.indexOf('let adminFinanceViewsLoading=null');
+const financeEnd=canonicalAdmin.indexOf('let adminAdvancedNavOpen=',financeStart);
+const financialAttempts=[],financialQueue=[];
+let financeRole='superadmin',financeSection='overview',workspace='summary',financialDraws=0;
+const financial=vm.createContext({URL,adminActivationModuleUrl:'https://admin.tamao.com.br/js/admin-activations.js?v=test-sha',
+ adminRuntime:{get section(){return financeSection}},adminReady:()=>true,adminCurrentRole:()=>financeRole,
+ adminRoleCanSection:()=>true,adminFinanceWorkspaceCurrent:()=>workspace,esc:String,
+ queueMicrotask:fn=>financialQueue.push(fn),render:()=>financialDraws++,
+ document:{createElement:()=>({remove(){this.removed=true;}})},
+ adminAppendDeferredModule:(tag,reject)=>financialAttempts.push({tag,reject})});
+vm.runInContext(canonicalAdmin.slice(financeStart,financeEnd),financial);
+assert.equal(await financial.adminFinanceViewsLoad(),false);
+financeSection='finance';workspace='lab';financeRole='finance';
+assert.equal(await financial.adminFinanceViewsLoad(),false);
+financeRole='superadmin';
+assert.match(financial.adminFinanceDeferredView(),/Carregando/);
+financialQueue.shift()();
+const financialFirst=financial.adminFinanceViewsLoad();
+assert.equal(financialAttempts.length,1);
+assert.equal(financialAttempts[0].tag.src,'https://admin.tamao.com.br/js/admin-finance-test-views.js?v=test-sha');
+financialAttempts[0].reject(Error('timeout'));
+assert.equal(await financialFirst,false);
+assert.match(financial.adminFinanceDeferredView(),/Tentar novamente/);
+const financialRetry=financial.adminFinanceViewsLoad();
+assert.equal(financialAttempts.length,2);
+financial.adminFinanceLabView=()=> 'lab';
+financial.adminFinanceRealPanel=()=> 'panel';
+financial.adminFinanceHomologationView=()=> 'homologation';
+financeSection='overview';const financialBefore=financialDraws;
+financialAttempts[1].tag.onload();
+assert.equal(await financialRetry,true);
+assert.equal(financialDraws,financialBefore);
+financeSection='finance';workspace='homologation';
+assert.equal(await financial.adminFinanceViewsLoad(),true);
+assert.equal(financialAttempts.length,2);
 const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
 assert.ok(sharedAdminClasses.has('admin-entity-grid'),'Merchant shared class needs explicit preservation');
 const optimizedComponents=stripAdminOnlyCss(originalComponents,{sharedAdminClasses});
@@ -145,13 +189,18 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  const optionalFinance=path.join(dir,'js','admin-finance-test-views.js');
+  assert.equal(fs.existsSync(optionalFinance),role==='admin');
+  assert.ok(!html.includes('src="./js/admin-finance-test-views.js?v=test-sha"'));
+  assert.ok(!sw.includes("'./js/admin-finance-test-views.js?v=test-sha'"));
   const optionalOperational=path.join(dir,'js','admin-operational-views.js');
   assert.equal(fs.existsSync(optionalOperational),role==='admin');
   assert.ok(!html.includes('src="./js/admin-operational-views.js?v=test-sha"'));
   assert.ok(!sw.includes("'./js/admin-operational-views.js?v=test-sha'"));
   if(role==='admin'){
    assert.equal(fs.readFileSync(optionalOperational,'utf8'),operational.deferred);
-   assert.equal(fs.readFileSync(path.join(dir,'js','admin.js'),'utf8'),operational.startup);
+   assert.equal(fs.readFileSync(path.join(dir,'js','admin.js'),'utf8'),financeViews.startup);
+   assert.equal(fs.readFileSync(path.join(dir,'js','admin-finance-test-views.js'),'utf8'),financeViews.deferred);
   }
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.

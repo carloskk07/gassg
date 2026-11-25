@@ -3886,6 +3886,39 @@ function adminAdvancedViewsRender(section,data){
  if(!adminAdvancedViewsLoading)queueMicrotask(()=>adminAdvancedViewsLoad());
  return '<section class="section"><p role="status" class="muted">Carregando área administrativa…</p></section>';
 }
+// The protected financial test views are presentation-only deferred code.
+let adminFinanceViewsLoading=null,adminFinanceViewsError='';
+function adminFinanceViewsAllowed(){
+ return adminReady()&&adminRuntime.section==='finance'&&adminCurrentRole()==='superadmin'&&adminRoleCanSection('finance')&&
+  ['lab','homologation'].includes(adminFinanceWorkspaceCurrent());
+}
+function adminFinanceViewsReady(){
+ return typeof adminFinanceLabView==='function'&&typeof adminFinanceHomologationView==='function'&&typeof adminFinanceRealPanel==='function';
+}
+async function adminFinanceViewsLoad(){
+ if(!adminFinanceViewsAllowed())return false;
+ if(adminFinanceViewsReady())return true;
+ if(!adminFinanceViewsLoading){
+  adminFinanceViewsError='';
+  adminFinanceViewsLoading=new Promise((resolve,reject)=>{
+   if(!adminActivationModuleUrl){reject(Error('Módulo indisponível nesta publicação.'));return;}
+   const url=new URL('admin-finance-test-views.js',adminActivationModuleUrl);
+   url.search=new URL(adminActivationModuleUrl).search;
+   const tag=document.createElement('script');tag.src=url.href;tag.async=true;
+   tag.onload=()=>{if(adminFinanceViewsReady())resolve(true);else{tag.remove?.();reject(Error('Não foi possível inicializar a área financeira.'));}};
+   tag.onerror=()=>reject(Error('Não foi possível carregar a área financeira.'));
+   adminAppendDeferredModule(tag,reject);
+  }).catch(error=>{adminFinanceViewsError=String(error?.message||error);return false;})
+   .finally(()=>{adminFinanceViewsLoading=null;if(adminFinanceViewsAllowed())render();});
+ }
+ return adminFinanceViewsLoading;
+}
+function adminFinanceDeferredView(){
+ if(!adminFinanceViewsAllowed())return '<div class="notice">Área disponível ao administrador principal.</div>';
+ if(adminFinanceViewsError)return '<section class="section"><p class="notice danger">'+esc(adminFinanceViewsError)+'</p><button type="button" class="secondary" onclick="adminFinanceViewsLoad()">Tentar novamente</button></section>';
+ if(!adminFinanceViewsLoading)queueMicrotask(()=>adminFinanceViewsLoad());
+ return '<section class="section"><p role="status" class="muted">Carregando área financeira…</p></section>';
+}
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
@@ -12677,9 +12710,9 @@ function adminPage(){
   const financeAreas={
     summary:financeSummaryContent,
     billing:financeBillingContent,
-    lab:sectionActive('finance')&&financeSelection==='lab'?adminFinanceRenderPart('Laboratório',()=>adminFinanceLabView(d)):'',
+    lab:sectionActive('finance')&&financeSelection==='lab'?(adminFinanceViewsReady()?adminFinanceRenderPart('Laboratório',()=>adminFinanceLabView(d)):adminFinanceDeferredView()):'',
     homologation:sectionActive('finance')&&financeSelection==='homologation'?
-      adminFinanceRenderPart('Homologação financeira',()=>adminFinanceHomologationView(d)):'',
+      (adminFinanceViewsReady()?adminFinanceRenderPart('Homologação financeira',()=>adminFinanceHomologationView(d)):adminFinanceDeferredView()):'',
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent,
     operator:sectionActive('finance')&&financeSelection==='operator'
