@@ -1053,14 +1053,22 @@ function merchantDeferredBenefitModule(key,retry=false){
   let version='';
   try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
   script.src='./js/'+spec[0]+(/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
-  const settle=ok=>{
+  // A stalled connection must not leave a permanent loading state. An old
+  // callback cannot settle a newer explicit retry.
+  let settled=false;
+  let timeoutId;
+  const settle=(ok,redraw=true)=>{
+    if(settled)return;
+    settled=true;
+    clearTimeout(timeoutId);
     merchantDeferredBenefitStates.set(key,ok?'ready':'error');
     if(!ok)script.remove();
-    if(typeof render==='function')render();
+    if(redraw&&typeof render==='function')render();
   };
   script.onload=()=>settle(typeof globalThis[spec[1]]==='function');
   script.onerror=()=>settle(false);
-  try{document.head.append(script);}catch{merchantDeferredBenefitStates.set(key,'error');return 'error';}
+  timeoutId=setTimeout(()=>settle(false),20000);
+  try{document.head.append(script);}catch{settle(false,false);return 'error';}
   return 'loading';
 }
 function merchantRetryBenefitModule(key){
