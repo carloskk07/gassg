@@ -4718,7 +4718,7 @@ function adminPilotPartnerCard(p){
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible&&!readyToConvert?'<p class="tiny muted">Não é necessário preencher dados do parceiro agora. Primeiro vincule a conta pelo convite; o próprio responsável informa os dados básicos.</p>':''}
     ${readyToConvert?`<div class="divider"></div>
-      <div class="notice"><strong>Concluir cadastro e criar revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Confirme apenas os dados e condições reais que faltarem. A autorização de vendas permanece separada.</div>
+      <div class="notice"><strong>Concluir cadastro e criar revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Confirme apenas os dados e condições reais que faltarem. Compliance permanece <strong>pendente</strong>; a autorização de vendas é separada.</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" value="${esc(prefill.legal)}" placeholder="Razão social real"></div>
         <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" value="${esc(prefill.cnpj)}" placeholder="CNPJ real"></div>
