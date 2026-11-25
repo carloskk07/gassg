@@ -269,3 +269,54 @@ assert.equal(calls.length,beforeInvalid);
 assert.match(nodes['anp-result-m'].textContent,/CNPJ, cidade e UF/);
 assert.equal(nodes['anp-copy-m'].hidden,true);
 console.log('PASS: ANP bounded read, late result, retry, changed identity, expired evidence and invalid input.');
+
+
+// The administrative card exposes only the controls that the server role allows.
+// Activation is a separate operational decision, never a promise of open sales.
+const cardStart=adminSource.indexOf('function adminMerchantCard(m){');
+const cardEnd=adminSource.indexOf('\nfunction adminReferralReasonLabel(',cardStart);
+assert.ok(cardStart>=0&&cardEnd>cardStart);
+let cardRole='operations';
+const cardRuntime={actionPending:false};
+const cardCtx=vm.createContext({
+ adminRuntime:cardRuntime,adminCurrentRole:()=>cardRole,
+ adminStatusPill:()=>'',adminMerchantProgressView:()=>'',adminMerchantMissingProfileNotice:()=>'',adminPilotNextActionCopy:()=>'',
+ esc:s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
+ formatDateTime:s=>String(s)
+});
+vm.runInContext(adminSource.slice(cardStart,cardEnd)+';this.card=adminMerchantCard;',cardCtx);
+const ownerId='11111111-1111-4111-8111-111111111111';
+const cardMerchant={id:'m',name:'Revenda de teste',cnpj:'12345678000190',status:'pending',
+ activeOwnerUserId:ownerId,compliance:{cnpj_status:'pending',anp_status:'pending'}};
+let cardHtml=cardCtx.card(cardMerchant);
+for(const heading of ['1. Documentação empresarial','2. Representação legal','3. Capacidade de entrega','4. Ativação operacional'])
+ assert.ok(cardHtml.includes(heading));
+assert.match(cardHtml,/Ativar o cadastro não abre vendas automaticamente/);
+assert.match(cardHtml,/Valide primeiro a representação legal vigente/);
+assert.match(cardHtml,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
+assert.match(cardHtml,/Salvar validação documental/);
+const readyMerchant={...cardMerchant,representationReview:{owner_user_id:ownerId,merchant_cnpj:cardMerchant.cnpj,expires_at:new Date(Date.now()+3600000).toISOString()}};
+cardHtml=cardCtx.card(readyMerchant);
+assert.doesNotMatch(cardHtml,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
+assert.match(cardHtml,/Ativar cadastro/);
+cardRuntime.actionPending=true;
+cardHtml=cardCtx.card(readyMerchant);
+assert.match(cardHtml,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
+assert.match(cardHtml,/onclick="adminSaveCompliance\('m'\)" disabled/);
+cardRuntime.actionPending=false;
+for(const role of ['readonly','support','finance']){
+ cardRole=role;cardHtml=cardCtx.card({...readyMerchant,status:'active'});
+ assert.match(cardHtml,/Consulta somente leitura/);
+ assert.match(cardHtml,/<select id="cnpj-m" class="input" disabled>/);
+ assert.match(cardHtml,/<select id="anp-m" class="input" disabled>/);
+ assert.match(cardHtml,/id="mixed-m" type="checkbox"\s+disabled/);
+ assert.doesNotMatch(cardHtml,/onclick="admin(?:SaveCompliance|SaveDeliveryCapability|ReviewMerchantRepresentation|SetMerchantStatus|ConsultMerchantAnp)/);
+ assert.match(cardHtml,/Consultar revenda 360° e preços/);
+}
+for(const role of ['superadmin','operations','compliance']){
+ cardRole=role;cardHtml=cardCtx.card({...readyMerchant,status:'active'});
+ assert.match(cardHtml,/Suspender cadastro/);
+ assert.match(cardHtml,/Salvar capacidade logística/);
+ assert.doesNotMatch(cardHtml,/Consulta somente leitura/);
+}
+console.log('PASS: merchant verification stages, role-limited controls, pending state and operational activation copy.');
