@@ -93,7 +93,7 @@ try{
   const url=new URL(role+'/#'+route,BASE).href;
   const before=blockedExternal;
   await send('Page.navigate',{url});
-  await waitFor('location.href==='+JSON.stringify(url)+' && document.readyState==="complete" && !!document.querySelector("#app") && document.querySelector("#app").innerText.trim().length>20');
+  await waitFor('location.origin+location.pathname==='+JSON.stringify(new URL(url).origin+new URL(url).pathname)+' && document.readyState==="complete" && !!document.querySelector("#app") && document.querySelector("#app").innerText.trim().length>20');
   await sleep(1600);
   const sample=await evaluate(`(()=>{
    const nav=performance.getEntriesByType('navigation')[0];
