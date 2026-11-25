@@ -1080,14 +1080,35 @@ if(globalThis.__CHAMA_TEST__){
   });
   return loading;
  }
+ let recipientFailed=false;
+ function loadRecipient(retry=false){
+  if(typeof globalThis.tamaoPixRecipientHtml==='function'||globalThis._pId||
+    (recipientFailed&&!retry)||typeof globalThis.document?.createElement!=='function')return;
+  globalThis._pId=1;
+  recipientFailed=false;
+  const tag=document.createElement('script');
+  let version='';
+  try{version=new URL(script?.src||'',document.baseURI).searchParams.get('v')||'';}catch{}
+  tag.src='./js/pix-recipient-trust.js'+(/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+  let settled=false,timer;
+  const finish=(ok,redraw=true)=>{
+   if(settled)return;
+   settled=true;clearTimeout(timer);
+   globalThis._pId=0;recipientFailed=!ok;
+   if(!ok)tag.remove?.();
+   if(redraw)globalThis.render?.();
+  };
+  tag.onload=()=>finish(typeof globalThis.tamaoPixRecipientHtml==='function');
+  tag.onerror=()=>finish(false);
+  timer=setTimeout(()=>finish(false),15000);
+  try{document.head.appendChild(tag);}catch{finish(false,false);}
+ }
  function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
   if(!valid(code,amountCents))return '';
-  if(!globalThis._pId&&typeof globalThis.document?.createElement==='function'){
-   globalThis._pId=1;const t=document.createElement('script');
-   t.src='./js/pix-recipient-trust.js?v=1162';
-   t.onload=()=>globalThis.render?.();t.onerror=()=>{globalThis._pId=0};
-   document.head.appendChild(t);
-  }
+  loadRecipient();
+  const trustFallback=typeof globalThis.tamaoPixRecipientHtml==='function'?'':
+   '<p class="tiny" role="status">Antes de pagar, confira o nome e a identificação do recebedor no aplicativo do banco. Se houver divergência, não pague e contate o suporte.</p>'+
+   (recipientFailed?'<button type="button" class="secondary small" onclick="tamaoPixRetryRecipient()">Tentar carregar identificação</button>':'');
   let body='';
   if(typeof globalThis.qrcode==='function'){
    try{
@@ -1101,9 +1122,14 @@ if(globalThis.__CHAMA_TEST__){
   if(!body&&/^data:image\/png;base64,[A-Za-z0-9+/=]{16,550000}$/.test(String(imageDataUri)))
    body='<img src="'+escape(imageDataUri)+'" alt="'+escape(label)+'" style="width:100%;height:auto">';
   if(!body)return '<p role="status">'+(loading?'Carregando QR Code Pix…':failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>'+
-   (failed&&!loading&&typeof globalThis.qrcode!=='function'?'<button type="button" class="secondary small" onclick="tamaoPixRetryEncoder()">Tentar carregar QR Code</button>':'');
-  return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>';
+   (failed&&!loading&&typeof globalThis.qrcode!=='function'?'<button type="button" class="secondary small" onclick="tamaoPixRetryEncoder()">Tentar carregar QR Code</button>':'')+trustFallback;
+  return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>'+trustFallback;
  }
+ globalThis.tamaoPixRetryRecipient=()=>{
+  if(!recipientFailed||globalThis._pId)return;
+  loadRecipient(true);
+  globalThis.render?.();
+ };
  globalThis.tamaoPixCodeValid=valid;
  globalThis.tamaoPixMarkup=markup;
  globalThis.tamaoPixLoadEncoder=load;

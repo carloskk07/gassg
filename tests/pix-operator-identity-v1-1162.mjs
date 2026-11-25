@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {pixFixture} from './helpers/pix-fixture.mjs';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const core=read('js/core.js');
@@ -20,7 +21,7 @@ for(const [path,data] of Object.entries({
  'js/admin.js':admin,'js/admin-ads-credit.js':pilot
 }))assert.doesNotThrow(()=>new vm.Script(data,{filename:path}),path);
 
-assert.ok(core.includes('pix-recipient-trust.js?v=1162'));
+assert.ok(core.includes("'./js/pix-recipient-trust.js'+"));
 assert.ok(core.includes("if(!valid(code,amountCents))return ''"));
 const context=vm.createContext({});
 vm.runInContext(trust,context);
@@ -73,3 +74,50 @@ for(const source of [core,trust,buyer,credits,coupons,mobility,merchant,admin,pi
   'Do not put placeholder disclaimers in production');
 }
 console.log('V1.1162 PASS: platform identity, merchant/seller isolation, XSS safety, no invented CPF, and seven payable Pix screens.');
+
+// The bank-check warning must remain visible if the optional module stalls.
+const helper=core.slice(core.indexOf('// The same bank-readable Pix'));
+const scripts=[],timers=new Map();
+let seq=0,draws=0,insertFails=false;
+const loader=vm.createContext({TextEncoder,TextDecoder,URL,
+ setTimeout:(fn,ms)=>{assert.equal(ms,15000);timers.set(++seq,fn);return seq;},
+ clearTimeout:id=>timers.delete(id),
+ document:{currentScript:{src:'https://tamao.com.br/js/core.js?v=release-sha'},baseURI:'https://tamao.com.br/',
+  createElement:()=>({remove(){this.removed=true}}),
+  head:{appendChild:s=>{if(insertFails)throw Error('blocked');scripts.push(s)}}},
+ render:()=>draws++});
+vm.runInContext(read('js/qr-generator.js'),loader);
+vm.runInContext(helper,loader);
+const pix=pixFixture();
+assert.equal(loader.tamaoPixMarkup(pix,{amountCents:4990}),'');
+assert.equal(scripts.length,0,'invalid payment never requests trust module');
+let pending=loader.tamaoPixMarkup(pix,{amountCents:1990});
+assert.match(pending,/<svg\b/);
+assert.match(pending,/Antes de pagar, confira/);
+assert.doesNotMatch(pending,/Carlos Alberto|CPF final/);
+assert.equal(scripts[0].src,'./js/pix-recipient-trust.js?v=release-sha');
+loader.tamaoPixMarkup(pix,{amountCents:1990});
+assert.equal(scripts.length,1);
+[...timers.values()][0]();
+assert.equal(timers.size,0);
+assert.equal(scripts[0].removed,true);
+assert.match(loader.tamaoPixMarkup(pix,{amountCents:1990}),/Tentar carregar identificação/);
+assert.equal(scripts.length,1,'render does not auto retry');
+insertFails=true;
+loader.tamaoPixRetryRecipient();
+assert.equal(timers.size,0);
+assert.match(loader.tamaoPixMarkup(pix,{amountCents:1990}),/Tentar carregar identificação/);
+insertFails=false;
+loader.tamaoPixRetryRecipient();loader.tamaoPixRetryRecipient();
+assert.equal(scripts.length,2);
+const beforeLate=draws;
+scripts[0].onload();scripts[0].onerror();
+assert.equal(draws,beforeLate);
+assert.equal(timers.size,1);
+vm.runInContext(trust,loader);
+scripts[1].onload();
+assert.equal(timers.size,0);
+assert.doesNotMatch(loader.tamaoPixMarkup(pix,{amountCents:1990}),/Tentar carregar identificação/);
+assert.match(loader.tamaoPixRecipientHtml({scope:'merchant',merchantName:'Revenda'}),/RECEBIMENTO DIRETO À REVENDA/);
+assert.doesNotMatch(loader.tamaoPixRecipientHtml({scope:'merchant',merchantName:'Revenda'}),/Carlos Alberto/);
+console.log('PASS: versioned recipient module, bounded retries, persistent bank-check guidance and exact scope.');
