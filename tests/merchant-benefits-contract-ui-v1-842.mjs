@@ -89,3 +89,49 @@ runtime.merchant={merchantId:'22222222-2222-4222-8222-222222222222',memberRole:'
 assert.doesNotMatch(ctx.merchantBenefitsContractRender(runtime),/<script>/);
 assert.ok(rendered>=3);
 console.log('TAMÃO #842: revenda consent UI, role gate, fresh readback, XSS protection, no premature financial activation.');
+
+ // Deferred asset recovery: no mutation, no mixed release and no retry storm.
+const loaderStart=merchant.indexOf('const merchantDeferredBenefitStates=new Map();');
+const loaderEnd=merchant.indexOf('function merchantBillingLiveView(rt){',loaderStart);
+const receiptStart=merchant.indexOf('function merchantOrderBenefitDisclosure(o,demo=false){');
+const receiptEnd=merchant.indexOf('function merchantLiveOrder(o){',receiptStart);
+assert.ok(loaderStart>=0&&loaderEnd>loaderStart&&receiptStart>=0&&receiptEnd>receiptStart);
+const scripts=[];
+let redraws=0;
+const loaderCtx=vm.createContext({URL,location:{href:'https://parceiro.tamao.com.br/'},
+ document:{querySelector:()=>({src:'https://parceiro.tamao.com.br/js/merchant.js?v=release-123'}),
+ createElement:()=>({remove(){this.removed=true;}}),head:{append:s=>scripts.push(s)}},
+ render:()=>redraws++});
+vm.runInContext(merchant.slice(loaderStart,loaderEnd)+merchant.slice(receiptStart,receiptEnd),loaderCtx);
+const own={merchant:{memberRole:'owner'}};
+assert.equal(loaderCtx.merchantBenefitsContractSection({merchant:{memberRole:'driver'}}),'');
+assert.equal(scripts.length,0);
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Carregando/);
+assert.equal(scripts[0].src,'./js/merchant-benefits-contract.js?v=release-123');
+loaderCtx.merchantBenefitsContractSection(own);
+assert.equal(scripts.length,1);
+scripts[0].onerror();
+assert.equal(scripts[0].removed,true);
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Tentar novamente/);
+assert.equal(scripts.length,1,'render must not cause automatic retries');
+loaderCtx.merchantRetryBenefitModule('contract');
+assert.equal(scripts.length,2);
+scripts[1].onload();
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Tentar novamente/,'missing export is failure');
+loaderCtx.merchantRetryBenefitModule('contract');
+loaderCtx.merchantBenefitsContractRender=()=>'<div>Contrato carregado</div>';
+scripts[2].onload();
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Contrato carregado/);
+assert.equal(loaderCtx.merchantOrderBenefitDisclosure({cashbackReservedCents:0}),'');
+assert.match(loaderCtx.merchantOrderBenefitDisclosure({cashbackReservedCents:100}),/Benefício em conferência/);
+assert.equal(scripts[3].src,'./js/merchant-order-benefits.js?v=release-123');
+scripts[3].onerror();
+assert.match(loaderCtx.merchantOrderBenefitDisclosure({cashbackReservedCents:100}),/Tentar novamente/);
+loaderCtx.merchantRetryBenefitModule('receipt');
+loaderCtx.merchantOrderBenefitDisclosureImpl=()=>'<div>Benefício conferido</div>';
+scripts[4].onload();
+assert.match(loaderCtx.merchantOrderBenefitDisclosure({cashbackReservedCents:100}),/Benefício conferido/);
+loaderCtx.merchantRetryBenefitModule('../other');
+assert.equal(scripts.length,5,'unknown asset must never load');
+assert.ok(redraws>=5);
+console.log('PASS: versioned deferred benefits, explicit recovery, duplicate prevention and valid export check.');
