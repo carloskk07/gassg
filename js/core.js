@@ -1074,7 +1074,7 @@ if(globalThis.__CHAMA_TEST__){
    timer=setTimeout(()=>finish(false),15000);
    try{document.head.appendChild(tag);}catch{finish(false);}
   }).then(ok=>{
-   failed=!ok;if(!ok)loading=null;
+   failed=!ok;loading=null;
    if(typeof globalThis.render==='function')globalThis.render();
    return ok;
   });
