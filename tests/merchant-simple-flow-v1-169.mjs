@@ -23,6 +23,7 @@ const userGlobal={
   merchantPortalRequested:()=>true,merchantRuntime:{status:'no-access',session:{access_token:'fake'}},
   merchantOwnApplicationForInvite:()=>app
 };
+userGlobal.merchantContactSuggestion=vm.runInNewContext(functionSource(merchant,'merchantContactSuggestion')+';merchantContactSuggestion');
 const pageContext=vm.createContext({
   globalThis:userGlobal,esc,shell:markup=>markup,
   currentMerchantProspectInviteToken:()=>'',currentMerchantPilotInviteToken:()=>''
