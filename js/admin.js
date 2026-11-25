@@ -5132,7 +5132,7 @@ function adminMerchantCard(m){
     ${canVerifyRepresentation?`<div class="order-actions"><button type="button" class="secondary small" onclick="adminSaveCompliance('${m.id}')"${actionDisabled}>Salvar validação documental</button></div>`:''}</section>
     <div class="divider"></div>
     <section class="section" aria-label="Representação legal da revenda">
-      <h4>2. Representação legal</h4>
+      <h4>2. Representação legal — confirmação administrativa</h4>
       <div class="notice ${representationCurrent?'success':''}">
         <strong>${representationCurrent?'Representante com revisão vigente':'Representação ainda não validada'}</strong>
         <div class="tiny muted">Proprietário da conta: ${ownerUserId?esc(ownerUserId.slice(0,8))+'…':'nenhuma conta vinculada'}.
