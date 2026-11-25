@@ -5,7 +5,7 @@ import {gzipSync,brotliCompressSync} from 'node:zlib';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const ROLES=['customer','merchant','admin'];
-const LAZY_ADMIN=['admin-activations.js','admin-expansion.js','admin-owner-finance.js','admin-ads-credit.js'];
+const LAZY_ADMIN=['admin-activations.js','admin-test-center.js','admin-expansion.js','admin-owner-finance.js','admin-ads-credit.js'];
 const getAttribute=(tag,key)=>{
   const match=new RegExp('\\b'+key+'\\s*=\\s*"([^"]+)"','i').exec(tag);
   return match?.[1]||null;

@@ -108,3 +108,47 @@ assert.match(builder,/for\(const module of \['admin-acquisition','admin','admin-
 assert.match(builder,/for\(const module of \['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent','admin-ads-credit'\]\)/);
 
 console.log('V1.1055: controlled Admin QA navigation + accessible participant login passed.');
+
+const lazyStart=admin.indexOf('let adminOfficialAreasLoading=null');
+const lazyEnd=admin.indexOf('let adminAdvancedNavOpen=',lazyStart);
+assert.ok(lazyStart>0&&lazyEnd>lazyStart);
+const attempts=[],microtasks=[];
+let lazyRole='superadmin',lazySection='overview',lazyReady=true,lazyRenders=0;
+const lazy=vm.createContext({URL,adminActivationModuleUrl:'https://admin.tamao.com.br/js/admin-activations.js?v=release-sha',
+ adminReady:()=>lazyReady,adminRuntime:{get section(){return lazySection;}},
+ adminCurrentRole:()=>lazyRole,adminRoleCanSection:()=>lazyRole==='superadmin',esc:String,
+ queueMicrotask:fn=>microtasks.push(fn),render:()=>lazyRenders++,
+ document:{createElement:()=>({remove(){this.removed=true;}})},
+ adminAppendDeferredModule:(tag,reject)=>attempts.push({tag,reject})});
+vm.runInContext(admin.slice(lazyStart,lazyEnd),lazy);
+assert.equal(lazy.adminOfficialAreasView(),'');
+assert.equal(await lazy.adminOfficialAreasLoad(),false);
+lazySection='testcenter';lazyRole='readonly';
+assert.equal(lazy.adminOfficialAreasView(),'');
+assert.equal(await lazy.adminOfficialAreasLoad(),false);
+assert.equal(attempts.length,0);
+lazyRole='superadmin';lazyReady=false;
+assert.equal(await lazy.adminOfficialAreasLoad(),false);
+lazyReady=true;
+assert.match(lazy.adminOfficialAreasView(),/Carregando/);
+microtasks.shift()();
+const loadA=lazy.adminOfficialAreasLoad();
+assert.equal(attempts.length,1);
+assert.equal(attempts[0].tag.src,'https://admin.tamao.com.br/js/admin-test-center.js?v=release-sha');
+attempts[0].reject(Error('timeout'));
+assert.equal(await loadA,false);
+assert.match(lazy.adminOfficialAreasView(),/Tentar novamente/);
+assert.equal(attempts.length,1);
+const loadB=lazy.adminOfficialAreasLoad();
+assert.equal(attempts.length,2);
+lazy.adminTestCenterView=()=>'<section>Áreas oficiais</section>';
+lazy.adminSupportHubSearch=()=>false;
+lazySection='overview';
+const before=lazyRenders;
+attempts[1].tag.onload();
+assert.equal(await loadB,true);
+assert.equal(lazyRenders,before,'navigation away must not redraw');
+lazySection='testcenter';
+assert.match(lazy.adminOfficialAreasView(),/Áreas oficiais/);
+assert.equal(attempts.length,2);
+console.log('PASS: official areas loaded only on authorized demand; retry and stored-section recovery.');

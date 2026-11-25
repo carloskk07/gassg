@@ -141,7 +141,7 @@ for(const {role,path:dir} of built){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
     const cacheAsset="'./js/"+module+".js?v=test-sha'";
     const available=role==='admin';
-    const eager=available&&module!=='admin-activations';
+    const eager=available&&!['admin-activations','admin-test-center'].includes(module);
     assert.equal(html.includes(script),eager,role+' HTML: admin script '+module);
     assert.equal(sw.includes(cacheAsset),eager,role+' PWA cache: admin script '+module);
     assert.equal(fs.existsSync(path.join(dir,'js',module+'.js')),available,role+' bundle: admin script '+module);
