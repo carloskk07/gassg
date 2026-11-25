@@ -14,13 +14,18 @@ const bootstrap=fs.readFileSync(new URL('../js/bootstrap.js',import.meta.url),'u
 assert.ok(bootstrap.includes("typeof adminOwnerFinanceLoadFromUi==='function'?{"),
   'Deferred owner tools must not be dereferenced before their script exists');
 const src=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
-const start=src.indexOf('// Privileged owner finance utilities are a deferred');
+const start=src.indexOf('// Optional read-only activations desk.');
 const end=src.indexOf('function adminSetSection(section){',start);
 assert.ok(start>0&&end>start,'Admin load boundary missing');
 let section='overview',role='superadmin',actor='owner',ready=true,renders=0;
-const scripts=[],ctx=vm.createContext({
+const scripts=[];
+let timerId=0;
+const timers=new Map();
+const ctx=vm.createContext({
+  setTimeout:(fn,ms)=>{assert.equal(ms,20000);timers.set(++timerId,fn);return timerId;},
+  clearTimeout:id=>timers.delete(id),
   document:{currentScript:{src:'https://admin.tamao.com.br/js/admin.js?v=sha-test'},
-    baseURI:'https://admin.tamao.com.br/',createElement:()=>({}),
+    baseURI:'https://admin.tamao.com.br/',createElement:()=>({remove(){this.removed=true}}),
     head:{appendChild:s=>scripts.push(s)}},
   location:{origin:'https://admin.tamao.com.br'},
   adminRuntime:{get section(){return section},session:{user:{get id(){return actor}}}},
@@ -40,13 +45,19 @@ const first=ctx.load(),concurrent=ctx.load();
 assert.equal(scripts.length,1,'Duplicate clicks must share a single script download');
 assert.equal(scripts[0].src,ctx.url);
 assert.match(ctx.view(),/Carregando/);
-scripts[0].onerror();
+assert.equal(timers.size,1);
+[...timers.values()][0]();
 await Promise.all([first,concurrent]);
+assert.equal(timers.size,0);
+assert.equal(scripts[0].removed,true,'stalled script must be removed');
 assert.match(ctx.view(),/Tentar novamente/);
 const retry=ctx.load();
 assert.equal(scripts.length,2,'Network errors must be retryable');
 ctx.adminOwnerFinanceWorkspaceSection=()=>'<p>Gestão</p>';
+scripts[0].onload();scripts[0].onerror();
+assert.equal(timers.size,1,'late callbacks cannot settle current retry');
 scripts[1].onload();
+assert.equal(timers.size,0);
 assert.equal(await retry,true);
 assert.equal(await ctx.load(),true);
 assert.equal(scripts.length,2,'Do not re-add loaded script');
