@@ -531,3 +531,53 @@ for(const selector of ['.discovery-report','.discovery-report-feedback','.discov
  assert.ok(css.includes(selector),'Missing complaint UI CSS '+selector);
 
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
+
+// Real bootstrap route loaders: isolated VM, deterministic timers and no network.
+const routeBoot=read('js/bootstrap.js');
+const routeLoaderStart=routeBoot.indexOf('function tamaoAppendPublicRouteScript(');
+const routeLoaderEnd=routeBoot.indexOf('/* Page styles load on demand. */',routeLoaderStart);
+assert.ok(routeLoaderStart>=0&&routeLoaderEnd>routeLoaderStart);
+for(const [page,request,retry,loading,exportName,asset] of [
+ ['professionals','discoveryRequestModule','retryDiscoveryModule','discoveryLoadingPage','discoveryPage','discovery.js'],
+ ['rides','discoveryRequestModule','retryDiscoveryModule','discoveryLoadingPage','discoveryPage','discovery.js'],
+ ['mobility','mobilityRequestModule','mobilityRetryModule','mobilityLoadingPage','mobilityPage','mobility.js'],
+ ['advertise','discoveryOwnerRequestModule','retryDiscoveryOwnerModule','discoveryOwnerLoadingPage','discoveryOwnerPage','discovery-owner.js']
+]){
+ let sequence=0,paint=0,currentPage=page,admin=true,partner=false,throwInsert=false;
+ const timers=new Map(),scripts=[],links=[];
+ const ctx=vm.createContext({URL,URLSearchParams,location:{href:'https://tamao.com.br/#'+page,search:''},
+  route:()=>currentPage,shell:s=>s,esc,render:()=>paint++,
+  adminPortalRequested:()=>admin,merchantPortalRequested:()=>partner,
+  setTimeout:(fn,ms)=>{assert.equal(ms,20000);timers.set(++sequence,fn);return sequence;},
+  clearTimeout:id=>timers.delete(id),
+  document:{querySelector:s=>s.startsWith('script')?{src:'https://tamao.com.br/js/bootstrap.js?v=abc123'}:links[0]||null,
+   createElement:tag=>({tag,remove(){this.removed=true;}}),
+   head:{appendChild:node=>{if(node.tag==='link'){links.push(node);return;}
+    if(throwInsert)throw new Error('insertion failure');scripts.push(node);}}}});
+ vm.runInContext('let discoveryModuleRequested=false,discoveryModuleError=false;\n'+routeBoot.slice(routeLoaderStart,routeLoaderEnd),ctx);
+ ctx[request]();assert.equal(scripts.length,0,'admin must not fetch customer modules');
+ admin=false;partner=true;ctx[request]();assert.equal(scripts.length,0,'partner must not fetch customer modules');
+ partner=false;ctx[request]();ctx[request]();ctx[retry]();
+ assert.equal(scripts.length,1,'duplicate request and retry while loading must do nothing');
+ assert.equal(scripts[0].src,'./js/'+asset+'?v=abc123');
+ assert.equal(timers.size,1);
+ [...timers.values()][0]();
+ assert.equal(timers.size,0);
+ assert.equal(scripts[0].removed,true);
+ assert.match(ctx[loading](),/Tentar novamente/);
+ ctx[request]();assert.equal(scripts.length,1,'no automatic retry');
+ ctx[retry]();ctx[retry]();assert.equal(scripts.length,2);
+ const previousPaint=paint;
+ scripts[0].onerror();scripts[0].onload();
+ assert.equal(paint,previousPaint,'stale callbacks must not settle newer attempt');
+ assert.equal(timers.size,1);
+ scripts[1].onload();assert.match(ctx[loading](),/Tentar novamente/,'missing export must expose recovery');
+ assert.equal(timers.size,0);
+ throwInsert=true;ctx[retry]();assert.equal(timers.size,0);
+ assert.match(ctx[loading](),/Tentar novamente/,'insertion failure must be recoverable');
+ throwInsert=false;ctx[retry]();assert.equal(scripts.length,3);
+ ctx[exportName]=()=>'<main>Loaded</main>';
+ scripts[2].onload();assert.equal(timers.size,0);
+ ctx[request]();assert.equal(scripts.length,3,'successful export is reused');
+}
+console.log('PASS: bounded public route downloads, exact asset version, stale callback isolation and retry recovery.');
