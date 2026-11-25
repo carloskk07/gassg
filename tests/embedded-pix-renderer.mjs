@@ -37,3 +37,48 @@ for(const switchSession of [false,true]){
  assert.equal(creates,1);assert.equal(reads,switchSession?0:1);
 }
 console.log('PASS: deferred advertiser purchase displays native Pix and isolates in-flight auth changes.');
+
+// A stalled encoder is a local display problem, never a new payment request.
+const deferredScripts=[],deferredTimers=new Map();
+let deferredSequence=0,draws=0,throwInsert=false;
+const deferred=vm.createContext({TextEncoder,TextDecoder,URL,Map,Promise,Number,String,Date,
+ setTimeout:(fn,ms)=>{assert.equal(ms,15000);deferredTimers.set(++deferredSequence,fn);return deferredSequence;},
+ clearTimeout:id=>deferredTimers.delete(id),
+ render:()=>draws++,
+ document:{currentScript:{src:'https://tamao.invalid/js/core.js?v=reviewed'},baseURI:'https://tamao.invalid/',visibilityState:'visible',
+  createElement:()=>({remove(){this.removed=true}}),head:{appendChild:s=>{
+   if(throwInsert)throw new Error('blocked insertion');deferredScripts.push(s);
+  }}}});
+// Keep the unrelated identity display module out of this encoder-specific test.
+deferred._pId=1;
+vm.runInContext('// The same bank-readable Pix'+helper,deferred);
+assert.match(deferred.tamaoPixMarkup(code,{amountCents:1990}),/Carregando/);
+const firstEncoder=deferred.tamaoPixLoadEncoder();
+assert.equal(deferred.tamaoPixLoadEncoder(),firstEncoder,'one encoder download at a time');
+assert.equal(deferredScripts.length,1);
+assert.equal(deferredScripts[0].src,'https://tamao.invalid/js/qr-generator.js?v=reviewed');
+[...deferredTimers.values()][0]();
+assert.equal(await firstEncoder,false);
+assert.equal(deferredTimers.size,0);
+assert.equal(deferredScripts[0].removed,true);
+assert.match(deferred.tamaoPixMarkup(code,{amountCents:1990}),/Tentar carregar QR Code/);
+assert.equal(deferredScripts.length,1,'no auto retry on render');
+assert.match(deferred.tamaoPixMarkup(code,{amountCents:1990,imageDataUri:'data:image/png;base64,AAAAAAAAAAAAAAAA'}),/<img/);
+throwInsert=true;
+assert.equal(await deferred.tamaoPixLoadEncoder(),false);
+assert.equal(deferredTimers.size,0);
+throwInsert=false;
+deferred.tamaoPixRetryEncoder();deferred.tamaoPixRetryEncoder();
+assert.equal(deferredScripts.length,2,'double click cannot duplicate download');
+const nextEncoder=deferred.tamaoPixLoadEncoder();
+const beforeLate=draws;
+deferredScripts[0].onerror();deferredScripts[0].onload();
+assert.equal(draws,beforeLate);
+assert.equal(deferredTimers.size,1);
+vm.runInContext(fs.readFileSync(new URL('../js/qr-generator.js',import.meta.url),'utf8'),deferred);
+deferredScripts[1].onload();
+assert.equal(await nextEncoder,true);
+assert.equal(deferredTimers.size,0);
+assert.match(deferred.tamaoPixMarkup(code,{amountCents:1990}),/<svg\b/);
+assert.equal(deferred.tamaoPixMarkup(code,{amountCents:4990}),'');
+console.log('PASS: local QR timeout, original image fallback, explicit retry, late events and unchanged exact amount validation.');
