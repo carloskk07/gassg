@@ -344,3 +344,25 @@ guidedRt.merchant.memberRole='manager';
 await guided.submit();
 assert.equal(payloads.length,2);
 console.log('PASS: exact field recovery, valid Brazilian UF, normalized draft and owner-only submission.');
+
+ // The next action resumes the actual first incomplete field, including
+ // owner-entered values preserved in memory. Never navigate another role.
+const focusFrom=merchant.indexOf('function merchantBusinessProfileFocus(){');
+const focusTo=merchant.indexOf('async function merchantBusinessProfileSaveFromUi(){',focusFrom);
+assert.ok(focusFrom>0&&focusTo>focusFrom);
+vm.runInContext(merchant.slice(focusFrom,focusTo)+';this.resumeBusiness=merchantBusinessProfileFocus;',guided);
+guidedRt.merchant.memberRole='owner';
+guidedValues.postalCode='';guidedValues.city='';
+assert.equal(guided.resumeBusiness(),true);
+assert.equal(focused.at(-1),'#merchant-business-postalCode');
+guidedValues.postalCode='97300000';
+assert.equal(guided.resumeBusiness(),true);
+assert.equal(focused.at(-1),'#merchant-business-city');
+guidedValues.city='São Gabriel';
+assert.equal(guided.resumeBusiness(),true);
+assert.equal(focused.at(-1),'#merchant-business-legalName');
+const beforeFocus=focused.length;
+guidedRt.merchant.memberRole='manager';
+assert.equal(guided.resumeBusiness(),false);
+assert.equal(focused.length,beforeFocus);
+console.log('PASS: resume first incomplete company field, same save validation, owner-only navigation.');

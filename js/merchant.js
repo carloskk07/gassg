@@ -1768,6 +1768,24 @@ function merchantBusinessReusePhone(){
   whatsapp.value=number;
   return merchantBusinessProfileChanged();
 }
+// Use the same field checks for opening and saving the company form.
+function merchantBusinessInvalidField(values){
+  const payload=Object.fromEntries(merchantBusinessProfileFields.map(key=>[
+    key,key==='state'?String(values?.[key]??'').trim().toUpperCase():String(values?.[key]??'').trim()
+  ]));
+  const checks=[
+    ['legalName',payload.legalName.length>=3,'Informe a razão social da empresa.'],
+    ['tradeName',payload.tradeName.length>=2,'Informe o nome do estabelecimento.'],
+    ['responsibleName',payload.responsibleName.length>=3,'Informe o nome do responsável.'],
+    ['phone',/^[0-9]{10,11}$/.test(payload.phone),'Informe o telefone com DDD, usando 10 ou 11 dígitos.'],
+    ['whatsapp',/^[0-9]{10,11}$/.test(payload.whatsapp),'Informe o WhatsApp com DDD, usando 10 ou 11 dígitos.'],
+    ['postalCode',/^[0-9]{8}$/.test(payload.postalCode),'Informe o CEP com 8 dígitos.'],
+    ['city',payload.city.length>=2,'Informe a cidade da revenda.'],
+    ['state','AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').includes(payload.state),'Selecione a UF da revenda.'],
+    ['addressText',payload.addressText.length>=8,'Informe o endereço completo da revenda.']
+  ];
+  return checks.find(([,valid])=>!valid)||null;
+}
 function merchantBusinessProfileView(rt){
   if(rt?.merchant?.memberRole!=='owner')return '';
   if(rt.merchant?.status!=='pending')
@@ -1793,7 +1811,7 @@ function merchantBusinessProfileView(rt){
     ['city','Cidade',100],['state','UF (2 letras)',2],['addressText','Endereço completo',260]
   ];
   return '<details id="merchant-business-profile" class="merchant-settings-drawer"'+
-    (completed?'':' open')+'><summary>Dados e endereço da minha revenda'+
+    (completed&&!unsaved?'':' open')+'><summary>Dados e endereço da minha revenda'+
     '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
       'Complete o endereço para análise do cadastro')+'</span></summary>'+
     '<div class="card flat form-stack">'+
@@ -1826,8 +1844,21 @@ function merchantBusinessProfileView(rt){
     '</div></details>';
 }
 function merchantBusinessProfileFocus(){
-  if(!merchantRevealControl('#merchant-business-legalName'))
-    toast('Não foi possível abrir o cadastro da revenda. Atualize o painel.');
+  const rt=globalThis.merchantRuntime||{};
+  if(!merchantBusinessDraftKey(rt))return false;
+  const values={};
+  for(const key of merchantBusinessProfileFields){
+    const el=document.getElementById('merchant-business-'+key);
+    if(!el){
+      toast('Não foi possível abrir o cadastro da revenda. Atualize o painel.');
+      return false;
+    }
+    values[key]=el.value;
+  }
+  const field=merchantBusinessInvalidField(values)?.[0]||'legalName';
+  if(merchantRevealControl('#merchant-business-'+field))return true;
+  toast('Não foi possível abrir o cadastro da revenda. Atualize o painel.');
+  return false;
 }
 async function merchantBusinessProfileSaveFromUi(){
   const rt=globalThis.merchantRuntime||{};
@@ -1843,18 +1874,7 @@ async function merchantBusinessProfileSaveFromUi(){
     const raw=String(el.value||'').trim();
     payload[key]=key==='state'?raw.toUpperCase():raw;
   }
-  const checks=[
-    ['legalName',payload.legalName.length>=3,'Informe a razão social da empresa.'],
-    ['tradeName',payload.tradeName.length>=2,'Informe o nome do estabelecimento.'],
-    ['responsibleName',payload.responsibleName.length>=3,'Informe o nome do responsável.'],
-    ['phone',/^[0-9]{10,11}$/.test(payload.phone),'Informe o telefone com DDD, usando 10 ou 11 dígitos.'],
-    ['whatsapp',/^[0-9]{10,11}$/.test(payload.whatsapp),'Informe o WhatsApp com DDD, usando 10 ou 11 dígitos.'],
-    ['postalCode',/^[0-9]{8}$/.test(payload.postalCode),'Informe o CEP com 8 dígitos.'],
-    ['city',payload.city.length>=2,'Informe a cidade da revenda.'],
-    ['state','AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').includes(payload.state),'Selecione a UF da revenda.'],
-    ['addressText',payload.addressText.length>=8,'Informe o endereço completo da revenda.']
-  ];
-  const invalid=checks.find(([,valid])=>!valid);
+  const invalid=merchantBusinessInvalidField(payload);
   if(invalid){
     merchantRevealControl('#merchant-business-'+invalid[0]);
     return toast(invalid[2]);
