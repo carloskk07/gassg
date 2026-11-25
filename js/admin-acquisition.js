@@ -7533,6 +7533,11 @@ function adminEnablementActionPlan(checks){
       owner==='admin'?'admin':'system';
     groups[group].push(check);
   }
+  const order=['location','cnpj','representation','product_authority','financial','merchant_status',
+    'inventory','delivery_area','delivery_fee','payment_method','payment_route','online','heartbeat',
+    'operation_mode','city_pause','global_commerce','quote_authority'];
+  const rank=check=>{const i=order.indexOf(check.key);return i<0?order.length:i;};
+  for(const items of Object.values(groups))items.sort((a,b)=>rank(a)-rank(b));
   return groups;
 }
 function adminEnablementMerchantCard(entry){
@@ -7553,9 +7558,10 @@ function adminEnablementMerchantCard(entry){
   const name=String(entry?.merchant_name||'Revenda');
   const state=String(entry?.state||'');
   const city=String(entry?.city||'');
-  const main=plan.admin[0]||plan.merchant[0]||plan.platform[0]||plan.system[0]||null;
+  const preparation=plan.merchant.filter(check=>check.scope!=='realtime');
+  const main=plan.admin[0]||preparation[0]||plan.platform[0]||plan.merchant[0]||plan.system[0]||null;
   const phase=!confirmed?'Atualizar diagnóstico':ready?'Apta naquele momento':
-    plan.admin.length?'Validar cadastro':plan.merchant.length?'Preparar operação':
+    plan.admin.length?'Validar cadastro':preparation.length?'Preparar operação':
     plan.platform.length?'Conferir abertura comercial':'Conferir disponibilidade';
   const location=city&&state?city+' / '+state:'Município ainda não informado';
   const merchantId=String(entry?.merchant_id||'');
