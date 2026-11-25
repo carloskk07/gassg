@@ -80,7 +80,7 @@ const onlineRoute={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:tr
 assert.match(ctx.merchantSetupView(onlineRoute),/Seu próximo passo: Recebimentos/);
 const complete={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]};
 assert.doesNotMatch(ctx.merchantSetupView(complete),/Continuar configuração/);
-assert.match(ctx.merchantSetupView(complete),/A habilitação para receber pedidos depende das verificações/);
+assert.match(ctx.merchantSetupView(complete),/Dados preenchidos\. Aguarde a conferência do TAMÃO/);
 assert.equal(ctx.merchantSetupView({...complete,merchant:{...complete.merchant,memberRole:'driver'}}),'');
 const manager={...ownerMissingAddress,merchant:{...ownerMissingAddress.merchant,memberRole:'manager'}};
 assert.match(ctx.merchantSetupView(manager),/0 de 2 etapas concluídas/);
