@@ -115,7 +115,8 @@ els['merchant-quick-price-P45'].value='460.00';
 const failCases=[
  {price:'',stock:'2'}, {price:'0',stock:'1'},{price:'NaN',stock:'3'},
  {price:'10100',stock:'4'},{price:'2.55',stock:''},{price:'2.55',stock:'-1'},
- {price:'2.55',stock:'1.5'},{price:'2.55',stock:'100001'}
+ {price:'2.55',stock:'1.5'},{price:'2.55',stock:'100001'},
+ {price:'2.555',stock:'1'}, {price:'1e2',stock:'1'}, {price:'2.55',stock:'1e2'}, {price:'2.55',stock:'1.0'}
 ];
 for(const v of failCases){
  els['merchant-quick-price-P13'].value=v.price;
