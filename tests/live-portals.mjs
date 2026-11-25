@@ -99,6 +99,16 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  // Early discovery must not reorder config/dependencies, introduce eager
+  // optional modules, or duplicate a script in the body.
+  const releasedScripts=[...html.matchAll(/<script defer src="\.\/js\/([a-z0-9-]+)\.js\?v=test-sha"><\/script>/g)];
+  const expectedScripts=['runtime-config','turnstile','backend','core',
+    ...(role==='admin'?['admin-acquisition','admin']:['analytics','acquisition','legal','home-showcase','customer','growth',...(role==='merchant'?['merchant']:[])]),
+    'bootstrap'];
+  assert.deepEqual(releasedScripts.map(m=>m[1]),expectedScripts,role+' stable execution order');
+  assert.ok(releasedScripts.every(m=>m.index<html.indexOf('</head>')),role+' early script discovery');
+  assert.equal([...html.matchAll(/<script\b[^>]*src="\.\/js\//g)].length,expectedScripts.length,role+' no duplicate or synchronous startup scripts');
+  assert.ok(releasedScripts.every(m=>sw.includes("'./js/"+m[1]+".js?v=test-sha'")),role+' startup cache parity');
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.
   // Only the revenda portal ships privileged merchant operations.
