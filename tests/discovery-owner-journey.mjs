@@ -464,6 +464,8 @@ assert.equal(records[0].status,'draft','paused item must reopen into new reviewe
 assert.equal(ctx.__discoveryOwnerTestState.editor?.status,'draft');
 assert.ok(transitions.some(x=>x.p_next_status==='draft'));
 assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
+assert.match(ctx.discoveryOwnerPage(),/<details class="discovery-owner-import" open><summary>Comprovantes, somente quando necessários<\/summary>/);
+assert.match(ctx.discoveryOwnerPage(),/Não envie documentos pessoais sem necessidade/);
 assert.equal(privateDocs.length,1);
 // A successful row UPDATE with unchanged canonical listing fields must not
 // produce a Saved toast, despite other relations still being accessible.
@@ -483,6 +485,7 @@ assert.equal(privateDocs.length,0,'metadata must be removed FIRST, even if Stora
 assert.equal(removed.length,0,'failed Storage removal cannot be recorded as successful');
 assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de comprovantes/);
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
+assert.match(ctx.discoveryOwnerPage(),/<details class="discovery-owner-import"><summary>Comprovantes, somente quando necessários<\/summary>/);
 assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals[0],privateDocPath);
 assert.equal(ctx.discoveryOwnerReadPendingDocumentRemovals(userId)[0],privateDocPath,
  'cleanup must survive a closed page and preserve the owner scope');
