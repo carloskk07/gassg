@@ -3489,6 +3489,23 @@ function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
 // Optional read-only activations desk. Never block login or other admin tabs.
+// Keep the existing version-pinned URLs and authorization gates. Bound only
+// the static download: no account data, financial action or automatic retry.
+function adminAppendDeferredModule(script,reject){
+  const loaded=script.onload,failed=script.onerror;
+  let settled=false,timer;
+  function finish(callback,remove=false){
+    if(settled)return;
+    settled=true;
+    clearTimeout(timer);
+    if(remove)script.remove?.();
+    callback();
+  }
+  script.onload=()=>finish(loaded);
+  script.onerror=()=>finish(failed,true);
+  timer=setTimeout(()=>finish(()=>reject(new Error('O carregamento demorou demais. Verifique a conexão e tente novamente.')),true),20000);
+  try{document.head.appendChild(script);}catch{finish(failed,true);}
+}
 const adminActivationModuleUrl=(()=>{
   try{
     const script=document.currentScript;
@@ -3504,6 +3521,7 @@ let adminActivationModulePromise=null;
 let adminActivationModuleError=null;
 async function adminActivationLoadOnDemand(){
   if(!adminReady()||!adminRoleCanSection('activations'))return null;
+  const actor=String(adminRuntime.session?.user?.id||'');
   if(typeof adminActivationLoad!=='function'||typeof adminActivationDeskView!=='function'){
     if(!adminActivationModulePromise){
       adminActivationModuleError=null;
@@ -3521,7 +3539,7 @@ async function adminActivationLoadOnDemand(){
           else reject(new Error('A Central de Ativações não inicializou corretamente.'));
         };
         script.onerror=()=>reject(new Error('Não foi possível carregar a Central de Ativações. Verifique a conexão.'));
-        document.head.appendChild(script);
+        adminAppendDeferredModule(script,reject);
       }).catch(error=>{
         adminActivationModuleError=String(error?.message||'Erro ao carregar a Central de Ativações.');
         throw error;
@@ -3533,7 +3551,8 @@ async function adminActivationLoadOnDemand(){
       return null;
     }
   }
-  if(!adminReady()||adminRuntime.section!=='activations')return null;
+  if(!adminReady()||adminRuntime.section!=='activations'||!adminRoleCanSection('activations')
+    ||String(adminRuntime.session?.user?.id||'')!==actor)return null;
   adminActivationModuleError=null;
   render();
   return adminActivationLoad();
@@ -3586,7 +3605,7 @@ async function adminExpansionLoadOnDemand(){
           ?resolve(true)
           :reject(new Error('O módulo de expansão não inicializou corretamente.'));
         script.onerror=()=>reject(new Error('Falha ao carregar dados de expansão. Verifique sua conexão.'));
-        document.head.appendChild(script);
+        adminAppendDeferredModule(script,reject);
       }).catch(error=>{
         adminExpansionModuleError=String(error?.message||'Não foi possível carregar a área.');
         throw error;
@@ -3651,7 +3670,7 @@ async function adminOwnerFinanceLoadOnDemand(){
           ?resolve(true)
           :reject(new Error('A gestão financeira não inicializou corretamente.'));
         script.onerror=()=>reject(new Error('Não foi possível carregar a gestão financeira. Verifique a conexão.'));
-        document.head.appendChild(script);
+        adminAppendDeferredModule(script,reject);
       }).catch(error=>{
         adminOwnerFinanceModuleError=String(error?.message||'Erro ao carregar recursos de gestão.');
         throw error;
@@ -3708,7 +3727,7 @@ async function adminNetworkPayoutLoadOnDemand(){
         script.onload=()=>typeof globalThis.adminNetworkPayoutPanel==='function'
           ?resolve(true):reject(Error('A central de saques não inicializou.'));
         script.onerror=()=>reject(Error('Não foi possível carregar a central de saques.'));
-        document.head.appendChild(script);
+        adminAppendDeferredModule(script,reject);
       }).finally(()=>{adminNetworkPayoutModulePromise=null});
     }
     try{await adminNetworkPayoutModulePromise}
@@ -3756,7 +3775,7 @@ async function adminOperatorFinanceLoadOnDemand(){
         script.onload=()=>typeof globalThis.adminOperatorPanel==='function'
           ?resolve(true):reject(Error('O assistente PJ não inicializou.'));
         script.onerror=()=>reject(Error('Não foi possível abrir o assistente PJ.'));
-        document.head.appendChild(script);
+        adminAppendDeferredModule(script,reject);
       }).finally(()=>{adminOperatorFinanceModulePromise=null});
     }
     try{await adminOperatorFinanceModulePromise}
