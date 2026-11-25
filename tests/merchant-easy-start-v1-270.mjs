@@ -74,7 +74,11 @@ const withProduct={...empty,catalog:[{
 assert.match(ctx.merchantSetupView(withProduct),/Seu próximo passo: Entregas/);
 const withDelivery={...withProduct,merchant:{...withProduct.merchant,acceptsCitywide:true,deliveryFeeConfirmedAt:'2026-10-14'}};
 assert.match(ctx.merchantSetupView(withDelivery),/Seu próximo passo: Recebimentos/);
-const complete={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true}]};
+const incompleteRoute={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true}]};
+assert.match(ctx.merchantSetupView(incompleteRoute),/Seu próximo passo: Recebimentos/);
+const onlineRoute={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true,channel:'online',verificationMode:'provider_api'}]};
+assert.match(ctx.merchantSetupView(onlineRoute),/Seu próximo passo: Recebimentos/);
+const complete={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]};
 assert.doesNotMatch(ctx.merchantSetupView(complete),/Continuar configuração/);
 assert.match(ctx.merchantSetupView(complete),/A habilitação para receber pedidos depende das verificações/);
 assert.equal(ctx.merchantSetupView({...complete,merchant:{...complete.merchant,memberRole:'driver'}}),'');

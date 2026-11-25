@@ -22,7 +22,7 @@ const runtime={
   businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
     addressText:'Endereço informado para análise pelo proprietário'}},
  catalog:[{productCode:'P13',productName:'Botijão 13 kg',priceCents:12000,availableStock:5,active:true,priceConfirmedAt:now}],
- paymentRoutes:[{paymentMethod:'pix',active:true}]
+ paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]
 };
 const base={
  esc,merchantTimestampFresh:fresh,
