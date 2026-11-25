@@ -539,6 +539,8 @@ function discoveryOwnerPage(){
       '<input id="discovery-owner-driver-portrait" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
       '<p class="tiny muted">A primeira foto pública deve mostrar claramente o rosto de quem vai dirigir, sem capacete nem óculos escuros. Anexe somente foto atual com autorização para exibição pública; ela será mostrada antes do contato. A foto não equivale à verificação oficial de identidade.</p>':'')+
     '<label>'+(kind==='rides'?'Fotos complementares da carona (opcionais; JPG, PNG ou WebP, até 5 MB)':'Fotos públicas do anúncio (JPG, PNG ou WebP, até 5 MB)')+'<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
+    '<details class="discovery-owner-import"'+(Array.isArray(d.documents)&&d.documents.length?' open':'')+'><summary>Comprovantes, somente quando necessários</summary>'+
+    '<p class="tiny muted">Você é responsável pela regularidade da sua atividade. Não envie documentos pessoais sem necessidade.</p>'+
     '<label>Comprovantes para análise privada (PDF ou imagem, até 10 MB; máximo de 4 por envio)<input id="discovery-owner-documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple></label>'+
     '<p class="tiny muted">Comprovantes não aparecem no anúncio: somente você e o superadministrador podem consultar esses arquivos. Envie apenas documentos necessários.</p>'+
     (Array.isArray(d.documents)&&d.documents.length?
@@ -547,7 +549,7 @@ function discoveryOwnerPage(){
       (['draft','rejected'].includes(d.status)?d.documents.map((doc,i)=>
         /^[0-9a-f-]{36}$/.test(String(doc.id||''))?
           '<button type="button" onclick="discoveryOwnerRemoveDocument(&quot;'+doc.id+'&quot;)">Remover comprovante '+(i+1)+'</button>':''
-      ).join(''):'')+'</div>':'')+
+      ).join(''):'')+'</div>':'')+'</details>'+
     (Array.isArray(d.photo_urls)&&d.photo_urls.length?
       '<div class="discovery-owner-photos">'+d.photo_urls.map((p,i)=>{
         const url=discoveryOwnerPhotoUrl(p);
