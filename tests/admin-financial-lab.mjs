@@ -441,3 +441,48 @@ assert.match(admin,/\[400,401,403\]\.includes\(Number\(e\?\.data\?\.apiStatus\)\
 assert.match(admin,/e\?\.code==='FINANCE_LAB_SANDBOX_PROVIDER_REJECTED'/);
 
 console.log('PASS admin lab: arbitrary invoice simulation, official sandbox preset, authorization, status');
+
+// Live laboratory QR recovery is static and never creates or reconciles an order.
+const qrStart=admin.indexOf('let adminFinanceLabQrLoader=null;');
+const qrEnd=admin.indexOf('function adminFinanceLabLiveIsPayable(',qrStart);
+assert.ok(qrStart>=0&&qrEnd>qrStart);
+const qrScripts=[],qrTimers=new Map();
+let qrSeq=0,qrRenders=0,qrInsertFails=false;
+const qrContext=vm.createContext({URL,Promise,
+ setTimeout:(fn,ms)=>{assert.equal(ms,15000);qrTimers.set(++qrSeq,fn);return qrSeq;},
+ clearTimeout:id=>qrTimers.delete(id),
+ document:{scripts:[{src:'https://admin.tamao.com.br/js/admin.js?v=reviewed'}],baseURI:'https://admin.tamao.com.br/',
+  createElement:()=>({remove(){this.removed=true}}),
+  head:{appendChild:node=>{if(qrInsertFails)throw Error('blocked');qrScripts.push(node);}}},
+ adminRuntime:{financeLab:{live:{brCode:'original-payment-code'}}},
+ render:()=>qrRenders++});
+vm.runInContext(admin.slice(qrStart,qrEnd),qrContext);
+const originalPix={brCode:'012345678901234567890123456789012345'};
+const qrFirst=qrContext.adminFinanceLabLoadQrEncoder(false);
+assert.equal(qrContext.adminFinanceLabLoadQrEncoder(false),qrFirst);
+assert.equal(qrScripts[0].src,'./js/qr-generator.js?v=reviewed');
+assert.match(qrContext.adminFinanceLabLiveQrBlock(originalPix),/Preparando/);
+[...qrTimers.values()][0]();
+assert.equal(await qrFirst,false);
+assert.equal(qrTimers.size,0);
+assert.equal(qrScripts[0].removed,true);
+assert.match(qrContext.adminFinanceLabLiveQrBlock(originalPix),/Tentar desenhar QR novamente/);
+assert.equal(await qrContext.adminFinanceLabLoadQrEncoder(false),false);
+assert.equal(qrScripts.length,1,'status polling cannot retry failed asset');
+qrInsertFails=true;
+assert.equal(await qrContext.adminFinanceLabLoadQrEncoder(),false);
+assert.equal(qrTimers.size,0);
+qrInsertFails=false;
+const qrSecond=qrContext.adminFinanceLabLoadQrEncoder();
+assert.match(qrContext.adminFinanceLabLiveQrBlock(originalPix),/Preparando/);
+const qrBefore=qrRenders;
+qrScripts[0].onload();qrScripts[0].onerror();
+assert.equal(qrRenders,qrBefore);
+assert.equal(qrTimers.size,1);
+vm.runInContext(read('js/qr-generator.js'),qrContext);
+qrScripts[1].onload();
+assert.equal(await qrSecond,true);
+assert.equal(qrTimers.size,0);
+assert.match(qrContext.adminFinanceLabLiveQrBlock(originalPix),/<svg\b/);
+assert.equal(qrContext.adminRuntime.financeLab.live.brCode,'original-payment-code');
+console.log('PASS: Admin local QR timeout, manual recovery, no polling retries and original payment preserved.');

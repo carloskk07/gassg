@@ -6329,9 +6329,10 @@ function adminFinanceLabLiveQrMarkup(brCode){
     return svg;
   }catch{adminFinanceLabQrLoadFailed=true;return ''}
 }
-function adminFinanceLabLoadQrEncoder(){
+function adminFinanceLabLoadQrEncoder(retry=true){
   if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
   if(adminFinanceLabQrLoader)return adminFinanceLabQrLoader;
+  if(adminFinanceLabQrLoadFailed&&!retry)return Promise.resolve(false);
   if(typeof document==='undefined')return Promise.resolve(false);
   const adminScript=Array.from(document.scripts).find(tag=>
     /\/js\/admin\.js(?:\?|$)/.test(String(tag.src||'')));
@@ -6340,12 +6341,20 @@ function adminFinanceLabLoadQrEncoder(){
   adminFinanceLabQrLoader=new Promise(resolve=>{
     const tag=document.createElement('script');
     tag.src=url;tag.async=true;
-    tag.onload=()=>resolve(typeof globalThis.qrcode==='function');
-    tag.onerror=()=>resolve(false);
-    document.head.appendChild(tag);
+    let settled=false,timer;
+    const finish=ready=>{
+      if(settled)return;
+      settled=true;clearTimeout(timer);
+      if(!ready)tag.remove?.();
+      resolve(ready);
+    };
+    tag.onload=()=>finish(typeof globalThis.qrcode==='function');
+    tag.onerror=()=>finish(false);
+    timer=setTimeout(()=>finish(false),15000);
+    try{document.head.appendChild(tag);}catch{finish(false);}
   }).then(ready=>{
     adminFinanceLabQrLoadFailed=!ready;
-    if(!ready)adminFinanceLabQrLoader=null;
+    adminFinanceLabQrLoader=null;
     if(adminRuntime.financeLab?.live?.brCode)render();
     return ready;
   });
@@ -6355,7 +6364,7 @@ function adminFinanceLabLiveQrBlock(order){
   const code=String(order?.brCode||'');
   if(code.length<30)return '';
   const svg=adminFinanceLabLiveQrMarkup(code);
-  if(!svg)return adminFinanceLabQrLoadFailed
+  if(!svg)return adminFinanceLabQrLoadFailed&&!adminFinanceLabQrLoader
     ?'<p class="notice">Não foi possível desenhar o QR neste navegador. Use o link oficial do Mercado Pago ou o copia e cola.</p><button class="secondary small" type="button" onclick="adminFinanceLabLoadQrEncoder()">Tentar desenhar QR novamente</button>'
     :'<p class="muted tiny">Preparando QR Code local… O copia e cola permanece disponível abaixo.</p>';
   return '<div class="input-wrap"><label>QR Code Pix REAL — escaneie pelo aplicativo do banco</label>'+
@@ -6548,7 +6557,7 @@ async function adminFinanceLabLiveCreateFromUi(){
     lab.livePurpose=null;lab.liveWebhookWait=null;
     adminFinanceLabLiveScheduleExpiry(lab.live);
     adminFinanceLabLiveWatchOrder(lab.live.orderId,lab,actor);
-    adminFinanceLabLoadQrEncoder().catch(()=>{});
+    adminFinanceLabLoadQrEncoder(false).catch(()=>{});
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
   }catch(e){
     if(adminFinanceLabLiveActorCurrent(lab,actor))lab.liveError=String(e?.message||e);
@@ -6583,7 +6592,7 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
       lab.liveKey=null;lab.liveAmountCents=null;
       adminFinanceLabLiveScheduleExpiry(lab.live);
       adminFinanceLabLiveWatchOrder(lab.live.orderId,lab,actor);
-      adminFinanceLabLoadQrEncoder().catch(()=>{});
+      adminFinanceLabLoadQrEncoder(false).catch(()=>{});
       toast('Ordem original aberta, sem gerar outra cobrança.');
       adminFinanceLabLiveReadinessFromUi().catch(()=>{});
     }else if(data.alreadyBound===true&&data.orderId){
@@ -6650,7 +6659,7 @@ async function adminFinanceLabLiveCheckFromUi(orderId,quiet=false){
       brCode:data.brCode,paymentLinkUrl:data.paymentLinkUrl||'',
       expiresAt:data.expiresAt,credited:false,settlementVerified:false};
     adminFinanceLabLiveScheduleExpiry(lab.live);
-    adminFinanceLabLoadQrEncoder().catch(()=>{});
+    adminFinanceLabLoadQrEncoder(false).catch(()=>{});
   }else if(lab.live?.orderId===orderId){
     lab.live=null;changed=true;
     adminFinanceLabLiveScheduleExpiry(null);
