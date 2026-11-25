@@ -598,6 +598,15 @@ function merchantRealPortalRequired(){
   return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
 }
 
+// Editable suggestions only; never proof of representation.
+function merchantContactSuggestion(user){
+  const metadata=user?.user_metadata;
+  const name=typeof metadata?.full_name==='string'?metadata.full_name.trim().replace(/\s+/g,' '):'';
+  const raw=typeof metadata?.phone==='string'?metadata.phone.trim():'';
+  const digits=/^[+0-9().\s-]+$/.test(raw)?raw.replace(/\D/g,''):'';
+  return {responsible:name.length>=2&&name.length<=90&&!/[<>\u0000-\u001f]/.test(name)?name:'',
+    contact:/^(?:55)?[1-9][0-9]{9,10}$/.test(digits)?digits:''};
+}
 function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
