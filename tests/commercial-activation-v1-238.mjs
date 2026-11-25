@@ -66,8 +66,24 @@ for(const term of [
  'Da primeira parceria à primeira venda',
  'Nenhum WhatsApp, convite ou cadastro é enviado automaticamente.',
  'Os números representam bases diferentes:',
- 'Ads: R$ 0.'
+ 'não contabiliza a publicidade independente TAMÃO Ads',
+ 'Recomendação indisponível. Atualize a consulta antes de decidir.'
 ])assert.ok(admin.includes(term),'Missing truthful operations UI: '+term);
 assert.ok(navigation.includes('function adminSetSection(section)'), 'Navigable existing Admin section required');
 assert.match(workflow,/- name: TAMÃO V1\.238 real commercial activation contract\s+run: node tests\/commercial-activation-v1-238\.mjs/);
+const section=admin.slice(admin.indexOf('function adminCommercialActivationSection()'),admin.indexOf('// TAMÃO Ads V1.237'));
+const ctx=vm.createContext({adminCurrentRole:()=> 'superadmin',adminRuntime:{session:{user:{id:'fixture'}}},adminCommercialActivationBusy:false,esc:String,adminCommercialActivationState:null});
+vm.runInContext(section,ctx);
+const counts=Object.fromEntries(['anpProspects','anpUncontacted','invitationsPending','merchantLeads','merchantPendingApplications','merchantsActive','merchantsActiveOnline','adsOptedIn','adsCreativesReviewed'].map(k=>[k,0]));
+ctx.adminCommercialActivationState={loadedFor:'fixture',counts,prospectCities:[],nextAction:'unknown'};
+let rendered=vm.runInContext('adminCommercialActivationSection()',ctx);
+assert.match(rendered,/Recomendação indisponível/);
+assert.doesNotMatch(rendered,/Abrir área correspondente|Ads: R\$ 0\./);
+ctx.adminCommercialActivationState.nextAction='acquire_first_merchant';
+rendered=vm.runInContext('adminCommercialActivationSection()',ctx);
+assert.match(rendered,/Convidar a primeira revenda/);
+assert.match(rendered,/Abrir área correspondente/);
+assert.match(rendered,/não contabiliza a publicidade independente TAMÃO Ads/);
+ctx.adminCommercialActivationState.nextAction='toString';
+assert.doesNotMatch(vm.runInContext('adminCommercialActivationSection()',ctx),/Abrir área correspondente/);
 console.log('V1.238 PASS — real merchant activation, independent populations, no contacts sent or Ads revenue');
