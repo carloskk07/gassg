@@ -186,9 +186,11 @@ function patchIndex(html,portal,sourceSha){
     patched=patched.replace(merchantTag,'');
   }
   if(role==='admin'){
-    const lazyTag='<script defer src="./js/admin-activations.js"></script>';
-    if(!patched.includes(lazyTag))throw new Error('Admin activation module missing');
-    patched=patched.replace(lazyTag,'');
+    for(const module of ['admin-activations','admin-test-center']){
+      const lazyTag='<script defer src="./js/'+module+'.js"></script>';
+      if(!patched.includes(lazyTag))throw new Error('Missing lazy admin script tag: '+module);
+      patched=patched.replace(lazyTag,'');
+    }
     // The protected portal must not parse storefront, referral or editorial JS.
     // Their public APIs are only exported by bootstrap on non-admin origins.
     for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
@@ -273,9 +275,11 @@ function patchServiceWorker(raw,sourceSha,role){
     scoped=scoped.replace(merchantEntry,'').replace(editorEntry,'');
   }
   if(role==='admin'){
-    const lazyEntry=",'./js/admin-activations.js'";
-    if(!scoped.includes(lazyEntry))throw new Error('Missing admin activations precache entry');
-    scoped=scoped.replace(lazyEntry,'');
+    for(const module of ['admin-activations','admin-test-center']){
+      const lazyEntry=",'./js/"+module+".js'";
+      if(!scoped.includes(lazyEntry))throw new Error('Missing lazy admin precache entry: '+module);
+      scoped=scoped.replace(lazyEntry,'');
+    }
     for(const entry of [",'./js/learn-premium.js'",",'./css/learn-premium.css'"]){
       if(!scoped.includes(entry))throw new Error('Missing lazy buyer guide PWA entry');
       scoped=scoped.replace(entry,'');
