@@ -68,8 +68,8 @@ assert.ok(output.includes('&lt;img src=x onerror=alert(1)&gt;'));
 assert.ok(output.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 assert.ok(output.includes('&lt;svg onload=alert(1)&gt;'));
 assert.ok(!output.includes('<script>')&&!output.includes('<img'));
-assert.ok(output.includes('1 bloqueio(s)'));
-assert.ok(output.includes('Próxima ação'));
+assert.ok(output.includes('Atualizar diagnóstico'));
+assert.ok(output.includes('Atualize o diagnóstico.'));
 assert.ok(output.includes('Revenda: informações operacionais'));
 assert.ok(!output.includes('Abrir validações desta revenda no Admin'),
  'an unverified merchant id must never create a navigation action');
@@ -86,9 +86,9 @@ const realistic=sandbox.card({merchant_id:merchantId,merchant_name:'Revenda de t
   {key:'quote_authority',owner:'system',scope:'realtime',ok:false,
    label:'Cotação',action:'O sistema valida a oferta'}
  ]});
-assert.ok(realistic.includes('Admin: cadastro e autorização (1)'));
-assert.ok(realistic.includes('Revenda: informações operacionais (1)'));
-assert.ok(realistic.includes('Plataforma e cidade (1)'));
+assert.ok(realistic.includes('Admin: cadastro e autorização'));
+assert.ok(realistic.includes('Revenda: informações operacionais'));
+assert.ok(realistic.includes('Plataforma e cidade'));
 assert.ok(realistic.includes('Abrir validações desta revenda no Admin'));
 assert.ok(realistic.includes("adminMerchantReturnToControls('"+merchantId+"')"),
  'navigation must reuse the audited Admin controls for exactly this merchant');
@@ -110,7 +110,8 @@ assert.ok(!sandbox.card({merchant_id:merchantId,ready:false,checks:[
  'readonly users without Partner permission must not see inaccessible actions');
 const done=sandbox.card({merchant_name:'Revenda Exemplo',city:'São Gabriel',state:'RS',
   merchant_status:'active',ready:true,checks:[{key:'stock',label:'Estoque',ok:true}]});
-assert.ok(done.includes('Apta para cotação'));
+assert.ok(done.includes('Atualizar diagnóstico'));
+assert.ok(!done.includes('Apta naquele momento'),'incomplete evidence cannot certify readiness');
 assert.ok(done.includes('Conforme'));
 // A first merchant must be able to supply a REAL address without receiving
 // automatic compliance, ANP, status, or payment approval.
@@ -206,3 +207,19 @@ assert.ok(reviewGuard.includes("v_merchant.status<>'pending'"));
 assert.ok(reviewGuard.includes('MERCHANT_BUSINESS_GUARD_BASELINE_DRIFT_BLOCKED'));
 
 console.log('V1.157 passou: SQL restrito, equivalência operacional, sem ativação, painel XSS e status reais');
+
+const canonicalKeys=['merchant_status','cnpj','representation','product_authority','operation_mode',
+ 'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+ 'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+const valid={merchant_id:merchantId,ready:true,checked_at:new Date().toISOString(),
+ checks:canonicalKeys.map(key=>({key,ok:true,owner:'system'}))};
+assert.match(sandbox.card(valid),/Apta naquele momento/);
+for(const invalid of [{...valid,checked_at:new Date(Date.now()-181000).toISOString()},
+ {...valid,checks:valid.checks.slice(0,-1)},
+ {...valid,checks:[...valid.checks,valid.checks[0]]},
+ {...valid,checks:valid.checks.map(c=>c.key==='inventory'?{...c,ok:false}:c)}]){
+ assert.match(sandbox.card(invalid),/Atualizar diagnóstico/);
+ assert.doesNotMatch(sandbox.card(invalid),/Apta naquele momento/);
+}
+assert.match(sandbox.card(valid),/<details><summary>Ver diagnóstico técnico completo/);
+console.log('PASS: current and complete evidence, simple administrative phase and technical details remain available.');
