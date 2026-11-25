@@ -31,7 +31,7 @@ const ctx=vm.createContext({esc,BRL:{format:formatted},globalThis:{merchantRunti
 vm.runInContext(take('merchantTimestampFresh')+'\n'+take('merchantQuickCatalogCandidates')+'\n'+take('merchantAvailabilityGo')+'\n'+take('merchantAvailabilityPanel')+
  ';this.draw=merchantAvailabilityPanel;this.open=merchantAvailabilityGo;',ctx);
 const opts={canGoOnline:true,connectionHealthy:true,financialHold:false,
- freshness:{deliveryFresh:true},p13:ctxState.catalog[0],orderCount:4};
+ freshness:{deliveryFresh:true},p13:ctxState.catalog[0],orderCount:4,orderEvidenceFresh:true};
 let html=ctx.draw(ctxState,opts);
 assert.match(html,/Revenda online|Novas ofertas pausadas/);
 assert.match(html,/Novas ofertas pausadas/);
@@ -53,6 +53,26 @@ assert.equal(ctx.open('delivery'),true);
 assert.deepEqual(opened,['#live-delivery-fee']);
 assert.equal(ctx.open('payment'),false);
 assert.equal(actions.length,1);
+
+// The same confirmed snapshot used for orders must govern availability metrics.
+for(const evidence of [false,undefined]){
+ const unverified=ctx.draw(ctxState,{...opts,orderEvidenceFresh:evidence});
+ assert.match(unverified,/Disponibilidade sem confirmação recente/);
+ assert.match(unverified,/Atualizar disponibilidade/);
+ assert.match(unverified,/Fila a confirmar/);
+ assert.match(unverified,/Estoque a confirmar/);
+ assert.match(unverified,/Entrega a confirmar/);
+ assert.doesNotMatch(unverified,/12<\/strong>|4<\/strong>|R\$ 8\.99/);
+ assert.match(unverified,/merchant-online-toggle"[^>]*disabled/);
+}
+ctxState.merchant.online=true;
+const staleOnline=ctx.draw(ctxState,{...opts,orderEvidenceFresh:false});
+assert.match(staleOnline,/Disponibilidade sem confirmação recente/);
+assert.match(staleOnline,/Pausar novos pedidos/);
+assert.match(staleOnline,/merchantLiveToggleOnline\(false\)/);
+assert.doesNotMatch(staleOnline,/id="merchant-online-toggle"[^>]*disabled/);
+ctxState.merchant.online=false;
+assert.match(js,/orderEvidenceFresh:orderEvidence\.fresh/);
 
 const blocked=ctx.draw(ctxState,{...opts,canGoOnline:false});
 assert.match(blocked,/merchant-online-toggle"[^>]*disabled/);
