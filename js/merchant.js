@@ -2329,10 +2329,10 @@ async function merchantQuickCatalogSave(productCode){
   const stockField=document.getElementById('merchant-quick-stock-'+code);
   if(!priceField||!stockField)return toast('Atualize o painel para editar este produto.');
   const raw=String(priceField.value||'').trim(),stockRaw=String(stockField.value||'').trim();
-  const price=Number(raw),stock=Number(stockRaw);
-  const cents=Math.round(price*100);
-  if(!raw||!stockRaw||!Number.isFinite(price)||price<=0||price>10000||
-     !Number.isSafeInteger(cents)||!Number.isInteger(stock)||stock<0||stock>100000){
+  const cents=/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw)?Math.round(Number(raw.replace(',','.'))*100):NaN;
+  const stock=Number(stockRaw);
+  if(!/^\d{1,6}$/.test(stockRaw)||!Number.isSafeInteger(cents)||cents<=0||cents>1000000||
+     !Number.isInteger(stock)||stock<0||stock>100000){
     return toast('Revise o preço e o estoque antes de salvar.');
   }
   let pricing={};
@@ -4120,16 +4120,19 @@ function merchantPriceBatchStart(){
 async function merchantLiveSaveProduct(code){
   if(typeof merchantBulkPriceBusy!=='undefined'&&merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
-  const price=Number(document.getElementById('live-price-'+code)?.value);
-  const stock=Number(document.getElementById('live-stock-'+code)?.value);
-  const active=document.getElementById('live-active-'+code)?.checked===true;
-  const pricingMode=String(document.getElementById('live-pricing-mode-'+code)?.value||'fixed');
-  const pricingStrategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'balanced');
-  const minPrice=Number(document.getElementById('live-min-price-'+code)?.value);
-  const maxPrice=Number(document.getElementById('live-max-price-'+code)?.value);
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code);
+  if(!/^[A-Z0-9_-]{1,24}$/.test(String(code||'')))return toast('Produto inválido.');
+  const read=id=>String(document.getElementById(id+'-'+code)?.value??'').trim();
+  const money=raw=>/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw)?Math.round(Number(raw.replace(',','.'))*100):NaN;
+  const cents=money(read('live-price'));
+  const stockRaw=read('live-stock'),stock=Number(stockRaw);
+  const activeField=document.getElementById('live-active-'+code);
+  const pricingMode=read('live-pricing-mode'),pricingStrategy=read('live-pricing-strategy');
+  const minCents=money(read('live-min-price')),maxCents=money(read('live-max-price'));
+  if(!Number.isSafeInteger(cents)||cents<=0||cents>1000000||!/^\d{1,6}$/.test(stockRaw)||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code+'. Informe zero explicitamente se estiver esgotado.');
+  if(typeof activeField?.checked!=='boolean'||!['fixed','range'].includes(pricingMode))return toast('Atualize o catálogo para conferir a disponibilidade e o modo de preço.');
+  const active=activeField.checked;
   if(pricingMode==='range'){
-    if(!Number.isFinite(minPrice)||!Number.isFinite(maxPrice)||minPrice<=0||maxPrice>10000||minPrice>price||price>maxPrice){
+    if(!Number.isSafeInteger(minCents)||!Number.isSafeInteger(maxCents)||minCents<=0||maxCents>1000000||minCents>cents||cents>maxCents){
       return toast('Na faixa automática: mínimo ≤ preço normal ≤ máximo.');
     }
   }
@@ -4138,11 +4141,11 @@ async function merchantLiveSaveProduct(code){
   merchantCatalogSaving.add(code);
   if(saveButton){saveButton.disabled=true;saveButton.textContent='Salvando…';}
   try{
-    await merchantUpdateProductLive(code,Math.round(price*100),stock,active,{
+    await merchantUpdateProductLive(code,cents,stock,active,{
       pricingMode,
-      minPriceCents:pricingMode==='range'?Math.round(minPrice*100):Math.round(price*100),
-      maxPriceCents:pricingMode==='range'?Math.round(maxPrice*100):Math.round(price*100),
-      pricingStrategy
+      minPriceCents:pricingMode==='range'?minCents:cents,
+      maxPriceCents:pricingMode==='range'?maxCents:cents,
+      pricingStrategy:pricingStrategy||'balanced'
     });
     toast(pricingMode==='range'?'Faixa de preço de '+code+' confirmada':'Preço fixo de '+code+' confirmado');
   }catch(e){toast(String(e?.message||e))}
