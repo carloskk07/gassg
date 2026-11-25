@@ -59,16 +59,37 @@ async function waitFor(expr,timeout=90000){
  throw new Error('Timed out: '+expr);
 }
 const observerSource=String.raw`
-globalThis.__tamaoPerf={lcp:null,cls:0,session:0,first:0,last:0,longTasks:0,blockingMs:0};
+globalThis.__tamaoPerf={lcp:null,lcpElement:null,cls:0,session:0,first:0,last:0,longTasks:0,blockingMs:0,shifts:[]};
 const p=globalThis.__tamaoPerf;
+// Only coarse structural labels, never rendered text, IDs, query strings or user data.
+function structure(node){
+ if(!node||node.nodeType!==1)return null;
+ const tag=String(node.tagName||'').toLowerCase();
+ const zone=node.closest?.('.tamao-preboot')?'preboot':
+  node.closest?.('header')?'header':node.closest?.('nav')?'navigation':
+  node.closest?.('footer')?'footer':node.closest?.('#app')?'application':'other';
+ return {tag:/^[a-z][a-z0-9-]{0,29}$/.test(tag)?tag:'other',zone};
+}
+function localAsset(raw){
+ try{
+  const u=new URL(raw,location.href);
+  return u.origin===location.origin&&/^\/(customer|merchant|admin)\/(js|css|assets|img|images|icons)\/[A-Za-z0-9._/-]{1,160}$/.test(u.pathname)?u.pathname:null;
+ }catch{return null;}
+}
 for(const type of ['largest-contentful-paint','layout-shift','longtask']){
  try{new PerformanceObserver(list=>{
   for(const e of list.getEntries()){
-   if(type==='largest-contentful-paint')p.lcp=e.startTime;
+   if(type==='largest-contentful-paint'){
+    p.lcp=e.startTime;
+    p.lcpElement={structure:structure(e.element),asset:e.url?localAsset(e.url):null,
+     size:e.size,loadMs:e.loadTime,renderMs:e.renderTime};
+   }
    if(type==='layout-shift'&&!e.hadRecentInput){
     if(p.last&&e.startTime-p.last<1000&&e.startTime-p.first<5000)p.session+=e.value;
     else{p.session=e.value;p.first=e.startTime;}
     p.last=e.startTime;p.cls=Math.max(p.cls,p.session);
+    p.shifts.push({atMs:e.startTime,value:e.value,sources:(e.sources||[]).slice(0,5).map(s=>structure(s.node)).filter(Boolean)});
+    p.shifts.sort((a,b)=>b.value-a.value);p.shifts.length=Math.min(p.shifts.length,5);
    }
    if(type==='longtask'){p.longTasks++;p.blockingMs+=Math.max(0,e.duration-50);}
   }
@@ -100,7 +121,14 @@ try{
    const paint=performance.getEntriesByType('paint');
    const perf=globalThis.__tamaoPerf;
    const resources=performance.getEntriesByType('resource').filter(e=>e.name.startsWith(location.origin+'/'));
-   return {role:globalThis.CHAMA_PORTAL_ROLE,fcpMs:paint.find(e=>e.name==='first-contentful-paint')?.startTime??null,
+   const assetRows=resources.flatMap(e=>{
+    const u=new URL(e.name);
+    if(!/^\\/(customer|merchant|admin)\\/(js|css|assets|img|images|icons)\\/[A-Za-z0-9._/-]{1,160}$/.test(u.pathname))return [];
+    return [{path:u.pathname,transferBytes:e.transferSize,startMs:e.startTime,durationMs:e.duration,endMs:e.responseEnd}];
+   });
+   return {role:globalThis.CHAMA_PORTAL_ROLE,lcpElement:perf.lcpElement,largestLayoutShifts:perf.shifts,
+     largestLocalAssets:assetRows.slice().sort((a,b)=>b.transferBytes-a.transferBytes).slice(0,8),
+     latestLocalAssets:assetRows.slice().sort((a,b)=>b.endMs-a.endMs).slice(0,8),fcpMs:paint.find(e=>e.name==='first-contentful-paint')?.startTime??null,
      lcpMs:perf.lcp,cls:perf.cls,longTasks:perf.longTasks,blockingMs:perf.blockingMs,
      domContentLoadedMs:nav?.domContentLoadedEventEnd??null,loadMs:nav?.loadEventEnd??null,
      observedLocalResources:resources.length,localResourceTransferBytes:resources.reduce((a,e)=>a+e.transferSize,0),
@@ -109,9 +137,18 @@ try{
   assert.equal(sample.role,role,'Wrong isolated portal rendered');
   for(const key of ['fcpMs','lcpMs','cls','longTasks','blockingMs','domContentLoadedMs','loadMs','observedLocalResources','localResourceTransferBytes','horizontalOverflow'])
     assert.ok(sample[key]===null||(Number.isFinite(sample[key])&&sample[key]>=0),'Invalid '+key);
+  for(const group of [sample.largestLocalAssets,sample.latestLocalAssets]){
+    assert.ok(Array.isArray(group)&&group.length<=8,'Invalid asset attribution');
+    for(const asset of group){
+      assert.ok(/^\/(customer|merchant|admin)\/(js|css|assets|img|images|icons)\/[A-Za-z0-9._/-]{1,160}$/.test(asset.path),'Asset must be a local static path');
+      for(const key of ['transferBytes','startMs','durationMs','endMs'])
+        assert.ok(Number.isFinite(asset[key])&&asset[key]>=0,'Invalid asset metric '+key);
+    }
+  }
+  assert.ok(Array.isArray(sample.largestLayoutShifts)&&sample.largestLayoutShifts.length<=5);
   results.push({...sample,blockedExternalRequests:blockedExternal-before});
  }
- const report={schemaVersion:1,kind:'synthetic-local-cold-start',viewport:{width:390,height:844},cpuSlowdown:4,
+ const report={schemaVersion:2,kind:'synthetic-local-cold-start',viewport:{width:390,height:844},cpuSlowdown:4,
    network:{latencyMs:150,downloadBytesPerSecond:200000,uploadBytesPerSecond:93750},
    limitations:['Single sample per role; not field data or p75','External requests blocked; no authenticated flows','Local HTTP server does not simulate CDN compression','LCP and CLS observed through 1.6s after load; INP not measured'],portals:results};
  const dest=path.resolve(process.env.TAMAO_PERF_REPORT||'dist/portal-mobile-performance.json');
