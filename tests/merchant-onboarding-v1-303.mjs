@@ -321,3 +321,42 @@ for(const role of ['superadmin','operations','compliance']){
  assert.doesNotMatch(cardHtml,/Consulta somente leitura/);
 }
 console.log('PASS: merchant verification stages, role-limited controls, pending state and operational activation copy.');
+
+
+// Payment in delivery is independent of online checkout and requires a valid route.
+// Exercise the production preparation predicate without creating a sale or a PSP charge.
+const paymentCtx=vm.createContext({merchantTimestampFresh:()=>true});
+vm.runInContext(cut('merchantSetupSnapshot')+';this.setup=merchantSetupSnapshot;',paymentCtx);
+const paymentMerchant={memberRole:'owner',status:'active',paymentMethods:{pix:true,card:true,cash:true}};
+const manualDelivery={paymentMethod:'pix',channel:'delivery',verificationMode:'merchant_confirmed',active:true,provider:'manual'};
+const deviceDelivery={paymentMethod:'card_credit',channel:'delivery',verificationMode:'device',active:true,provider:'stone',connectionId:'account-1'};
+const connectedAccount={id:'account-1',provider:'stone',connected:true,
+ capabilities:{canValidateProviderTransactions:true,directSalePaymentsEnabled:true}};
+const paymentStep=(routes,accounts=[],methods=paymentMerchant.paymentMethods)=>paymentCtx.setup({
+ merchant:{...paymentMerchant,paymentMethods:methods},paymentRoutes:routes,receivingAccounts:accounts
+}).find(x=>x.key==='payment');
+assert.equal(paymentStep([manualDelivery]).done,true,'manual Pix at delivery requires no provider');
+assert.equal(paymentStep([{...manualDelivery,paymentMethod:'cash'}]).done,true);
+assert.equal(paymentStep([{...manualDelivery,paymentMethod:'card_debit'}]).done,true);
+assert.equal(paymentStep([deviceDelivery],[connectedAccount]).done,true);
+for(const route of [
+ {...manualDelivery,channel:'online'},
+ {...manualDelivery,channel:undefined},
+ {...manualDelivery,active:false},
+ {...manualDelivery,verificationMode:'provider_api'},
+ {...manualDelivery,verificationMode:undefined},
+ {...manualDelivery,paymentMethod:'unknown'}
+])assert.equal(paymentStep([route]).done,false);
+assert.equal(paymentStep([manualDelivery],[],{pix:false,card:true,cash:true}).done,false);
+assert.equal(paymentStep([deviceDelivery]).done,false);
+for(const account of [
+ {...connectedAccount,id:'different'},
+ {...connectedAccount,provider:'different'},
+ {...connectedAccount,connected:false},
+ {...connectedAccount,capabilities:{...connectedAccount.capabilities,canValidateProviderTransactions:false}},
+ {...connectedAccount,capabilities:{...connectedAccount.capabilities,directSalePaymentsEnabled:false}}
+])assert.equal(paymentStep([deviceDelivery],[account]).done,false);
+assert.equal(paymentStep([{...manualDelivery,channel:'online'},manualDelivery]).done,true);
+assert.match(paymentStep([]).detail,/Não é necessário conectar um provedor/);
+assert.match(paymentStep([manualDelivery]).detail,/pagamento na entrega configurada/);
+console.log('PASS: delivery payment preparation ignores online-only routes, respects enabled methods and requires matching authorized devices.');
