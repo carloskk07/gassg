@@ -67,20 +67,20 @@ function adminCommercialActivationSection(){
     (note?'<small>'+esc(note)+'</small>':'')+'</div>';
   const data=c?
     '<div class="merchant-kpis" style="margin-top:12px">'+
-      metric('Prospectos ANP',c.anpProspects,'Empresas conhecidas, não clientes')+
+      metric('Prospectos ANP',c.anpProspects,'Não são clientes')+
       metric('Sem contato registrado',c.anpUncontacted)+
       metric('Convites ainda válidos',c.invitationsPending)+
       metric('Leads de revendas',c.merchantLeads)+
       metric('Solicitações de cadastro pendentes',c.merchantPendingApplications)+
       metric('Revendas ativas',c.merchantsActive)+
       metric('Revendas ativas e online',c.merchantsActiveOnline)+
-      metric('Revendas com interesse em publicidade vinculada',c.adsOptedIn)+
-      metric('Peças vinculadas revisadas',c.adsCreativesReviewed)+
+      metric('Interesse em Ads de revendas',c.adsOptedIn)+
+      metric('Peças Ads revisadas',c.adsCreativesReviewed)+
     '</div>'+
     '<div class="card flat" style="margin-top:14px">'+
-      '<strong>Próxima ação comercial indicada</strong><p>'+esc(priority?priority[0]:'Recomendação indisponível. Atualize a consulta antes de decidir.')+'</p>'+
+      '<strong>Próxima ação comercial indicada</strong><p>'+esc(priority?priority[0]:'Atualize para obter uma recomendação.')+'</p>'+
       (priority?'<button class="primary small" type="button" onclick="adminSetSection(\''+priority[1]+'\')">Abrir área correspondente</button>':'')+
-      '<p class="tiny muted">A recomendação é calculada apenas sobre registros existentes. Nenhum WhatsApp, convite ou cadastro é enviado automaticamente.</p>'+
+      '<p class="tiny muted">Registros reais. Nenhum WhatsApp, convite ou cadastro é enviado automaticamente.</p>'+
     '</div>'+
     '<h4 style="margin-top:14px">Cidades com possíveis revendas</h4>'+
     (report.prospectCities.length?
@@ -88,14 +88,14 @@ function adminCommercialActivationSection(){
         '<div class="list-row"><strong>'+esc([x.city,x.state].filter(Boolean).join('/'))+'</strong>'+
         '<small>'+Number(x.prospects)+' cadastrada(s) na ANP • '+
         Number(x.uncontacted)+' sem contato</small></div>').join('')+'</div>':
-      '<p class="muted tiny">Não existem cidades com prospectos registrados.</p>')+
-    '<p class="tiny muted">Os números representam bases diferentes: prospectos, leads, solicitações e revendas não são etapas comprovadas de um mesmo funil individual. '+
-    'Intenção comercial e crédito antecipado não equivalem a receita realizada. Este diagnóstico histórico de publicidade vinculada a revendas não contabiliza a publicidade independente TAMÃO Ads. Consulte Publicidade para campanhas, créditos e consumo atuais.</p>':
-    '<p class="muted tiny">Consulte para identificar o gargalo atual entre prospecção, cadastro e primeira venda.</p>';
+      '<p class="muted tiny">Sem cidades prospectadas.</p>')+
+    '<p class="tiny muted">Os números representam bases diferentes: não formam um funil individual. '+
+    'Crédito não é receita. Este painel não contabiliza a publicidade independente TAMÃO Ads. Consulte Publicidade.</p>':
+    '<p class="muted tiny">Identifique o gargalo até a primeira venda.</p>';
   return '<section class="section admin-commercial-activation">'+
     '<div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS • CRESCIMENTO</span>'+
     '<h3>Da primeira parceria à primeira venda</h3>'+
-    '<p>Acompanhe oportunidades reais antes de oferecer anúncios ou ferramentas pagas.</p></div>'+
+    '<p>Acompanhe oportunidades reais.</p></div>'+
     '<button class="secondary small" type="button" onclick="adminCommercialActivationLoadFromUi()" '+
     (adminCommercialActivationBusy?'disabled':'')+'>Conferir ativação comercial</button></div>'+
     data+'</section>';
