@@ -8,16 +8,20 @@ assert.equal(core+expansion,original);
 assert.ok(expansion.length>90000&&expansion.length<150000);
 assert.throws(()=>splitAdminAcquisition('function doNothing(){}'),/boundary/);
 const admin=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
-const start=admin.indexOf('// Split release bundle: city intelligence');
+const start=admin.indexOf('// Optional read-only activations desk.');
 const end=admin.indexOf('function adminSetSection(section){',start);
 assert.ok(start>0&&end>start);
 const loader=admin.slice(start,end);
 const scripts=[];
 let section='prospects',authorized=true,ready=true,actor='owner',renders=0,calls=[];
+let timerId=0;
+const timers=new Map();
 const env=vm.createContext({
+  setTimeout:(fn,ms)=>{assert.equal(ms,20000);timers.set(++timerId,fn);return timerId;},
+  clearTimeout:id=>timers.delete(id),
   document:{
     currentScript:{src:'https://admin.tamao.com.br/js/admin.js?v=sha-test'},
-    baseURI:'https://admin.tamao.com.br/',createElement:()=>({}),
+    baseURI:'https://admin.tamao.com.br/',createElement:()=>({remove(){this.removed=true}}),
     head:{appendChild:s=>scripts.push(s)}
   },
   location:{origin:'https://admin.tamao.com.br'},
@@ -42,8 +46,11 @@ const first=env.load(),second=env.load();
 assert.equal(scripts.length,1,'Concurrent requests must share one script');
 assert.equal(scripts[0].src,env.url);
 assert.match(env.view(),/Carregando/);
-scripts[0].onerror();
+assert.equal(timers.size,1);
+[...timers.values()][0]();
 await Promise.all([first,second]);
+assert.equal(timers.size,0);
+assert.equal(scripts[0].removed,true,'stalled script must be removed');
 assert.match(env.view(),/Tentar novamente/);
 const retry=env.load();
 assert.equal(scripts.length,2);
@@ -53,7 +60,10 @@ env.adminLoadProspects=async()=>{calls.push('prospects')};
 env.adminLoadExpansionRadar=async()=>{calls.push('radar')};
 env.adminLoadCityHistory=async()=>{calls.push('history');return true};
 env.adminLoadEnablement=async()=>{calls.push('enablement');return true};
+scripts[0].onload();scripts[0].onerror();
+assert.equal(timers.size,1,'late callbacks cannot settle current retry');
 scripts[1].onload();
+assert.equal(timers.size,0);
 assert.equal(await retry,true);
 assert.deepEqual(calls,['prospects','radar','history']);
 section='enablement';
