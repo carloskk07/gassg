@@ -133,6 +133,24 @@ export function splitAdminFinanceTestViews(source){
  return {startup,deferred};
 }
 
+export function splitAdminBillingClubViews(source){
+ if(typeof source!=='string')throw new TypeError('Expected canonical admin source');
+ const markers=[["function adminClubeReleaseReportsView(","/* A genuine one-time commercial release, approved by the signed-in founder."],["function adminMobilityBillingSection(","function adminReceivableRow("]];
+ let cursor=0,startup='',deferred='';
+ for(const [start,end] of markers){
+  const a=source.indexOf(start),b=source.indexOf(end,a);
+  if(a<cursor||b<=a||source.indexOf(start,a+1)!==-1||source.indexOf(end,b+1)!==-1)
+   throw new Error('Missing or ambiguous billing view boundary: '+start);
+  startup+=source.slice(cursor,a);deferred+=source.slice(a,b);cursor=b;
+ }
+ startup+=source.slice(cursor);
+ if(startup.length+deferred.length!==source.length||Buffer.byteLength(deferred)<50000)
+  throw new Error('Admin billing view split contract changed');
+ validateClassicScriptSyntax(startup,'admin.js (startup)');
+ validateClassicScriptSyntax(deferred,'admin-billing-club-views.js (deferred)');
+ return {startup,deferred};
+}
+
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -560,7 +578,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       const adminFile=path.join(target,'js','admin.js');
       const operational=splitAdminOperationalViews(fs.readFileSync(adminFile,'utf8'));
       const financeViews=splitAdminFinanceTestViews(operational.startup);
-      fs.writeFileSync(adminFile,financeViews.startup,'utf8');
+      const billingViews=splitAdminBillingClubViews(financeViews.startup);
+      fs.writeFileSync(adminFile,billingViews.startup,'utf8');
+      fs.writeFileSync(path.join(target,'js','admin-billing-club-views.js'),billingViews.deferred,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-finance-test-views.js'),financeViews.deferred,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-operational-views.js'),operational.deferred,'utf8');
     }
