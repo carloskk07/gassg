@@ -1,24 +1,38 @@
 {
   "schemaVersion": 1,
-  "referenceCommit": "63ae5d88f150d24bdab55e74cdda4a70eb1c100e",
+  "referenceCommit": "06c959e8ebc488d756fb99458afd2863218dec5f",
+  "policy": "role-specific transfer and parse-size ceilings; review warnings before expanding startup; no automatic budget increases",
+  "warningUtilization": 0.85,
   "limits": {
     "customer": {
-      "initialJsBytes": 530000,
-      "initialCssBytes": 283000,
+      "initialJsBytes": 650000,
+      "initialCssBytes": 330000,
       "initialJsRequests": 11,
-      "initialCssRequests": 3
+      "initialCssRequests": 3,
+      "initialJsGzipBytes": 165000,
+      "initialJsBrotliBytes": 145000,
+      "initialTransferGzipBytes": 230000,
+      "initialTransferBrotliBytes": 200000
     },
     "merchant": {
-      "initialJsBytes": 920000,
-      "initialCssBytes": 283000,
+      "initialJsBytes": 1100000,
+      "initialCssBytes": 330000,
       "initialJsRequests": 12,
-      "initialCssRequests": 3
+      "initialCssRequests": 3,
+      "initialJsGzipBytes": 275000,
+      "initialJsBrotliBytes": 235000,
+      "initialTransferGzipBytes": 340000,
+      "initialTransferBrotliBytes": 290000
     },
     "admin": {
       "initialJsBytes": 1600000,
-      "initialCssBytes": 367000,
+      "initialCssBytes": 425000,
       "initialJsRequests": 14,
-      "initialCssRequests": 3
+      "initialCssRequests": 3,
+      "initialJsGzipBytes": 385000,
+      "initialJsBrotliBytes": 310000,
+      "initialTransferGzipBytes": 460000,
+      "initialTransferBrotliBytes": 375000
     }
   }
 }
