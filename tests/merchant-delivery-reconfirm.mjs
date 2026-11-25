@@ -107,3 +107,49 @@ assert.equal(await context.reconfirm(),false);
 assert.match(messages.at(-1),/CONFIG_VERSION_CONFLICT/);
 assert.equal(calls.length,3,'each accepted confirmation attempts only the protected mutation');
 console.log('PASS — freight attestation requires owner, unchanged form, user consent, server-confirmed freshness and handles conflicts.');
+
+
+// Empty input cannot become free delivery; missing coverage is not a consent.
+const saveStart=source.indexOf('async function merchantLiveSaveLogistics(');
+const saveEnd=source.indexOf('\n}',saveStart)+2;
+assert.ok(saveStart>=0&&saveEnd>saveStart);
+const form={'#live-delivery-fee':{value:'8.00'},'#live-eta':{value:'30'},'#live-citywide':{checked:true}};
+const saveState={status:'ready',merchant:{memberRole:'owner'},actionPending:false};
+const saved=[],errors=[];
+const saveCtx=vm.createContext({globalThis:{merchantRuntime:saveState},
+ document:{querySelector:key=>form[key]??null},toast:msg=>errors.push(String(msg)),
+ merchantUpdateLogisticsLive:async(...args)=>saved.push(args)});
+vm.runInContext(source.slice(saveStart,saveEnd)+';this.save=merchantLiveSaveLogistics;',saveCtx);
+for(const bad of ['', ' ', '0.001', '-1', '1e2', '1000.01', '1001', 'abc']){
+ form['#live-delivery-fee'].value=bad;
+ await saveCtx.save();
+ assert.equal(saved.length,0,'invalid fee: '+bad);
+}
+form['#live-delivery-fee'].value='0';
+for(const bad of ['', '4', '181', '1.5', '1e2']){
+ form['#live-eta'].value=bad;
+ await saveCtx.save();
+ assert.equal(saved.length,0,'invalid ETA: '+bad);
+}
+form['#live-eta'].value='30';
+delete form['#live-citywide'];
+await saveCtx.save();
+assert.equal(saved.length,0,'missing coverage cannot imply pause');
+form['#live-citywide']={checked:true};
+assert.equal(await saveCtx.save(),true);
+assert.equal(JSON.stringify(saved[0]),'[0,30,true]');
+form['#live-delivery-fee'].value='6.99';
+assert.equal(await saveCtx.save(),true);
+assert.equal(JSON.stringify(saved[1]),'[699,30,true]');
+form['#live-delivery-fee'].value='7,25';
+form['#live-citywide'].checked=false;
+assert.equal(await saveCtx.save(),true);
+assert.equal(JSON.stringify(saved[2]),'[725,30,false]');
+saveState.merchant.memberRole='operator';
+assert.equal(await saveCtx.save(),false);
+saveState.merchant.memberRole='owner';saveState.actionPending=true;
+assert.equal(await saveCtx.save(),false);
+assert.equal(saved.length,3);
+assert.match(source,/id="live-delivery-fee"[^>]*step="0.01"/);
+assert.match(source,/id="live-citywide" type="checkbox" \$\{m\.acceptsCitywide===true\?/);
+console.log('PASS: exact cents, explicit zero, bounded ETA, explicit coverage and protected logistics save.');
