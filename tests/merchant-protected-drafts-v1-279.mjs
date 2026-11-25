@@ -43,7 +43,7 @@ const ctx=vm.createContext({Date,Map,esc,globalThis:{merchantRuntime:rt},
  toast:message=>alerts.push(String(message))
 });
 const bodies=[
- 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',
+ 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',take('merchantClearQuickDrafts'),
  take('merchantTimestampFresh'),take('merchantQuickDraftKey'),
  take('merchantQuickCatalogVersion'),take('merchantQuickDraftFor'),
  take('merchantQuickCatalogChanged'),take('merchantQuickHasDrafts'),
@@ -205,3 +205,9 @@ assert.match(deferredMutations,/expectedUpdatedAt=String\(current.updatedAt\)/);
 assert.match(css,/\.merchant-quick-recent-list/);
 assert.match(audit,/node tests\/merchant-protected-drafts-v1-279.mjs/);
 console.log('V1.279 PASS: unsaved drafts survive renders, require exit confirmation, respect merchant versions, and show truthful timestamps.');
+
+// Invalidating protected access discards all former actor drafts.
+assert.ok(ctx.drafts.size>0);
+vm.runInContext('merchantClearQuickDrafts()',ctx);
+assert.equal(ctx.drafts.size,0);
+assert.match(backend,/function merchantClearProtectedSnapshot\(\)\{[\s\S]{0,180}merchantClearQuickDrafts\?\.\(\)/);
