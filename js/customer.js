@@ -513,7 +513,7 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  const adHomeSlot=!testDemo&&typeof tamaoAdsPlannerLoad==='function'?(tamaoAdsPlannerLoad(),globalThis.tamaoAdsLoadHome?.(),'<div id="tamao-ads-home-slot"></div>'):'';
+  const adHomeSlot=!testDemo&&typeof tamaoAdsLoadHomeDirect==='function'?(tamaoAdsLoadHomeDirect(),'<div id="tamao-ads-home-slot"></div>'):'';
   const homeRegion=!testDemo&&typeof homeMarketRegion==='function'?homeMarketRegion():(
     rememberedRegion?{...rememberedRegion,origin:'confirmed'}:
     {city:'São Gabriel',state:'RS',origin:'showcase'});
