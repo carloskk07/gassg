@@ -713,7 +713,7 @@ function home(){
 <div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
-  <button class="intent-card intent-primary" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('sponsors')"><span class="intent-icon">📣</span><span><strong>Divulgar minha marca</strong><small>Conheça possibilidades de campanhas e parcerias na sua região.</small></span><b>→</b></button>
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Conheça produtos, benefícios e como participar.</p></div></div>
@@ -721,7 +721,7 @@ function home(){
   <button class="intent-card intent-primary" onclick="startHomeBrowse()"><span class="intent-icon">🧺</span><span><strong>Consultar produtos</strong><small>Confira produtos, preços e prazos disponíveis para o seu endereço.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Veja o que acontece desde a escolha até receber o pedido.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Conhecer os benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Aproxime sua revenda dos clientes, mantendo seus canais.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Aproxime sua revenda dos clientes, mantendo seus canais.</small></span><b>→</b></button>
 </div></section>`;
 
   const valueBridge=`<section class="home-value-bridge tamao-visitor-paths" aria-label="O TAMÃO conecta quem compra, vende e indica">
@@ -846,7 +846,7 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="opportunity-band"><div><span class="section-kicker light">CONHEÇA OS BENEFÍCIOS</span><h2>Benefícios para aproveitar nas próximas compras.</h2><p>Veja como funcionam o cashback e as indicações. Cada benefício tem suas próprias condições de participação.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Anuncie seu comércio. Receber pedidos pelo TAMÃO é opcional.</h2><p>Para começar, basta o nome do estabelecimento e um WhatsApp. Você escolhe depois se também quer usar cotações, entregas e pedidos pela plataforma.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">2 DADOS</span><small>para o primeiro contato</small></div><div><strong>Mais visibilidade para sua empresa, sem papelada na entrada.</strong><p>Anúncios e pedidos são etapas diferentes. A publicação depende de confirmação do contato e das verificações aplicáveis à atividade.</p></div><button class="primary" onclick="openPrelaunchMerchantLead()">Quero anunciar minha empresa →</button></div></section>`}`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Anuncie seu comércio. Receber pedidos pelo TAMÃO é opcional.</h2><p>Crie sua campanha ou cadastre sua empresa para vender.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">TAMÃO ADS</span><small>publicidade local</small></div><div><strong>Mais visibilidade para sua empresa, sem papelada na entrada.</strong><p>Prepare sua campanha sem cadastrar uma revenda. A publicação exige aprovação.</p></div><button class="primary" onclick="go('sponsors')">Quero anunciar minha empresa →</button></div></section>`}`)
 }
 // V1.302: explain the next buyer action without bypassing real availability,
 // quote validation, server-side permissions or the existing payment flow.
