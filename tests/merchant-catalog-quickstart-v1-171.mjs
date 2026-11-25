@@ -151,3 +151,68 @@ assert.equal(exactArgs[2],0);
 assert.ok(css.includes('.merchant-catalog-save')&&css.includes('.merchant-catalog-kind'));
 assert.ok(css.includes('@media(max-width:520px)'));
 console.log('V1.171: configured-first catalog, optional categories, price-range preservation, role isolation, XSS rejection and save concurrency passed.');
+
+
+// New SKU creation uses explicit stock, exact prices and cannot overwrite a configured item.
+const addFields={};
+for(const prefix of ['registry','glp','container']){
+ addFields['live-new-'+prefix+'-price']={value:'12.99'};
+ addFields['live-new-'+prefix+'-stock']={value:''};
+}
+addFields['live-new-registry-product']={value:'WATER20'};
+addFields['live-new-glp-code']={value:'P45'};
+addFields['live-new-container-code']={value:'P13'};
+const addRt={status:'ready',merchant:{memberRole:'owner'},catalog:[],actionPending:false};
+const added=[],addMessages=[];
+const addCtx=vm.createContext({globalThis:{merchantRuntime:addRt},
+ document:{getElementById:id=>addFields[id]||null},
+ toast:msg=>addMessages.push(String(msg)),
+ merchantCatalogAvailableChoices:()=>[{productCode:'WATER20',productName:'Água'}],
+ merchantUpdateProductLive:async(...args)=>added.push(args)});
+vm.runInContext('const merchantCatalogSaving=new Set();\n'+[
+ 'function merchantNewProductValues(','async function merchantLiveAddRegisteredProduct(',
+ 'async function merchantLiveAddGlp(','async function merchantLiveAddContainer('
+].map(excerpt).join('\n')+';this.actions=[merchantLiveAddRegisteredProduct,merchantLiveAddGlp,merchantLiveAddContainer];',addCtx);
+for(let i=0;i<3;i++){
+ const prefix=['registry','glp','container'][i],action=addCtx.actions[i];
+ const stock=addFields['live-new-'+prefix+'-stock'],price=addFields['live-new-'+prefix+'-price'];
+ for(const invalid of ['', '1e2', '1.5', '-1', '100001']){
+  stock.value=invalid;
+  const before=added.length;
+  await action();
+  assert.equal(added.length,before,'invalid stock '+prefix+': '+invalid);
+ }
+ stock.value='0';
+ for(const invalid of ['', '0', '12.999', '1e2', '10000.01']){
+  price.value=invalid;
+  const before=added.length;
+  await action();
+  assert.equal(added.length,before,'invalid price '+prefix+': '+invalid);
+ }
+ price.value='12.99';
+ await action();
+ const code=['WATER20','P45','P13_CONTAINER'][i];
+ assert.deepEqual(Array.from(added.at(-1)),[code,1299,0,true]);
+ addRt.catalog.push({productCode:code,active:false});
+ const before=added.length;
+ await action();
+ assert.equal(added.length,before,'existing SKU must be edited, not recreated');
+}
+assert.equal(added.length,3);
+addRt.catalog=[];
+addRt.merchant.memberRole='operator';
+for(const action of addCtx.actions)await action();
+assert.equal(added.length,3);
+addRt.merchant.memberRole='owner';addRt.actionPending=true;
+for(const action of addCtx.actions)await action();
+assert.equal(added.length,3);
+addRt.actionPending=false;
+let unblock;
+addCtx.merchantUpdateProductLive=async(...args)=>{added.push(args);await new Promise(resolve=>unblock=resolve);};
+const firstAdd=addCtx.actions[1]();
+await addCtx.actions[1]();
+assert.equal(added.length,4,'duplicate click during creation blocked');
+unblock();await firstAdd;
+for(const prefix of ['registry','glp','container'])
+ assert.match(source,new RegExp('id="live-new-'+prefix+'-stock"[^>]*placeholder="Informe o estoque"'));
+console.log('PASS: all three new product flows validate exact cents and stock, reject duplicate SKUs and preserve authorization.');
