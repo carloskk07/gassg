@@ -629,7 +629,7 @@ function merchantLiveLoginView(){
       <button type="submit" class="primary full">${signupEntry?'Continuar meu cadastro →':'Enviar meu link de acesso →'}</button>
     </form>
     ${introducing?'<p class="merchant-access-footnote">O cadastro da empresa passa por conferência antes da liberação das vendas.</p>':''}
-    ${signupEntry&&!pilotInvite&&!prospectInvite?'<div class="notice merchant-access-secondary" role="note"><strong>Quer só anunciar seu comércio?</strong><p>Comece com nome do estabelecimento e WhatsApp, sem cadastro operacional completo.</p><a href="https://tamao.com.br/#merchants" class="secondary small">Cadastro rápido para anunciar →</a></div>':''}
+    ${signupEntry&&!pilotInvite&&!prospectInvite?'<div class="notice merchant-access-secondary" role="note"><strong>Quer só anunciar seu comércio?</strong><p>Crie sua campanha sem cadastrar uma revenda.</p><a href="https://tamao.com.br/#sponsors" class="primary small">Criar anúncio →</a> <a href="https://tamao.com.br/#merchants" class="secondary small">Solicitar contato →</a></div>':''}
   </div></div></section>`);
 }
 
