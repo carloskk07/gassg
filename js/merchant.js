@@ -1853,7 +1853,7 @@ function merchantEnablementAssistantView(rt){
     merchantIssues.length?'Configurações pendentes':'Aguardando validações';
   return '<section class="section" id="merchant-enablement">'+
     '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
-      '<h2>Deixar minha revenda pronta para vender</h2>'+
+      '<h2 tabindex="-1">Deixar minha revenda pronta para vender</h2>'+
       '<p>Confira o que ainda falta para sua empresa aparecer nas consultas. Algumas etapas dependem da análise do TAMÃO.</p></div>'+
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
@@ -1882,6 +1882,35 @@ function merchantEnablementAssistantView(rt){
 async function merchantEnablementRecheck(){
   try{await merchantLoadEnablement({force:true})}
   catch(error){toast(String(error?.message||error))}
+}
+
+// Reveal the actual verification results, including after an async redraw.
+// Capture the operation and session before the read; never navigate a new account.
+async function merchantFirstRunReview(){
+  const rt=globalThis.merchantRuntime||{};
+  const m=rt.merchant;
+  const userId=String(rt.session?.user?.id||'');
+  const merchantId=String(m?.merchantId||'');
+  const epoch=Number(rt.accessEpoch||0);
+  const current=()=>{
+    const active=globalThis.merchantRuntime||{};
+    return Boolean(userId&&merchantId)&&active.status==='ready'&&
+      active.session?.user?.id===userId&&active.merchant?.merchantId===merchantId&&
+      Number(active.accessEpoch||0)===epoch&&['owner','manager'].includes(active.merchant?.memberRole);
+  };
+  if(!current())return false;
+  const open=()=>{
+    if(!current())return false;
+    if(!merchantRevealControl('#merchant-enablement h2')){
+      toast('Não foi possível abrir as verificações. Atualize o painel.');
+      return false;
+    }
+    return true;
+  };
+  if(!open())return false;
+  if(rt.enablementLoading===true)return true;
+  await merchantEnablementRecheck();
+  return current()?open():false;
 }
 
 
@@ -2425,9 +2454,11 @@ function merchantFirstRunView(rt,canGoOnline){
     '<div><strong>'+esc(step.title)+'</strong><small>'+esc(step.detail)+'</small></div>'+
     '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+step.key+'\')">'+
       (step.done?'Revisar':'Configurar')+'</button></li>').join('');
-  const cta=model.next?
+  const cta=model.financialHold?
+    '<button type="button" class="primary" onclick="merchantWorkspaceJump(\'finance\')">Conferir situação financeira →</button>':
+    model.next?
     '<button type="button" class="primary" onclick="merchantSetupGo(\''+model.next.key+'\')">Continuar por '+esc(model.next.title)+' →</button>':
-    '<button type="button" class="primary" onclick="merchantEnablementRecheck()">Conferir requisitos →</button>';
+    '<button type="button" class="primary" onclick="merchantFirstRunReview()">Conferir requisitos →</button>';
   return '<section id="merchant-first-run" class="merchant-first-run" aria-label="Guia para começar a vender">'+
     '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
     '<h2>'+esc(title)+'</h2><p>'+esc(lead)+'</p></div>'+
@@ -2435,7 +2466,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<div class="merchant-first-run-actions">'+cta+'</div>'+
     '<details class="merchant-first-run-extra"><summary>Ver todas as etapas ('+model.steps.length+')</summary>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
-    '<button type="button" class="secondary small" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></details>'+
+    '<button type="button" class="secondary small" onclick="merchantFirstRunReview()">Ver todas as verificações</button></details>'+
     '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações, módulos estratégicos e autorizações financeiras exigem validação do TAMÃO.</p>'+
     '</section>';
 }
@@ -2708,6 +2739,9 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Endereço, produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
       ${merchantSetupView(rt)}
+      ${manage?`<details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
+        ${merchantEnablementAssistantView(rt)}
+      </details>`:''}
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Divulgar e ampliar sua rede</strong><small>Abra apenas a tarefa necessária.</small></span></summary><div class="merchant-workspace-content">
       <p class="merchant-growth-intro">Escolha uma tarefa. Consultar não cria cobrança nem campanha.</p>
@@ -2756,9 +2790,7 @@ function merchantLivePage(){
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantBusinessProfileView(rt)}
       ${merchantAlertControl()}
-    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
-      ${merchantEnablementAssistantView(rt)}
-    </details>
+
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}

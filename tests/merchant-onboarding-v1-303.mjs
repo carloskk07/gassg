@@ -46,7 +46,7 @@ assert.match(page,/1 de 3 configurados/);
 assert.match(page,/merchantSetupGo\('products'\)/);
 assert.match(page,/merchantSetupGo\('delivery'\)/);
 assert.match(page,/merchantSetupGo\('payment'\)/);
-assert.match(page,/merchantWorkspaceJump\('setup'\)/);
+assert.match(page,/merchantFirstRunReview\(\)/);
 assert.match(page,/<details class="merchant-first-run-extra">/,'other setup steps should be collapsed');
 assert.match(page,/<summary>Ver todas as etapas \(3\)<\/summary>/);
 assert.ok(page.indexOf('merchant-first-run-actions')<page.indexOf('merchant-first-run-extra'),
@@ -64,9 +64,40 @@ assert.match(ctx.view(rt,false),/Conferir requisitos/);
 assert.doesNotMatch(ctx.view(rt,false),/liberação depende do TAMÃO/);
 rt.billing.account.salesHold=true;
 assert.match(ctx.view(rt,false),/restrição financeira/);
+assert.match(ctx.view(rt,false),/merchantWorkspaceJump\('finance'\)/);
+steps[0].done=false;
+assert.match(ctx.view(rt,false),/merchantWorkspaceJump\('finance'\)/,'financial hold takes priority over other setup tasks');
+steps[0].done=true;
 assert.equal(ctx.jump('setup'),true);
 assert.equal(panel.open,true);assert.equal(scroll,true);assert.equal(focus,true);
 assert.equal(ctx.jump('unauthorized'),false);
+
+// The direct review opens the real diagnostics, refreshes, and reopens after a redraw.
+let openCount=0,readCount=0,finishReview;
+const reviewState={status:'ready',session:{user:{id:'u1'}},merchant:{merchantId:'m1',memberRole:'owner'},accessEpoch:1};
+const reviewCtx=vm.createContext({globalThis:{merchantRuntime:reviewState},
+ merchantRevealControl:selector=>{assert.equal(selector,'#merchant-enablement h2');openCount++;return true;},
+ merchantEnablementRecheck:async()=>{readCount++;await new Promise(resolve=>finishReview=resolve);},
+ toast:()=>{throw Error('unexpected missing control');}});
+vm.runInContext(cut('merchantFirstRunReview').replace(/^function /,'async function ')+';this.review=merchantFirstRunReview;',reviewCtx);
+let review=reviewCtx.review();
+assert.equal(openCount,1);
+assert.equal(readCount,1);
+finishReview();
+assert.equal(await review,true);
+assert.equal(openCount,2,'reopen current report after rendering');
+review=reviewCtx.review();
+reviewState.accessEpoch++;
+finishReview();
+assert.equal(await review,false);
+assert.equal(openCount,3,'late result must not navigate another session');
+reviewState.enablementLoading=true;
+assert.equal(await reviewCtx.review(),true);
+assert.equal(readCount,2,'already loading must not duplicate the read');
+reviewState.merchant.memberRole='operator';
+assert.equal(await reviewCtx.review(),false);
+assert.equal(openCount,4);
+
 
 const a=merchant.indexOf('function merchantLivePage(){');
 const b=merchant.indexOf('\nfunction merchantScheduledDispatchState(',a);
