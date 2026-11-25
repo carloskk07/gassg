@@ -576,7 +576,8 @@ assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('merchant
 assert.ok(merchant.includes('Compliance vigente.'),'painel deve mostrar compliance vigente');
 assert.ok(merchant.includes('Revalidação necessária antes de operar.'),'painel deve explicar compliance vencido');
 assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compliance e confirmação comercial');
-assert.ok(merchant.includes("m.acceptsCitywide!==false"),'UI não pode permitir ONLINE quando a área atendida do piloto está desativada');
+assert.match(merchant,/const commercialReady=freshness\.allFresh&&m\.acceptsCitywide===true&&paymentReady/,'UI só pode permitir ONLINE com cobertura da cidade explicitamente ativa');
+assert.match(merchant,/id="live-citywide" type="checkbox" \$\{m\.acceptsCitywide===true\?/,'Formulário não pode presumir cobertura desconhecida');
 assert.ok(merchant.includes('atendimento na cidade desativado'),'painel deve explicar bloqueio por cobertura local em qualquer cidade');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem cobertura da cidade da revenda');
 const merchantConfigConcurrency=read('supabase/migrations/20261006101500_merchant_config_concurrency_v1_70_24.sql');
