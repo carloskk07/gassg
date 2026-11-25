@@ -29,6 +29,14 @@ const pageContext=vm.createContext({
 });
 vm.runInContext(functionSource(growth,'merchantJoin')+';this.drawMerchantJoin=merchantJoin;',pageContext);
 const form=pageContext.drawMerchantJoin();
+assert.match(form,/Cinco dados básicos/);
+assert.match(form,/Não precisa de convite nem anexar documentos nesta etapa/);
+assert.match(form,/<details class="merchant-lead-options"><summary>Indicação \(opcional\)<\/summary>/);
+assert.ok(form.includes('id="j-referral-code"'),'Existing attribution field remains available');
+pageContext.growthAttributionCode=()=> 'ABCDE1';
+assert.match(pageContext.drawMerchantJoin(),/<details class="merchant-lead-options" open>/);
+assert.match(pageContext.drawMerchantJoin(),/value="ABCDE1"/);
+delete pageContext.growthAttributionCode;
 assert.ok(form.includes('<form class="card flat form-stack merchant-join-form"'));
 assert.ok(form.includes('onsubmit="event.preventDefault();joinMerchant()"'),'Enter must submit without reload');
 assert.ok(form.includes('type="submit"'),'submit button must be semantic');
