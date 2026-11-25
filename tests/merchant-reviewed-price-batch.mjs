@@ -151,3 +151,33 @@ const noAuth=writes.length;
 await context.run();
 assert.equal(writes.length,noAuth,'logout blocks batch');
 console.log('PASS: checked-only batch, draft conflicts, role scope, version re-check, partial failure and server confirmation.');
+
+
+// Even if an amount would round to the original price, the form was edited.
+rt.status='ready';rt.actionPending=false;
+rt.catalog=[item('P13',{range:true}),item('WATER20')];loadInputs();
+inputs['merchant-review-price-P13'].checked=true;
+const baseline=writes.length;
+for(const [field,value] of [['live-price-P13','120.001'],['live-stock-P13','5.0'],['live-min-price-P13','115.001'],['live-max-price-P13','1.35e2']]){
+ const previous=inputs[field].value;inputs[field].value=value;
+ await context.run();
+ assert.equal(writes.length,baseline,'malformed or overprecise form cannot be reconfirmed');
+ inputs[field].value=previous;
+}
+// A session switch during confirmation must never reuse the old selection.
+context.confirm=()=>{rt.accessEpoch++;rt.session={user:{id:'actor-C'}};return true;};
+await context.run();
+assert.equal(writes.length,baseline);
+context.confirm=()=>true;
+inputs['merchant-review-price-WATER20'].checked=true;
+context.merchantUpdateProductLive=async(code,price,stock,active)=>{
+ writes.push({code,price,stock,active});
+ const found=rt.catalog.find(p=>p.productCode===code);
+ found.priceConfirmedAt=new Date().toISOString();
+ found.updatedAt=new Date().toISOString();
+ found.maxPriceCents+=100;
+};
+await context.run();
+assert.equal(writes.length,baseline+1,'stop batch on changed range readback');
+assert.match(notifications.at(-1),/0 de 2 preço\(s\).*Confirmação sem leitura atualizada/);
+console.log('PASS: exact price input, confirmation scope and full price-range readback.');
