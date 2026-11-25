@@ -5068,7 +5068,7 @@ function merchantNewProductValues(code,prefix){
     toast('Revise preço e estoque. Informe zero explicitamente se estiver esgotado.');
     return null;
   }
-  return {cents,stock};
+  return {cents,stockCount:stock};
 }
 async function merchantLiveAddRegisteredProduct(){
   const code=String(document.getElementById('live-new-registry-product')?.value||'').trim().toUpperCase();
@@ -5082,7 +5082,7 @@ async function merchantLiveAddRegisteredProduct(){
   merchantCatalogSaving.add(code);
   if(button){button.disabled=true;button.textContent='Adicionando…';}
   try{
-    await merchantUpdateProductLive(code,values.cents,values.stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stockCount,true);
     toast(String(available.productName||code)+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
   finally{
@@ -5100,7 +5100,7 @@ async function merchantLiveAddGlp(){
   if(!values||merchantCatalogSaving.has(code))return;
   merchantCatalogSaving.add(code);
   try{
-    await merchantUpdateProductLive(code,values.cents,values.stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stockCount,true);
     toast('Gás P'+kg+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
   finally{merchantCatalogSaving.delete(code);}
@@ -5116,7 +5116,7 @@ async function merchantLiveAddContainer(){
   if(!values||merchantCatalogSaving.has(code))return;
   merchantCatalogSaving.add(code);
   try{
-    await merchantUpdateProductLive(code,values.cents,values.stock,true);
+    await merchantUpdateProductLive(code,values.cents,values.stockCount,true);
     toast('Vasilhame P'+kg+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
   finally{merchantCatalogSaving.delete(code);}
