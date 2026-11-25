@@ -1062,10 +1062,19 @@ if(globalThis.__CHAMA_TEST__){
    const url=new URL('./qr-generator.js',script?.src||new URL('./js/core.js',document.baseURI).href);
    if(script?.src)url.search=new URL(script.src).search;
    tag.src=url.href;tag.async=true;
-   tag.onload=()=>resolve(typeof globalThis.qrcode==='function');tag.onerror=()=>resolve(false);
-   document.head.appendChild(tag);
+   let settled=false,timer;
+   const finish=ok=>{
+    if(settled)return;
+    settled=true;clearTimeout(timer);
+    if(!ok)tag.remove?.();
+    resolve(ok);
+   };
+   tag.onload=()=>finish(typeof globalThis.qrcode==='function');
+   tag.onerror=()=>finish(false);
+   timer=setTimeout(()=>finish(false),15000);
+   try{document.head.appendChild(tag);}catch{finish(false);}
   }).then(ok=>{
-   failed=!ok;if(!ok)loading=null;
+   failed=!ok;loading=null;
    if(typeof globalThis.render==='function')globalThis.render();
    return ok;
   });
@@ -1091,12 +1100,18 @@ if(globalThis.__CHAMA_TEST__){
   }else if(!failed)load().catch(()=>{});
   if(!body&&/^data:image\/png;base64,[A-Za-z0-9+/=]{16,550000}$/.test(String(imageDataUri)))
    body='<img src="'+escape(imageDataUri)+'" alt="'+escape(label)+'" style="width:100%;height:auto">';
-  if(!body)return '<p role="status">'+(failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>';
+  if(!body)return '<p role="status">'+(loading?'Carregando QR Code Pix…':failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>'+
+   (failed&&!loading&&typeof globalThis.qrcode!=='function'?'<button type="button" class="secondary small" onclick="tamaoPixRetryEncoder()">Tentar carregar QR Code</button>':'');
   return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>';
  }
  globalThis.tamaoPixCodeValid=valid;
  globalThis.tamaoPixMarkup=markup;
  globalThis.tamaoPixLoadEncoder=load;
+ globalThis.tamaoPixRetryEncoder=()=>{
+  if(loading||typeof globalThis.qrcode==='function')return;
+  load().catch(()=>{});
+  globalThis.render?.();
+ };
  // Callers supply only their original authenticated status read. A watcher
  // cannot prepare an invoice, choose an amount or confirm funds itself.
  globalThis.tamaoPixWatch=(key,isActive,refresh)=>{
