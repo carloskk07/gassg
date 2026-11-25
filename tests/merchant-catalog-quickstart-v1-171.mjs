@@ -103,7 +103,23 @@ assert.equal(alerts.at(-1),'Preço fixo de P13 confirmado');
 fields['live-stock-P13'].value='100001';
 await saveCtx.saveCatalog('P13');
 assert.equal(calls,1,'Stock over backend maximum must be rejected');
+for(const bad of ['', ' ', '1.5', '1e2', '-1']){
+ fields['live-stock-P13'].value=bad;
+ await saveCtx.saveCatalog('P13');
+ assert.equal(calls,1,'stock must be explicit: '+bad);
+}
 fields['live-stock-P13'].value='7';
+for(const bad of ['', '0', '1.001', '1e2', '10000.01']){
+ fields['live-price-P13'].value=bad;
+ await saveCtx.saveCatalog('P13');
+ assert.equal(calls,1,'price must use exact cents: '+bad);
+}
+fields['live-price-P13'].value='120.00';
+const activeField=fields['live-active-P13'];
+delete fields['live-active-P13'];
+await saveCtx.saveCatalog('P13');
+assert.equal(calls,1,'missing activation field cannot pause a product');
+fields['live-active-P13']=activeField;
 fields['live-pricing-mode-P13'].value='range';
 fields['live-min-price-P13'].value='125';
 fields['live-max-price-P13'].value='130';
