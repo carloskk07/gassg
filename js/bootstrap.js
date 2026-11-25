@@ -249,6 +249,10 @@ function tamaoEnsurePublicExperienceStyles(page){
   document.head.appendChild(link);
 }
 // Editorial upgrades are optional: retain functional fallback and explicit recovery.
+const tamaoEditorialAssets=Object.freeze({
+ learn:Object.freeze({css:'./css/learn-premium.css',js:'./js/learn-premium.js'}),
+ earn:Object.freeze({css:'./css/earn-premium.css',js:'./js/earn-premium.js'})
+});
 const tamaoEditorialState={learn:{loading:false,failed:false},earn:{loading:false,failed:false}};
 function tamaoEditorialAllowed(page){
  return (page==='learn'||page==='earn')&&route()===page&&
@@ -271,12 +275,12 @@ function tamaoEditorialRequest(page,retry=false){
    const link=document.createElement('link');
    link.rel='stylesheet';
    link.setAttribute('data-tamao-'+page+'-premium','');
-   link.href='./css/'+page+'-premium.css'+version;
+   link.href=tamaoEditorialAssets[page].css+version;
    link.onerror=()=>link.remove();
    document.head.appendChild(link);
   }
   const script=document.createElement('script');
-  script.src='./js/'+page+'-premium.js'+version;
+  script.src=tamaoEditorialAssets[page].js+version;
   script.onload=()=>{state.loading=false;state.failed=false;redraw();};
   script.onerror=fail;
   tamaoAppendPublicRouteScript(script,()=>tamaoEditorialReady(page));
