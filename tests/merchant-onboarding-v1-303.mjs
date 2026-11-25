@@ -42,13 +42,14 @@ assert.equal(model.adminPending,1);
 assert.equal(model.needsAdminApproval,true);
 const page=ctx.view(rt,false);
 assert.match(page,/A liberação depende do TAMÃO/);
-assert.match(page,/1 de 3 configurados/);
+assert.match(page,/0 de 2 etapas concluídas/);
 assert.match(page,/merchantSetupGo\('products'\)/);
-assert.match(page,/merchantSetupGo\('delivery'\)/);
+assert.match(page,/Produtos e entregas/);
+assert.doesNotMatch(page,/merchantSetupGo\('delivery'\)/,'group presents only the next incomplete action');
 assert.match(page,/merchantSetupGo\('payment'\)/);
 assert.match(page,/merchantFirstRunReview\(\)/);
 assert.match(page,/<details class="merchant-first-run-extra">/,'other setup steps should be collapsed');
-assert.match(page,/<summary>Ver todas as etapas \(3\)<\/summary>/);
+assert.match(page,/<summary>Ver etapas de preparação \(2\)<\/summary>/);
 assert.ok(page.indexOf('merchant-first-run-actions')<page.indexOf('merchant-first-run-extra'),
   'show one direct next step before optional setup checklist');
 assert.doesNotMatch(page,/<details class="merchant-first-run-extra"[^>]*\sopen/);

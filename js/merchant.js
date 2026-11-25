@@ -1600,24 +1600,30 @@ function merchantSetupSnapshot(rt){
 function merchantSetupView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const steps=merchantSetupSnapshot(rt);
-  const done=steps.filter(item=>item.done).length;
+  const groups=[
+    {title:'Minha empresa',items:steps.filter(item=>item.key==='business')},
+    {title:'Produtos e entregas',items:steps.filter(item=>['products','delivery'].includes(item.key))},
+    {title:'Recebimentos',items:steps.filter(item=>item.key==='payment')}
+  ].filter(group=>group.items.length);
+  const done=groups.filter(group=>group.items.every(item=>item.done)).length;
   const next=steps.find(item=>!item.done)||null;
   return '<section class="merchant-essentials" aria-label="Preparação da revenda">'+
     '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
     '<h2>Prepare sua revenda para vender</h2>'+
     '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
-    '<span class="merchant-essentials-count">'+done+' de '+steps.length+' preenchidos</span></div>'+
+    '<span class="merchant-essentials-count">'+done+' de '+groups.length+' etapas concluídas</span></div>'+
     (next?'<div class="merchant-essentials-next"><strong>Seu próximo passo: '+esc(next.title)+'</strong>'+
       '<button type="button" class="primary" onclick="merchantSetupGo(\''+next.key+'\')">Continuar configuração</button></div>':
       '<p class="tiny muted">Informações básicas preenchidas. A habilitação para receber pedidos depende das verificações do TAMÃO.</p>')+
-    '<div class="merchant-essentials-grid">'+steps.map((item,i)=>
-      '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
-      '<div class="merchant-essentials-content"><strong>'+esc(item.title)+'</strong>'+
-      '<span>'+esc(item.detail)+'</span>'+
-      '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+item.key+'\')">'+
-      (item.done?'Revisar':'Configurar')+'</button></div>'+
-      '<span class="status-pill '+(item.done?'online':'offline')+'">'+(item.done?'Preenchido':'A revisar')+'</span></div>'
-    ).join('')+'</div>'+
+    '<div class="merchant-essentials-grid">'+groups.map((group,i)=>{
+      const complete=group.items.every(item=>item.done);
+      return '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
+        '<div class="merchant-essentials-content"><strong>'+esc(group.title)+'</strong>'+
+        group.items.map(item=>'<span>'+esc(item.detail)+'</span>'+
+          '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+item.key+'\')">'+
+          (item.done?'Revisar ':'Configurar ')+esc(item.key==='business'?'empresa':item.key==='products'?'produtos':item.key==='delivery'?'entregas':'pagamentos')+'</button>').join('')+
+        '</div><span class="status-pill '+(complete?'online':'offline')+'">'+(complete?'Concluída':'A revisar')+'</span></div>';
+    }).join('')+'</div>'+
     '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente: aprovação, catálogo e cidade ainda exigem validação do TAMÃO.</p>'+
   '</section>';
 }
@@ -1796,7 +1802,7 @@ function merchantEnablementFocus(key){
     delivery_area:'#live-citywide',
     delivery_fee:'#live-delivery-fee',
     payment_method:'#live-payment-pix',
-    payment_route:'.merchant-psp-grid',
+    payment_route:'#live-payment-pix',
     online:'#merchant-online-toggle',
     heartbeat:'#merchant-online-toggle'
   };
@@ -1854,28 +1860,27 @@ function merchantEnablementAssistantView(rt){
   return '<section class="section" id="merchant-enablement">'+
     '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
       '<h2 tabindex="-1">Deixar minha revenda pronta para vender</h2>'+
-      '<p>Confira o que ainda falta para sua empresa aparecer nas consultas. Algumas etapas dependem da análise do TAMÃO.</p></div>'+
+      '<p>Cuide apenas da preparação da sua revenda. As verificações técnicas e administrativas são feitas pelo TAMÃO.</p></div>'+
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
     '<div class="card flat">'+
       '<div class="status-bar"><strong>'+esc(state)+'</strong><span class="status-pill '+(ready?'online':'offline')+'">'+
-        (confirmed?missing.length+' pendência(s)':'Aguardando confirmação')+'</span></div>'+
+        (confirmed?(ready?'Tudo conferido':'Há etapas a concluir'):'Aguardando confirmação')+'</span></div>'+
       (Number.isFinite(checkedMs)&&checkedMs<=now?'<small>Última consulta '+esc(formatDateTime(timestamp))+
         (!fresh?' • dados antigos; revalide para confirmar':' • condições podem mudar')+'</small>':'')+
       (diagnostic&&!confirmed?'<p class="tiny muted" role="status">A consulta atual não confirma a prontidão. Revalide antes de confiar nos indicadores abaixo, que são apenas o último retorno disponível.</p>':'')+
       (rt.enablementError?'<div class="notice danger" style="margin-top:10px">Não foi possível verificar os requisitos: '+esc(rt.enablementError)+'</div>':'')+
       (!diagnostic?'<p class="muted tiny">'+(rt.enablementLoading?'Consultando as condições atuais…':'Use Revalidar para consultar a situação da revenda.')+'</p>':
-       '<div class="merchant-kpis" style="margin-top:12px">'+
-        '<div class="kpi"><span class="label">Da revenda</span><strong>'+merchantIssues.length+'</strong></div>'+
-        '<div class="kpi"><span class="label">Outras verificações</span><strong>'+otherIssues.length+'</strong></div>'+
-        '<div class="kpi"><span class="label">Atendidas</span><strong>'+fine.length+'/'+checks.length+'</strong></div>'+
-       '</div>'+
+       '<div class="notice" style="margin-top:12px"><strong>'+
+        (merchantIssues.length?'Prepare sua operação':ready?'Operação conferida':'Aguarde a conferência do TAMÃO')+
+        '</strong><p class="tiny muted">Produtos, entregas e recebimentos são as informações operacionais. A conexão e a autorização final são verificadas pelo sistema.</p></div>'+
        (lead?'<p class="tiny" style="margin-top:10px"><strong>'+ (confirmed?'Primeira ação:':'Última orientação:') +'</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
         ready?'<p class="tiny" style="margin-top:10px">Não encontramos pendências agora. Sua revenda só aparece para os clientes quando houver produtos e entrega disponíveis para o endereço consultado.</p>':
         '<p class="tiny" style="margin-top:10px">Não é possível confirmar que todos os requisitos foram atendidos. Revalide a consulta.</p>')+
+       '<details style="margin-top:12px"><summary>Ver verificações técnicas e administrativas</summary>'+
        (merchantIssues.length?'<h3 style="margin-top:14px">O que sua revenda pode resolver</h3><div class="list">'+merchantIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        (otherIssues.length?'<h3 style="margin-top:14px">Validações e condições adicionais</h3><div class="list">'+otherIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
-       '<details style="margin-top:12px"><summary>Ver '+fine.length+' requisitos já atendidos</summary><div class="list">'+fine.map(merchantEnablementCheckView).join('')+'</div></details>')+
+       '<h3 style="margin-top:14px">Requisitos já atendidos</h3><div class="list">'+fine.map(merchantEnablementCheckView).join('')+'</div></details>')+
       '<div class="tiny muted" style="margin-top:12px">Esta consulta mostra o que falta. A aprovação dos documentos e a liberação das vendas são feitas separadamente.</div>'+
     '</div></section>';
 }
@@ -2449,11 +2454,21 @@ function merchantFirstRunView(rt,canGoOnline){
       :model.next
         ?'Revise os dados da empresa para que ela possa ser encontrada pelos clientes elegíveis.'
         :'Os dados básicos estão preenchidos, mas ainda existem verificações necessárias para operar.';
-  const rows=model.steps.map((step,i)=>'<li class="'+(step.done?'is-done':'is-pending')+'">'+
-    '<span aria-hidden="true">'+(step.done?'✓':String(i+1))+'</span>'+
-    '<div><strong>'+esc(step.title)+'</strong><small>'+esc(step.detail)+'</small></div>'+
-    '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+step.key+'\')">'+
-      (step.done?'Revisar':'Configurar')+'</button></li>').join('');
+  const groups=[
+    {title:'Minha empresa',items:model.steps.filter(step=>step.key==='business')},
+    {title:'Produtos e entregas',items:model.steps.filter(step=>['products','delivery'].includes(step.key))},
+    {title:'Recebimentos',items:model.steps.filter(step=>step.key==='payment')}
+  ].filter(group=>group.items.length);
+  const completed=groups.filter(group=>group.items.every(step=>step.done)).length;
+  const rows=groups.map((group,i)=>{
+    const done=group.items.every(step=>step.done);
+    const next=group.items.find(step=>!step.done)||group.items[0];
+    return '<li class="'+(done?'is-done':'is-pending')+'">'+
+      '<span aria-hidden="true">'+(done?'✓':String(i+1))+'</span>'+
+      '<div><strong>'+esc(group.title)+'</strong><small>'+esc(next.detail)+'</small></div>'+
+      '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+next.key+'\')">'+
+        (done?'Revisar':'Configurar')+'</button></li>';
+  }).join('');
   const cta=model.financialHold?
     '<button type="button" class="primary" onclick="merchantWorkspaceJump(\'finance\')">Conferir situação financeira →</button>':
     model.next?
@@ -2462,9 +2477,9 @@ function merchantFirstRunView(rt,canGoOnline){
   return '<section id="merchant-first-run" class="merchant-first-run" aria-label="Guia para começar a vender">'+
     '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
     '<h2>'+esc(title)+'</h2><p>'+esc(lead)+'</p></div>'+
-    '<span class="merchant-first-run-count">'+model.completed+' de '+model.steps.length+' configurados</span></div>'+
+    '<span class="merchant-first-run-count">'+completed+' de '+groups.length+' etapas concluídas</span></div>'+
     '<div class="merchant-first-run-actions">'+cta+'</div>'+
-    '<details class="merchant-first-run-extra"><summary>Ver todas as etapas ('+model.steps.length+')</summary>'+
+    '<details class="merchant-first-run-extra"><summary>Ver etapas de preparação ('+groups.length+')</summary>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<button type="button" class="secondary small" onclick="merchantFirstRunReview()">Ver todas as verificações</button></details>'+
     '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações, módulos estratégicos e autorizações financeiras exigem validação do TAMÃO.</p>'+

@@ -135,6 +135,8 @@ const pending=sandbox.draw({...complete,enablement:{...complete.enablement,ready
  x.key==='quote_authority'?{...x,ok:false}:x)}});
 assert.match(pending,/Configurações pendentes/);
 assert.match(pending,/Confirme preço e estoque/);
-assert.match(pending,/2 pendência\(s\)/);
+assert.match(pending,/Há etapas a concluir/);
+assert.match(pending,/<details[^>]*><summary>Ver verificações técnicas e administrativas/);
+assert.doesNotMatch(pending,/2 pendência\(s\)/);
 assert.doesNotMatch(pending,/Apta naquele momento|Não encontramos pendências agora/);
 console.log('PASS: readiness requires current complete canonical evidence, rejects stale, missing, contradictory and failed checks.');
