@@ -4716,8 +4716,9 @@ function adminPilotPartnerCard(p){
     ${application?`<div class="order-line"><strong>Cadastro do parceiro:</strong> ${esc(String(application.status||'—').toUpperCase())} • atualizado ${esc(formatDateTime(application.updatedAt))}</div>`:''}
     ${adminPilotInviteControls(p,id)}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
-    ${convertible?`<div class="divider"></div>
-      <div class="notice"><strong>Concluir cadastro e criar revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>. A conversão só é liberada quando o convite estiver ligado à conta permanente do parceiro.</div>
+    ${convertible&&!readyToConvert?'<p class="tiny muted">Não é necessário preencher dados do parceiro agora. Primeiro vincule a conta pelo convite; o próprio responsável informa os dados básicos.</p>':''}
+    ${readyToConvert?`<div class="divider"></div>
+      <div class="notice"><strong>Concluir cadastro e criar revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Confirme apenas os dados e condições reais que faltarem. Compliance permanece <strong>pendente</strong>; a autorização de vendas é separada.</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" value="${esc(prefill.legal)}" placeholder="Razão social real"></div>
         <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" value="${esc(prefill.cnpj)}" placeholder="CNPJ real"></div>

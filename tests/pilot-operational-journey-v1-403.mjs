@@ -89,3 +89,21 @@ assert.equal(performCalls.length,2,'Cancelled pilot must never submit');
 assert.equal(confirmCalls,2,'Only allowed conversions reach confirmation');
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/pilot-operational-journey-v1-403.mjs'));
 console.log('V1.403: geography, claim preflight, pending/offline behavior and blocked replays passed.');
+
+const cardStart=admin.indexOf('function adminPilotPartnerCard(p){');
+const cardEnd=admin.indexOf('/* V1.196',cardStart);
+assert.ok(cardStart>=0&&cardEnd>cardStart);
+const card=vm.runInNewContext(admin.slice(cardStart,cardEnd)+';adminPilotPartnerCard',{
+  esc:v=>String(v??''),adminMoney:v=>String(v),adminPilotNextActionCopy:()=> 'Próxima etapa',
+  adminPilotInviteControls:()=> '<button>Convite</button>',formatDateTime:()=> 'hoje'
+});
+const draft={id:'fixture',display_name:'Parceiro',proposed_product_code:'P13',onboarding_status:'awaiting_legal_data',onboarding:{ownerClaimed:false}};
+const waiting=card(draft);
+assert.match(waiting,/Não é necessário preencher dados do parceiro agora/);
+assert.doesNotMatch(waiting,/id="pilot-fixture-legal"|Converter em revenda pendente/);
+assert.match(waiting,/>Convite</);
+draft.onboarding={ownerClaimed:true,application:{status:'pending'}};
+assert.match(card(draft),/id="pilot-fixture-legal"/);
+assert.match(card(draft),/Converter em revenda pendente/);
+draft.onboarding.application.status='rejected';
+assert.doesNotMatch(card(draft),/id="pilot-fixture-legal"/);
