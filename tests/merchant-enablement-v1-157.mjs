@@ -155,7 +155,9 @@ const guided={
  merchantRevealControl:selector=>{guideCalls.push('reveal:'+selector);return true;},
  toast:message=>guideCalls.push('toast:'+message)
 };
-vm.runInNewContext(cut(merchantPortal,'merchantSetupSnapshot')+
+const profileFields=merchantPortal.match(/const merchantBusinessProfileFields=\[[\s\S]*?\];/);
+assert.ok(profileFields);
+vm.runInNewContext(profileFields[0]+'\n'+cut(merchantPortal,'merchantBusinessInvalidField')+'\n'+cut(merchantPortal,'merchantSetupSnapshot')+
  '\n'+cut(merchantPortal,'merchantSetupView')+
  '\n'+cut(merchantPortal,'merchantSetupGo')+
  '\n'+cut(merchantPortal,'merchantFirstRunModel')+
@@ -171,13 +173,15 @@ assert.equal(firstSteps[0].done,false);
 const freshGuide=guided.first(incomplete,false);
 assert.ok(freshGuide.includes('0 de 3 etapas concluídas'));
 assert.ok(freshGuide.includes("merchantSetupGo('business')"));
-assert.ok(freshGuide.includes('Informe o endereço e os dados reais'));
+assert.ok(freshGuide.includes('Informe os dados reais da empresa'));
 assert.equal((freshGuide.match(/merchantBusinessProfileFocus/g)||[]).length,0,
  'do not duplicate the profile CTA outside the canonical setup step');
 assert.ok(guided.setup(incomplete).includes('0 de 3 etapas concluídas'));
 guided.goto('business');
 assert.deepEqual(guideCalls,['business'],'address CTA reuses the existing protected owner form');
 const declared={...incomplete,merchant:{...incomplete.merchant,businessDetails:{
+ legalName:'Empresa Exemplo Ltda',tradeName:'Revenda Exemplo',responsibleName:'Responsável Exemplo',
+ phone:'55999998888',whatsapp:'55999998888',
  city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua informada pelo proprietário'
 }}};
 const declaredSteps=guided.snapshot(declared);
