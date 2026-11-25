@@ -2808,8 +2808,8 @@ function merchantLivePage(){
         <div class="input-wrap"><label for="live-eta-shortcut">Prazo estimado pronto</label><select id="live-eta-shortcut" class="input" onchange="merchantSettingQuickChoice(this,'live-eta')"><option value="">Escolha o prazo</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option></select></div>
       </div>
       <small class="field-help">Escolher um atalho só preenche o campo: confira e salve a logística.</small>
-      <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
-      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende minha cidade</strong><small>Usado no filtro de ofertas da cidade cadastrada.</small></span></label>
+      <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.01" class="input" value="${Number.isSafeInteger(m.deliveryFeeCents)&&m.deliveryFeeCents>=0&&m.deliveryFeeCents<=100000?(m.deliveryFeeCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" step="1" class="input" value="${Number.isInteger(m.baseEtaMinutes)&&m.baseEtaMinutes>=5&&m.baseEtaMinutes<=180?m.baseEtaMinutes:''}"></div></div>
+      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide===true?'checked':''}><span><strong>Atende minha cidade</strong><small>Usado no filtro de ofertas da cidade cadastrada.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
       <div class="divider"></div>
       <details class="merchant-settings-advanced"><summary>Capacidade de atendimento</summary><div class="form-stack"><h3>Capacidade simultânea</h3>
@@ -4187,8 +4187,9 @@ async function merchantLiveReconfirmDelivery(){
   const etaField=document.getElementById('live-eta');
   const cityField=document.getElementById('live-citywide');
   if(!feeField||!etaField||!cityField||
-     Math.round(Number(feeField.value)*100)!==fee||
-     Number(etaField.value)!==eta||cityField.checked!==true){
+     !/^\d{1,4}(?:[.,]\d{1,2})?$/.test(String(feeField.value??'').trim())||
+     Math.round(Number(String(feeField.value).replace(',','.'))*100)!==fee||
+     !/^\d{1,3}$/.test(String(etaField.value??'').trim())||Number(etaField.value)!==eta||cityField.checked!==true){
     toast('Há alterações de entrega ainda não salvas. Use Salvar logística antes de confirmar.');
     return false;
   }
@@ -4228,11 +4229,25 @@ function merchantSettingQuickChoice(select,fieldId){
   if(select)select.value='';
 }
 async function merchantLiveSaveLogistics(){
-  const fee=Number(document.querySelector('#live-delivery-fee')?.value);
-  const eta=Number(document.querySelector('#live-eta')?.value);
-  const citywide=document.querySelector('#live-citywide')?.checked===true;
-  if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
-  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar a cobertura da cidade.')}catch(e){toast(String(e?.message||e))}
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
+  const feeField=document.querySelector('#live-delivery-fee');
+  const etaField=document.querySelector('#live-eta');
+  const cityField=document.querySelector('#live-citywide');
+  const feeText=String(feeField?.value??'').trim(),etaText=String(etaField?.value??'').trim();
+  // Empty, malformed or overprecision amounts must never silently become free delivery.
+  if(!/^\d{1,4}(?:[.,]\d{1,2})?$/.test(feeText))
+    return toast('Informe a taxa de entrega em reais, com até duas casas decimais. Para entrega gratuita, informe 0.');
+  const feeCents=Math.round(Number(feeText.replace(',','.'))*100);
+  if(!Number.isSafeInteger(feeCents)||feeCents<0||feeCents>100000)
+    return toast('Informe uma taxa de entrega entre R$ 0,00 e R$ 1.000,00.');
+  const eta=Number(etaText);
+  if(!/^\d{1,3}$/.test(etaText)||!Number.isInteger(eta)||eta<5||eta>180)
+    return toast('Informe o prazo estimado de entrega, de 5 a 180 minutos.');
+  if(typeof cityField?.checked!=='boolean')return toast('Não foi possível conferir a área de atendimento. Atualize o painel.');
+  const citywide=cityField.checked;
+  try{await merchantUpdateLogisticsLive(feeCents,eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar a cobertura da cidade.');return true}catch(e){toast(String(e?.message||e));return false}
 }
 async function merchantLiveSaveCapacity(){
   const capacity=Number(document.querySelector('#live-capacity')?.value);
