@@ -168,9 +168,23 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         return r.result?.value;
       };
       const waitIsolated=async(expression,label,limit=48000)=>{
-        const until=Date.now()+limit;
+        const started=Date.now();
+        let until=started+limit;
+        // The exhaustive read-only screen matrix can use the real 120/min Admin quota.
+        // Only when an actual 429 was observed and the authenticated Admin is
+        // unavailable, allow its normal 60s recovery poll to restore the exact order.
+        // No mock response, quota reset, extra request, or financial replay.
+        let allowedQuotaRecovery=false;
         while(Date.now()<until){
-          try{if(await evaluateIsolated(expression))return}catch{}
+          try{
+            if(await evaluateIsolated(expression))return;
+            if(!allowedQuotaRecovery&&/Admin sees (new UI order|merchant dispatch|driver delivery final status)/i.test(label)&&
+              adminReadStatuses.slice(-15).includes(429)&&await evaluateIsolated("typeof adminRuntime!=='undefined'&&adminRuntime.status==='unavailable'&&Boolean(adminRuntime.session?.user?.id)")){
+              allowedQuotaRecovery=true;
+              until=Math.max(until,started+135000);
+              console.log('Admin order proof: observed real 429; allowing bounded automatic recovery without resetting quota.');
+            }
+          }catch{}
           await sleep(250);
         }
         const diag=await evaluateIsolated("JSON.stringify({text:document.body.innerText.slice(0,180),status:typeof merchantRuntime==='undefined'?null:merchantRuntime.status,customer:typeof liveRuntime==='undefined'?null:liveRuntime.status,admin:typeof adminRuntime==='undefined'?null:adminRuntime.status,adminError:typeof adminRuntime==='undefined'?null:String(adminRuntime.error||'').slice(0,300)})").catch(e=>String(e));
