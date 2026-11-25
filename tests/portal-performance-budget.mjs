@@ -33,8 +33,8 @@ try{
   for(const item of report.portals){
     assert.ok(item.js.requests<=limits[item.role].initialJsRequests,
       item.role+' must not exceed the startup request budget');
-    if(item.role==='admin')assert.equal(item.js.requests,limits.admin.initialJsRequests-6,
-      'Admin excludes merchant and six public-only modules while including its protected QA center');
+    if(item.role==='admin')assert.equal(item.js.requests,limits.admin.initialJsRequests-7,
+      'Admin excludes the protected QA center from eager startup as well as public-only modules');
     assert.equal(item.css.requests,limits[item.role].initialCssRequests);
     assert.ok(item.js.gzipBytes<item.js.rawBytes);
     assert.ok(item.js.brotliBytes<item.js.rawBytes);
