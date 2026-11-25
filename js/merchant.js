@@ -1819,13 +1819,26 @@ function merchantEnablementAssistantView(rt){
   const merchantIssues=missing.filter(item=>item?.owner==='merchant'&&item.key!=='quote_authority');
   const otherIssues=missing.filter(item=>item?.owner!=='merchant');
   const fine=checks.filter(item=>item?.ok===true);
-  const ready=diagnostic?.ready===true&&missing.length===0;
   const timestamp=String(diagnostic?.checked_at||'');
-  const checkedMs=Date.parse(timestamp);
-  const outdated=Number.isFinite(checkedMs)&&Date.now()-checkedMs>3*60*1000;
+  const checkedMs=Date.parse(timestamp),now=Date.now();
+  const fresh=Number.isFinite(checkedMs)&&checkedMs<=now&&now-checkedMs<=3*60*1000;
+  // A partial list, stale cache or failed recheck cannot certify availability.
+  const required=['merchant_status','cnpj','representation','product_authority','operation_mode',
+    'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+    'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+  const keys=new Set(checks.map(item=>item?.key));
+  const authority=checks.find(item=>item?.key==='quote_authority');
+  const coherent=keys.size===checks.length&&required.every(key=>keys.has(key))&&
+    checks.every(item=>typeof item?.ok==='boolean')&&
+    typeof diagnostic?.ready==='boolean'&&diagnostic.ready===authority?.ok&&
+    (!diagnostic.ready||missing.length===0);
+  const confirmed=Boolean(diagnostic&&fresh&&coherent&&!rt.enablementError&&!rt.enablementLoading);
+  const ready=confirmed&&diagnostic.ready===true&&missing.length===0;
   const lead=merchantIssues[0]||otherIssues[0]||null;
-  const state=ready?'Apta naquele momento':
-    !diagnostic?rt.enablementLoading?'Verificando requisitos':'Verificação ainda não concluída':
+  const state=rt.enablementLoading?'Verificando requisitos':
+    !diagnostic?'Verificação ainda não concluída':
+    !confirmed?'Prontidão não confirmada':
+    ready?'Apta naquele momento':
     merchantIssues.length?'Configurações pendentes':'Aguardando validações';
   return '<section class="section" id="merchant-enablement">'+
     '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
@@ -1834,10 +1847,11 @@ function merchantEnablementAssistantView(rt){
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
     '<div class="card flat">'+
-      '<div class="status-bar"><strong>'+esc(state)+'</strong><span class="status-pill '+(ready&&!outdated?'online':'offline')+'">'+
-        (diagnostic?missing.length+' pendência(s)':'Aguardando consulta')+'</span></div>'+
-      (timestamp?'<small>Verificado '+esc(formatDateTime(timestamp))+
-        (outdated?' • dados antigos; revalide para confirmar':' • condições podem mudar')+'</small>':'')+
+      '<div class="status-bar"><strong>'+esc(state)+'</strong><span class="status-pill '+(ready?'online':'offline')+'">'+
+        (confirmed?missing.length+' pendência(s)':'Aguardando confirmação')+'</span></div>'+
+      (Number.isFinite(checkedMs)&&checkedMs<=now?'<small>Última consulta '+esc(formatDateTime(timestamp))+
+        (!fresh?' • dados antigos; revalide para confirmar':' • condições podem mudar')+'</small>':'')+
+      (diagnostic&&!confirmed?'<p class="tiny muted" role="status">A consulta atual não confirma a prontidão. Revalide antes de confiar nos indicadores abaixo, que são apenas o último retorno disponível.</p>':'')+
       (rt.enablementError?'<div class="notice danger" style="margin-top:10px">Não foi possível verificar os requisitos: '+esc(rt.enablementError)+'</div>':'')+
       (!diagnostic?'<p class="muted tiny">'+(rt.enablementLoading?'Consultando as condições atuais…':'Use Revalidar para consultar a situação da revenda.')+'</p>':
        '<div class="merchant-kpis" style="margin-top:12px">'+
@@ -1845,8 +1859,9 @@ function merchantEnablementAssistantView(rt){
         '<div class="kpi"><span class="label">Outras verificações</span><strong>'+otherIssues.length+'</strong></div>'+
         '<div class="kpi"><span class="label">Atendidas</span><strong>'+fine.length+'/'+checks.length+'</strong></div>'+
        '</div>'+
-       (lead?'<p class="tiny" style="margin-top:10px"><strong>Primeira ação:</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
-        '<p class="tiny" style="margin-top:10px">Não encontramos pendências agora. Sua revenda só aparece para os clientes quando houver produtos e entrega disponíveis para o endereço consultado.</p>')+
+       (lead?'<p class="tiny" style="margin-top:10px"><strong>'+ (confirmed?'Primeira ação:':'Última orientação:') +'</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
+        ready?'<p class="tiny" style="margin-top:10px">Não encontramos pendências agora. Sua revenda só aparece para os clientes quando houver produtos e entrega disponíveis para o endereço consultado.</p>':
+        '<p class="tiny" style="margin-top:10px">Não é possível confirmar que todos os requisitos foram atendidos. Revalide a consulta.</p>')+
        (merchantIssues.length?'<h3 style="margin-top:14px">O que sua revenda pode resolver</h3><div class="list">'+merchantIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        (otherIssues.length?'<h3 style="margin-top:14px">Validações e condições adicionais</h3><div class="list">'+otherIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        '<details style="margin-top:12px"><summary>Ver '+fine.length+' requisitos já atendidos</summary><div class="list">'+fine.map(merchantEnablementCheckView).join('')+'</div></details>')+
