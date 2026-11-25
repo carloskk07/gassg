@@ -18,14 +18,16 @@ function assetsFromHtml(html){
     .map(x=>getAttribute(x[0],'href')).filter(x=>x?.startsWith('./css/'));
   return {js,css};
 }
-export function measurePortalBundle(dir,{limits,strict=true}={}){
+export function measurePortalBundle(dir,{limits,strict=true,warningUtilization=0.85}={}){
+  if(!Number.isFinite(warningUtilization)||warningUtilization<=0||warningUtilization>=1)
+    throw new Error('Invalid performance warning threshold');
   const meta=JSON.parse(fs.readFileSync(path.join(dir,'portal-build.json'),'utf8'));
   const role=String(meta.portalRole||''),sha=String(meta.sourceSha||'');
   if(!ROLES.includes(role)||!/^[A-Za-z0-9._-]{1,120}$/.test(sha))
     throw new Error('Invalid portal or source SHA');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
-  const source=assetsFromHtml(html),violations=[];
+  const source=assetsFromHtml(html),violations=[],warnings=[];
   const out={role,sourceSha:sha,
     js:{requests:source.js.length,rawBytes:0,gzipBytes:0,brotliBytes:0},
     css:{requests:source.css.length,rawBytes:0,gzipBytes:0,brotliBytes:0},
@@ -60,32 +62,45 @@ export function measurePortalBundle(dir,{limits,strict=true}={}){
     violations.push('Customer contains merchant operations');
   if(role!=='admin'&&['admin.js','admin-acquisition.js'].some(name=>
     fs.existsSync(path.join(dir,'js',name))))violations.push(role+' contains admin code');
+  out.transfer={gzipBytes:out.js.gzipBytes+out.css.gzipBytes,
+    brotliBytes:out.js.brotliBytes+out.css.brotliBytes};
+  out.budgetUtilization={};
   const budget=limits?.[role];
   if(!budget)violations.push('Missing '+role+' performance budget');
   else{
     for(const [key,value] of [
       ['initialJsBytes',out.js.rawBytes],['initialCssBytes',out.css.rawBytes],
-      ['initialJsRequests',out.js.requests],['initialCssRequests',out.css.requests]
+      ['initialJsRequests',out.js.requests],['initialCssRequests',out.css.requests],
+      ['initialJsGzipBytes',out.js.gzipBytes],['initialJsBrotliBytes',out.js.brotliBytes],
+      ['initialTransferGzipBytes',out.transfer.gzipBytes],
+      ['initialTransferBrotliBytes',out.transfer.brotliBytes]
     ]){
       if(!Number.isSafeInteger(budget[key])||budget[key]<1)
         violations.push(role+' invalid budget '+key);
-      else if(value>budget[key])
-        violations.push(role+' '+key+' exceeded: '+value+' > '+budget[key]);
+      else{
+        out.budgetUtilization[key]={measured:value,limit:budget[key],remaining:budget[key]-value,
+          ratio:value/budget[key]};
+        if(value>budget[key])violations.push(role+' '+key+' exceeded: '+value+' > '+budget[key]);
+        else if(key.endsWith('Bytes')&&value/budget[key]>=warningUtilization)
+          warnings.push(role+' '+key+' at '+Math.round(value/budget[key]*100)+'% of budget; review startup growth');
+      }
     }
   }
   if(strict&&violations.length)throw new Error('TAMÃO performance gate: '+violations.join('; '));
-  return {metrics:out,violations};
+  return {metrics:out,violations,warnings};
 }
 export function readBudgets(){
   const data=JSON.parse(fs.readFileSync(path.join(ROOT,'performance','portal-budgets.json'),'utf8'));
-  if(data.schemaVersion!==1||ROLES.some(role=>!data.limits?.[role]))
+  if(data.schemaVersion!==1||ROLES.some(role=>!data.limits?.[role])||
+     !Number.isFinite(data.warningUtilization)||data.warningUtilization<=0||data.warningUtilization>=1)
     throw new Error('Invalid performance budget configuration');
   return data;
 }
-export function auditPortalBudgets(root,{limits=readBudgets().limits,strict=true}={}){
-  const rows=ROLES.map(role=>measurePortalBundle(path.join(root,role),{limits,strict}));
-  return {schemaVersion:1,portals:rows.map(r=>r.metrics),
-    violations:rows.flatMap(r=>r.violations)};
+export function auditPortalBudgets(root,{limits=readBudgets().limits,strict=true,
+  warningUtilization=readBudgets().warningUtilization}={}){
+  const rows=ROLES.map(role=>measurePortalBundle(path.join(root,role),{limits,strict,warningUtilization}));
+  return {schemaVersion:1,warningUtilization,portals:rows.map(r=>r.metrics),
+    violations:rows.flatMap(r=>r.violations),warnings:rows.flatMap(r=>r.warnings)};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const root=path.resolve(process.argv[2]||path.join(ROOT,'dist','live-portals'));
@@ -98,5 +113,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
       js.gzipBytes+'B gzip / '+js.brotliBytes+'B brotli; CSS '+css.requests+
       ' files / '+css.rawBytes+'B raw / '+css.gzipBytes+'B gzip; deferred admin '+
       deferredAdminBytes+'B');
+  for(const {role,transfer} of result.portals)
+    console.log(role+': estimated initial JS+CSS transfer '+transfer.gzipBytes+'B gzip / '+transfer.brotliBytes+'B brotli');
+  for(const warning of result.warnings)console.warn('PERFORMANCE REVIEW: '+warning);
   console.log('Portal performance gates PASS; '+target);
 }
