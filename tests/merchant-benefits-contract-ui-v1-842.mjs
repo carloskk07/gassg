@@ -98,7 +98,11 @@ const receiptEnd=merchant.indexOf('function merchantLiveOrder(o){',receiptStart)
 assert.ok(loaderStart>=0&&loaderEnd>loaderStart&&receiptStart>=0&&receiptEnd>receiptStart);
 const scripts=[];
 let redraws=0;
+let timerSequence=0;
+const timers=new Map();
 const loaderCtx=vm.createContext({URL,location:{href:'https://parceiro.tamao.com.br/'},
+ setTimeout:(fn,ms)=>{assert.equal(ms,20000);const id=++timerSequence;timers.set(id,fn);return id;},
+ clearTimeout:id=>timers.delete(id),
  document:{querySelector:()=>({src:'https://parceiro.tamao.com.br/js/merchant.js?v=release-123'}),
  createElement:()=>({remove(){this.removed=true;}}),head:{append:s=>scripts.push(s)}},
  render:()=>redraws++});
@@ -134,4 +138,36 @@ assert.match(loaderCtx.merchantOrderBenefitDisclosure({cashbackReservedCents:100
 loaderCtx.merchantRetryBenefitModule('../other');
 assert.equal(scripts.length,5,'unknown asset must never load');
 assert.ok(redraws>=5);
-console.log('PASS: versioned deferred benefits, explicit recovery, duplicate prevention and valid export check.');
+assert.equal(timers.size,0,'all settled attempts must clear their timeout');
+// Simulate a stalled download and a late callback after an explicit retry.
+delete loaderCtx.merchantBenefitsContractRender;
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Carregando/);
+assert.equal(scripts.length,6);
+assert.equal(timers.size,1);
+const oldScript=scripts[5];
+const timeout=[...timers.values()][0];
+timeout();
+assert.equal(oldScript.removed,true);
+assert.equal(timers.size,0);
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Tentar novamente/);
+assert.equal(scripts.length,6,'timeout must not trigger automatic retry');
+loaderCtx.merchantRetryBenefitModule('contract');
+assert.equal(scripts.length,7);
+const beforeLate=redraws;
+oldScript.onerror();
+oldScript.onload();
+assert.equal(redraws,beforeLate,'late callbacks cannot redraw or settle newer attempt');
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Carregando/);
+assert.equal(timers.size,1);
+loaderCtx.merchantBenefitsContractRender=()=>'<div>Contrato recuperado</div>';
+scripts[6].onload();
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Contrato recuperado/);
+assert.equal(timers.size,0);
+// A synchronous insertion error also clears the timer without recursive render.
+delete loaderCtx.merchantBenefitsContractRender;
+loaderCtx.document.head.append=()=>{throw new Error('blocked insertion');};
+const beforeInsertion=redraws;
+assert.match(loaderCtx.merchantBenefitsContractSection(own),/Tentar novamente/);
+assert.equal(timers.size,0);
+assert.equal(redraws,beforeInsertion);
+console.log('PASS: versioned deferred benefits, explicit recovery, timeout, stale callbacks and valid export check.');
