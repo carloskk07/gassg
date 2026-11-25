@@ -581,3 +581,39 @@ for(const [page,request,retry,loading,exportName,asset] of [
  ctx[request]();assert.equal(scripts.length,3,'successful export is reused');
 }
 console.log('PASS: bounded public route downloads, exact asset version, stale callback isolation and retry recovery.');
+
+// Editorial fallback must stay usable after a failed optional download.
+const editorialFrom=routeBoot.indexOf('// Editorial upgrades are optional');
+const editorialTo=routeBoot.indexOf('let renderLock=false;',editorialFrom);
+const scriptHelperFrom=routeBoot.indexOf('function tamaoAppendPublicRouteScript(');
+const scriptHelperTo=routeBoot.indexOf('// V1.971',scriptHelperFrom);
+assert.ok(editorialFrom>0&&editorialTo>editorialFrom&&scriptHelperTo>scriptHelperFrom);
+for(const page of ['learn','earn']){
+ let active=page,admin=true,partner=false,seq=0,paints=0;
+ const tags=[],links=[],queued=[],timers=new Map();
+ const ctx=vm.createContext({route:()=>active,adminPortalRequested:()=>admin,merchantPortalRequested:()=>partner,
+  render:()=>paints++,queueMicrotask:fn=>queued.push(fn),
+  setTimeout:(fn,ms)=>{assert.equal(ms,20000);timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id),
+  document:{querySelector:s=>s.startsWith('script')?{src:'https://tamao.com.br/js/bootstrap.js?v=test-sha'}:links.find(x=>!x.removed)||null,
+    createElement:type=>({type,setAttribute(){},remove(){this.removed=true}}),
+    head:{appendChild:t=>(t.type==='link'?links:tags).push(t)}}});
+ vm.runInContext(routeBoot.slice(scriptHelperFrom,scriptHelperTo)+routeBoot.slice(editorialFrom,editorialTo),ctx);
+ ctx.tamaoEditorialRequest(page);assert.equal(tags.length,0);
+ admin=false;partner=true;ctx.tamaoEditorialRequest(page);assert.equal(tags.length,0);
+ partner=false;ctx.tamaoEditorialRequest(page);ctx.tamaoEditorialRequest(page);
+ assert.equal(tags.length,1);assert.equal(tags[0].src,'./js/'+page+'-premium.js?v=test-sha');
+ assert.equal(links.length,1);
+ [...timers.values()][0]();assert.equal(timers.size,0);assert.equal(tags[0].removed,true);
+ assert.match(ctx.tamaoEditorialRecovery(page),/Tentar novamente/);
+ ctx.tamaoEditorialRequest(page);assert.equal(tags.length,1);
+ queued.shift()();
+ ctx.tamaoRetryEditorialPremium(page);ctx.tamaoRetryEditorialPremium(page);assert.equal(tags.length,2);
+ tags[0].onload();tags[0].onerror();assert.equal(timers.size,1);
+ tags[1].onload();assert.match(ctx.tamaoEditorialRecovery(page),/Tentar novamente/);
+ ctx.tamaoRetryEditorialPremium(page);assert.equal(tags.length,3);
+ ctx[page+'PremiumPage']=()=>'<main>Complete</main>';
+ active='home';const before=paints;tags[2].onload();assert.equal(paints,before);
+ active=page;ctx.tamaoEditorialRequest(page);assert.equal(tags.length,3);
+ assert.equal(ctx.tamaoEditorialRecovery(page),'');
+}
+console.log('PASS: editorial premium download timeout, explicit retry, route and role isolation.');
