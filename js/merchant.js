@@ -2337,10 +2337,11 @@ function merchantAvailabilityPanel(rt,options){
   const manager=['owner','manager'].includes(role);
   const on=m.online===true;
   const pending=rt.actionPending===true;
-  const blocked=!on&&options.canGoOnline!==true;
-  const status=on?(options.financialHold?'Novas vendas suspensas por pendência financeira':
+  const snapshotFresh=options.orderEvidenceFresh===true;
+  const blocked=!on&&(options.canGoOnline!==true||!snapshotFresh);
+  const status=!snapshotFresh?'Disponibilidade sem confirmação recente':on?(options.financialHold?'Novas vendas suspensas por pendência financeira':
     options.connectionHealthy?'Revenda online':'Conexão sem confirmação recente'):'Novas ofertas pausadas';
-  const help=on?
+  const help=!snapshotFresh?'Atualize o painel para confirmar a disponibilidade, o catálogo e a fila de pedidos. A última informação consultada pode ter mudado.':on?
     (options.financialHold?'A operação está marcada como online, mas novas vendas estão suspensas até regularizar a pendência.':
     options.connectionHealthy?'Sua revenda está marcada como online. As novas ofertas dependem das verificações do sistema.':
     'Confira a conexão antes de confiar no recebimento de novas ofertas.'):
@@ -2359,7 +2360,8 @@ function merchantAvailabilityPanel(rt,options){
   const hint=blocked?
     '<small class="merchant-availability-blocked">'+(options.financialHold
       ?'Regularize o fechamento financeiro vencido antes de ficar online.'
-      :'Antes de ficar online, confira produtos, entrega, pagamentos e a habilitação da revenda.')+'</small>':'';
+      :!snapshotFresh?'Atualize os dados antes de ficar online.':
+      'Antes de ficar online, confira produtos, entrega, pagamentos e a habilitação da revenda.')+'</small>':'';
   const button='<button id="merchant-online-toggle" type="button" class="'+(on?'danger-btn':'primary')+
     ' merchant-availability-toggle" onclick="merchantLiveToggleOnline('+(on?'false':'true')+')"'+
     (blocked||pending?' disabled':'')+'>'+(pending?'Atualizando…':on?'Pausar novos pedidos':'Ficar online')+'</button>';
@@ -2367,10 +2369,11 @@ function merchantAvailabilityPanel(rt,options){
     '<div class="merchant-availability-heading"><div><span class="section-kicker">SUA OPERAÇÃO AGORA</span>'+
     '<h2>'+esc(status)+'</h2><p>'+esc(help)+'</p></div>'+button+'</div>'+
     hint+'<div class="merchant-availability-stats">'+
-    '<div><span>Estoque P13</span><strong>'+esc(p13Stock)+'</strong><small>'+esc(itemsInfo)+'</small></div>'+
-    '<div><span>Entrega</span><strong>'+esc(feeText)+'</strong><small>'+esc(deliveryCopy)+'</small></div>'+
-    '<div><span>Pedidos na fila</span><strong>'+Number(options.orderCount||0)+'</strong>'+
-    '<small>Em andamento nesta operação</small></div></div>'+
+    '<div><span>Estoque P13</span><strong>'+esc(snapshotFresh?p13Stock:'—')+'</strong><small>'+esc(snapshotFresh?itemsInfo:'Estoque a confirmar')+'</small></div>'+
+    '<div><span>Entrega</span><strong>'+esc(snapshotFresh?feeText:'—')+'</strong><small>'+esc(snapshotFresh?deliveryCopy:'Entrega a confirmar')+'</small></div>'+
+    '<div><span>Pedidos na fila</span><strong>'+(snapshotFresh?Number(options.orderCount||0):'—')+'</strong>'+
+    '<small>'+(snapshotFresh?'Em andamento nesta operação':'Fila a confirmar')+'</small></div></div>'+
+    (!snapshotFresh?'<div class="merchant-availability-actions"><button type="button" class="secondary small" onclick="merchantLiveRefresh()"'+(pending?' disabled':'')+'>Atualizar disponibilidade</button></div>':'')+
     (manager?'<div class="merchant-availability-actions">'+
       '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Ajustar estoque e preços</button>'+
       '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button>'+
@@ -2662,7 +2665,7 @@ function merchantLivePage(){
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${preparing?firstRun:''}
     ${preparing?'<details class="merchant-preparation-status merchant-operation-insights"><summary>Conferir disponibilidade e pendências</summary>':''}
-    ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
+    ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length,orderEvidenceFresh:orderEvidence.fresh})}
     ${preparing?'</details>':''}
     ${orderEvidence.fresh?(preparing?'':merchantDailyOverview(rt,orders)):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
     ${!preparing?firstRun:''}
