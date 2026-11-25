@@ -5099,6 +5099,9 @@ function adminMerchantCard(m){
     &&Date.parse(representation.expires_at)>Date.now()
   );
   const canVerifyRepresentation=['superadmin','operations','compliance'].includes(adminCurrentRole());
+  const readOnly=canVerifyRepresentation?'':' disabled';
+  const actionPending=adminRuntime.actionPending===true;
+  const actionDisabled=actionPending?' disabled':'';
   const representationKindId='rep-kind-'+m.id;
   const representationEvidenceId='rep-evidence-'+m.id;
   const cnpjId='cnpj-'+m.id;
@@ -5115,17 +5118,21 @@ function adminMerchantCard(m){
     ${adminMerchantMissingProfileNotice(m)}
     ${readiness?`<div class="notice ${readiness.offerReady?'success':''}" style="margin-top:10px"><strong>${readiness.offerReady?'Revenda ofertável':'Próximo passo operacional'}</strong><br>${esc(adminPilotNextActionCopy({onboarding:{nextAction:readiness.nextAction}}))}</div>`:''}
     ${m.businessDetails?`<div class="order-line"><strong>Responsável:</strong> ${esc(m.businessDetails.responsible_name)} • ${esc(m.businessDetails.city)}/${esc(m.businessDetails.state)} • WhatsApp ${esc(m.businessDetails.whatsapp)}</div>`:''}
+    <section class="section" aria-label="Documentação empresarial">
+    <h4>1. Documentação empresarial</h4>
+    ${canVerifyRepresentation?'':'<p class="tiny muted" role="status">Consulta somente leitura. Seu perfil não pode alterar a documentação, a representação ou a ativação.</p>'}
     <div class="field-row" style="margin-top:12px">
-      <div class="input-wrap"><label for="${cnpjId}">CNPJ</label><select id="${cnpjId}" class="input"><option value="pending" ${c.cnpj_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.cnpj_status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${c.cnpj_status==='rejected'?'selected':''}>Rejeitado</option></select><small>Última verificação: ${c.cnpj_verified_at?esc(formatDateTime(c.cnpj_verified_at)):'nunca'}</small></div>
-      <div class="input-wrap"><label for="${anpId}">ANP</label><select id="${anpId}" class="input"><option value="pending" ${c.anp_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.anp_status==='verified'?'selected':''}>Verificada</option><option value="not_required" ${c.anp_status==='not_required'?'selected':''}>Não se aplica</option><option value="rejected" ${c.anp_status==='rejected'?'selected':''}>Rejeitada</option></select><small>Última verificação: ${c.anp_verified_at?esc(formatDateTime(c.anp_verified_at)):c.anp_status==='not_required'?'não se aplica':'nunca'}</small></div>
+      <div class="input-wrap"><label for="${cnpjId}">CNPJ</label><select id="${cnpjId}" class="input"${readOnly}><option value="pending" ${c.cnpj_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.cnpj_status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${c.cnpj_status==='rejected'?'selected':''}>Rejeitado</option></select><small>Última verificação: ${c.cnpj_verified_at?esc(formatDateTime(c.cnpj_verified_at)):'nunca'}</small></div>
+      <div class="input-wrap"><label for="${anpId}">ANP</label><select id="${anpId}" class="input"${readOnly}><option value="pending" ${c.anp_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.anp_status==='verified'?'selected':''}>Verificada</option><option value="not_required" ${c.anp_status==='not_required'?'selected':''}>Não se aplica</option><option value="rejected" ${c.anp_status==='rejected'?'selected':''}>Rejeitada</option></select><small>Última verificação: ${c.anp_verified_at?esc(formatDateTime(c.anp_verified_at)):c.anp_status==='not_required'?'não se aplica':'nunca'}</small></div>
     </div>
     ${canVerifyRepresentation?`<div id="anp-lookup-${m.id}" class="card flat"><strong>Consulta à base ANP</strong><p class="tiny muted">Use o CNPJ e a cidade registrados para localizar a referência. A consulta não comprova representação nem aprova a revenda.</p><div class="order-actions"><button type="button" class="secondary small" id="anp-consult-${m.id}" onclick="adminConsultMerchantAnp('${m.id}')">Consultar registro ANP</button><button type="button" class="secondary small" id="anp-copy-${m.id}" hidden>Usar referência no campo</button></div><p id="anp-result-${m.id}" class="tiny muted" role="status"></p></div>`:''}
-    <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
-    <div class="input-wrap"><label for="${notesId}">Evidência / observações de compliance</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Fonte consultada, data, resultado e referência da validação"><small>Ao marcar CNPJ como verificado, registre aqui a fonte/evidência. ANP verificada também exige a referência acima.</small></div>
+    <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"${readOnly}></div>
+    <div class="input-wrap"><label for="${notesId}">Evidência / observações de compliance</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Fonte consultada, data, resultado e referência da validação"${readOnly}><small>Ao marcar CNPJ como verificado, registre aqui a fonte/evidência. ANP verificada também exige a referência acima.</small></div>
     ${c.verified_by?`<div class="tiny muted">Última decisão de compliance por admin ${esc(String(c.verified_by).slice(0,8))} • ${esc(formatDateTime(c.updated_at))}</div>`:''}
+    ${canVerifyRepresentation?`<div class="order-actions"><button type="button" class="secondary small" onclick="adminSaveCompliance('${m.id}')"${actionDisabled}>Salvar validação documental</button></div>`:''}</section>
     <div class="divider"></div>
     <section class="section" aria-label="Representação legal da revenda">
-      <h4>Representação legal — confirmação administrativa</h4>
+      <h4>2. Representação legal — confirmação administrativa</h4>
       <div class="notice ${representationCurrent?'success':''}">
         <strong>${representationCurrent?'Representante com revisão vigente':'Representação ainda não validada'}</strong>
         <div class="tiny muted">Proprietário da conta: ${ownerUserId?esc(ownerUserId.slice(0,8))+'…':'nenhuma conta vinculada'}.
@@ -5138,13 +5145,23 @@ function adminMerchantCard(m){
         <div class="input-wrap"><label for="${representationKindId}">Poder de representação</label><select id="${representationKindId}" class="input"><option value="legal_representative" ${representation?.authority_kind==='legal_representative'?'selected':''}>Representante legal</option><option value="authorized_delegate" ${representation?.authority_kind==='authorized_delegate'?'selected':''}>Procurador autorizado</option></select></div>
         <div class="input-wrap"><label for="${representationEvidenceId}">Referência da evidência</label><input id="${representationEvidenceId}" class="input" maxlength="240" placeholder="Fonte, registro, protocolo ou procuração"></div>
       </div>
-      <div class="order-actions"><button class="secondary small" onclick="adminReviewMerchantRepresentation('${m.id}','verify','${esc(ownerUserId)}')" ${ownerUserId?'':'disabled title="Vincule primeiro o proprietário confirmado"'}>Validar representante</button>
-      ${representationCurrent?`<button class="danger-btn small" onclick="adminReviewMerchantRepresentation('${m.id}','revoke',null)">Revogar autorização</button>`:''}</div>`:''}
+      <div class="order-actions"><button class="secondary small" onclick="adminReviewMerchantRepresentation('${m.id}','verify','${esc(ownerUserId)}')" ${ownerUserId&&!actionPending?'':'disabled title="Vincule o proprietário ou aguarde a ação atual"'}>Validar representante</button>
+      ${representationCurrent?`<button class="danger-btn small" onclick="adminReviewMerchantRepresentation('${m.id}','revoke',null)"${actionDisabled}>Revogar autorização</button>`:''}</div>`:''}
     </section>
     <div class="divider"></div>
-    <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
-    <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
-    <div class="order-actions"><button class="secondary small" onclick="adminOpenEntity('merchant','${m.id}')">Ver preços e simular cesta</button><button class="ghost small" onclick="adminOpenEntity('merchant','${m.id}')">Abrir 360°</button><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button><button class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')">Salvar capacidade logística</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')" ${representationCurrent?'':'disabled title="Confirme a representação legal antes de ativar"'}>Ativar</button>`}</div>
+    <section class="section" aria-label="Capacidade de entrega">
+    <h4>3. Capacidade de entrega</h4>
+    <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}${readOnly}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
+    <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"${readOnly}></div>
+    ${canVerifyRepresentation?`<div class="order-actions"><button type="button" class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')"${actionDisabled}>Salvar capacidade logística</button></div>`:''}
+    </section>
+    <div class="divider"></div>
+    <section class="section" aria-label="Ativação operacional">
+      <h4>4. Ativação operacional</h4>
+      <div class="notice ${active?'success':''}"><strong>${active?'Cadastro ativo':'Cadastro ainda não ativo'}</strong><p class="tiny muted">Ativar o cadastro não abre vendas automaticamente. A oferta depende das verificações do servidor, disponibilidade, catálogo, preços, logística e liberação comercial da cidade.</p></div>
+      ${canVerifyRepresentation&&!active&&!representationCurrent?'<p class="tiny muted" role="status">Valide primeiro a representação legal vigente na etapa 2.</p>':''}
+      <div class="order-actions"><button type="button" class="secondary small" onclick="adminOpenEntity('merchant','${m.id}')">Ver preços e simular cesta</button>${canVerifyRepresentation?(active?`<button type="button" class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')"${actionDisabled}>Suspender cadastro</button>`:`<button type="button" class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')" ${representationCurrent&&!actionPending?'':'disabled title="Confirme a representação legal ou aguarde a ação atual"'}>Ativar cadastro</button>`):''}</div>
+    </section>
   </article>`;
 }
 
