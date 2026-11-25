@@ -5031,32 +5031,60 @@ async function adminConsultMerchantAnp(id){
   const result=document.getElementById('anp-result-'+id);
   const button=document.getElementById('anp-consult-'+id);
   if(!m||!panel||!result||!button||button.disabled)return;
-  const city=String(m.businessDetails?.city||'').trim(),state=String(m.businessDetails?.state||'').trim().toUpperCase();
-  if(!city||! /^[A-Z]{2}$/.test(state)){result.textContent='A revenda precisa informar cidade e UF antes da consulta.';return;}
-  const session=adminRuntime.session;
-  const current=()=>adminRuntime.session===session&&adminPartnerVerificationMutationTarget(id)===m&&document.getElementById('anp-lookup-'+id)===panel;
-  button.disabled=true;result.textContent='Consultando a fonte ANP…';
   const copy=document.getElementById('anp-copy-'+id);
   if(copy){copy.hidden=true;copy.onclick=null;}
+  const identity=merchant=>JSON.stringify([
+    String(merchant?.cnpj||'').toUpperCase().replace(/[^0-9A-Z]/g,''),
+    String(merchant?.businessDetails?.city||'').trim(),
+    String(merchant?.businessDetails?.state||'').trim().toUpperCase()
+  ]);
+  const originalIdentity=identity(m);
+  const [cnpj,city,state]=JSON.parse(originalIdentity);
+  if(!/^[0-9A-Z]{12}[0-9]{2}$/.test(cnpj)||!city||! /^[A-Z]{2}$/.test(state)){
+    result.textContent='A revenda precisa informar CNPJ, cidade e UF válidos antes da consulta.';return;
+  }
+  const session=adminRuntime.session;
+  const current=()=>adminRuntime.session===session&&adminPartnerVerificationMutationTarget(id)===m&&
+    identity(m)===originalIdentity&&document.getElementById('anp-lookup-'+id)===panel&&
+    document.getElementById('anp-result-'+id)===result&&document.getElementById('anp-consult-'+id)===button;
+  button.disabled=true;result.textContent='Consultando a fonte ANP…';
+  let timer;
   try{
-    const report=await adminInvoke({action:'prospect-intelligence',city,state,force:false});
+    // Bound the whole read (including token acquisition and response parsing).
+    // A late read cannot apply evidence or trigger a write.
+    const deadline=new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error('ANP_LOOKUP_TIMEOUT')),20000);
+    });
+    const report=await Promise.race([deadline,adminInvoke({action:'prospect-intelligence',city,state,force:false})]);
     if(!current())return;
     const suggestion=adminMerchantAnpReference(report,m);
     if(!suggestion){result.textContent='Não foi possível obter uma referência recente e inequívoca para este CNPJ. Confira a fonte oficial manualmente.';return;}
     result.textContent=suggestion.name+' • Registro '+suggestion.reference+' • Situação SIGAF: '+suggestion.status+' • Consulta '+formatDateTime(suggestion.checkedAt)+'. Confira antes de decidir.';
-    if(copy){
+    if(copy&&document.getElementById('anp-copy-'+id)===copy){
       copy.hidden=false;
       copy.onclick=()=>{
-        if(!current())return;
+        if(!current()||document.getElementById('anp-copy-'+id)!==copy)return;
+        const fresh=adminMerchantAnpReference(report,m);
+        if(!fresh||fresh.reference!==suggestion.reference){
+          copy.hidden=true;copy.onclick=null;
+          result.textContent='A referência perdeu a validade. Consulte novamente antes de utilizar.';
+          return;
+        }
         const ref=document.getElementById('anpref-'+id);
         if(!ref||String(ref.value||'').trim())return toast('O campo já contém uma referência. Revise-a antes de substituir.');
-        ref.value=suggestion.reference;
+        ref.value=fresh.reference;
         ref.focus();
         toast('Referência preenchida. Nenhuma validação foi salva.');
       };
     }
-  }catch(e){if(current())result.textContent='Consulta indisponível. Confira a fonte oficial manualmente.';}
-  finally{if(document.getElementById('anp-consult-'+id)===button)button.disabled=false;}
+  }catch(e){
+    if(current())result.textContent=e?.message==='ANP_LOOKUP_TIMEOUT'
+      ?'A consulta demorou demais. Tente novamente ou confira a fonte oficial manualmente.'
+      :'Consulta indisponível. Tente novamente ou confira a fonte oficial manualmente.';
+  }finally{
+    if(timer!==undefined)clearTimeout(timer);
+    if(document.getElementById('anp-consult-'+id)===button)button.disabled=false;
+  }
 }
 function adminMerchantCard(m){
   const c=m.compliance||{};
