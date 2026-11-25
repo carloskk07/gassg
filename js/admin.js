@@ -3805,6 +3805,46 @@ function adminOperatorFinanceView(){
 }
 globalThis.adminOperatorFinanceLoadOnDemand=adminOperatorFinanceLoadOnDemand;
 
+// Official areas and support links are optional, superadmin-only UI.
+let adminOfficialAreasLoading=null,adminOfficialAreasError='';
+function adminOfficialAreasAllowed(){
+  return adminReady()&&adminRuntime.section==='testcenter'&&adminCurrentRole()==='superadmin'&&adminRoleCanSection('testcenter');
+}
+async function adminOfficialAreasLoad(){
+  if(!adminOfficialAreasAllowed())return false;
+  if(typeof adminTestCenterView==='function'&&typeof adminSupportHubSearch==='function')return true;
+  if(!adminOfficialAreasLoading){
+    adminOfficialAreasError='';
+    adminOfficialAreasLoading=new Promise((resolve,reject)=>{
+      if(!adminActivationModuleUrl){reject(Error('Módulo indisponível nesta publicação.'));return;}
+      const url=new URL('admin-test-center.js',adminActivationModuleUrl);
+      url.search=new URL(adminActivationModuleUrl).search;
+      const tag=document.createElement('script');
+      tag.src=url.href;tag.async=true;
+      tag.onload=()=>{
+        if(typeof adminTestCenterView==='function'&&typeof adminSupportHubSearch==='function')resolve(true);
+        else{tag.remove?.();reject(Error('Não foi possível inicializar as áreas oficiais.'));}
+      };
+      tag.onerror=()=>reject(Error('Não foi possível carregar as áreas oficiais.'));
+      adminAppendDeferredModule(tag,reject);
+    }).catch(error=>{
+      adminOfficialAreasError=String(error?.message||error);
+      return false;
+    }).finally(()=>{
+      adminOfficialAreasLoading=null;
+      if(adminOfficialAreasAllowed())render();
+    });
+  }
+  return adminOfficialAreasLoading;
+}
+function adminOfficialAreasView(){
+  if(!adminOfficialAreasAllowed())return '';
+  if(typeof adminTestCenterView==='function'&&typeof adminSupportHubSearch==='function')return adminTestCenterView();
+  if(adminOfficialAreasError)return '<section class="section"><p class="notice danger">'+esc(adminOfficialAreasError)+'</p><button type="button" class="secondary" onclick="adminOfficialAreasLoad()">Tentar novamente</button></section>';
+  if(!adminOfficialAreasLoading)queueMicrotask(()=>adminOfficialAreasLoad());
+  return '<section class="section"><p role="status" class="muted">Carregando áreas oficiais…</p></section>';
+}
+
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
@@ -12710,7 +12750,7 @@ function adminPage(){
       ${menu}
       <main class="admin-main">
         ${adminPanel('overview',overviewContent)}
-        ${adminPanel('testcenter',sectionActive('testcenter')?adminTestCenterView():'')}
+        ${adminPanel('testcenter',sectionActive('testcenter')?adminOfficialAreasView():'')}
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
