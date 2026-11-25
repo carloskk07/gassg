@@ -248,49 +248,54 @@ function tamaoEnsurePublicExperienceStyles(page){
   link.href='./css/public-ux.css'+version;
   document.head.appendChild(link);
 }
-// The premium buyer guide loads only on #learn, preserving first-paint budgets.
-let tamaoLearnPremiumRequested=false;
-function tamaoEnsureLearnPremium(page){
-  if(page!=='learn'||globalThis.adminPortalRequested?.()||
-    globalThis.merchantPortalRequested?.())return;
-  const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
-  const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
-  if(!document.querySelector('link[data-tamao-learn-premium]')){
-    const link=document.createElement('link');
-    link.rel='stylesheet';
-    link.setAttribute('data-tamao-learn-premium','');
-    link.href='./css/learn-premium.css'+version;
-    document.head.appendChild(link);
-  }
-  if(tamaoLearnPremiumRequested||typeof learnPremiumPage==='function')return;
-  tamaoLearnPremiumRequested=true;
-  const script=document.createElement('script');
-  script.src='./js/learn-premium.js'+version;
-  script.onload=()=>{if(route()==='learn')render();};
-  script.onerror=()=>{tamaoLearnPremiumRequested=false;};
-  document.head.appendChild(script);
+// Editorial upgrades are optional: retain functional fallback and explicit recovery.
+const tamaoEditorialState={learn:{loading:false,failed:false},earn:{loading:false,failed:false}};
+function tamaoEditorialAllowed(page){
+ return (page==='learn'||page==='earn')&&route()===page&&
+  !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();
 }
-// The Rede editorial landing loads only on #earn, keeping other routes lightweight.
-let tamaoEarnPremiumRequested=false;
-function tamaoEnsureEarnPremium(page){
-  if(page!=='earn'||globalThis.adminPortalRequested?.()||
-    globalThis.merchantPortalRequested?.())return;
-  const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
-  const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
-  if(!document.querySelector('link[data-tamao-earn-premium]')){
-    const link=document.createElement('link');
-    link.rel='stylesheet';
-    link.setAttribute('data-tamao-earn-premium','');
-    link.href='./css/earn-premium.css'+version;
-    document.head.appendChild(link);
+function tamaoEditorialReady(page){
+ return page==='learn'?typeof learnPremiumPage==='function':typeof earnPremiumPage==='function';
+}
+function tamaoEditorialRequest(page,retry=false){
+ if(!tamaoEditorialAllowed(page))return;
+ const state=tamaoEditorialState[page];
+ if(state.loading||tamaoEditorialReady(page)||(state.failed&&!retry))return;
+ state.loading=true;state.failed=false;
+ const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+ const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+ const redraw=()=>{if(tamaoEditorialAllowed(page))render();};
+ const fail=()=>{state.loading=false;state.failed=true;queueMicrotask(redraw);};
+ try{
+  if(!document.querySelector('link[data-tamao-'+page+'-premium]')){
+   const link=document.createElement('link');
+   link.rel='stylesheet';
+   link.setAttribute('data-tamao-'+page+'-premium','');
+   link.href='./css/'+page+'-premium.css'+version;
+   link.onerror=()=>link.remove();
+   document.head.appendChild(link);
   }
-  if(tamaoEarnPremiumRequested||typeof earnPremiumPage==='function')return;
-  tamaoEarnPremiumRequested=true;
   const script=document.createElement('script');
-  script.src='./js/earn-premium.js'+version;
-  script.onload=()=>{if(route()==='earn')render();};
-  script.onerror=()=>{tamaoEarnPremiumRequested=false;};
-  document.head.appendChild(script);
+  script.src='./js/'+page+'-premium.js'+version;
+  script.onload=()=>{state.loading=false;state.failed=false;redraw();};
+  script.onerror=fail;
+  tamaoAppendPublicRouteScript(script,()=>tamaoEditorialReady(page));
+ }catch{fail();}
+}
+function tamaoEditorialRecovery(page){
+ if(!tamaoEditorialAllowed(page)||!tamaoEditorialState[page].failed||tamaoEditorialReady(page))return '';
+ return '<div class="notice" role="status"><p>Você pode continuar usando os recursos abaixo. Não foi possível carregar a apresentação completa.</p><button class="secondary" type="button" onclick="tamaoRetryEditorialPremium(\''+page+'\')">Tentar novamente</button></div>';
+}
+function tamaoRetryEditorialPremium(page){
+ if(!tamaoEditorialAllowed(page)||!tamaoEditorialState[page].failed)return;
+ tamaoEditorialRequest(page,true);
+ render();
+}
+function tamaoEnsureLearnPremium(page){
+ if(page==='learn')tamaoEditorialRequest(page);
+}
+function tamaoEnsureEarnPremium(page){
+ if(page==='earn')tamaoEditorialRequest(page);
 }
 let renderLock=false;
 let tamaoLastPublicRenderRoute='';
