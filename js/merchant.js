@@ -2545,15 +2545,18 @@ function merchantFirstRunView(rt,canGoOnline){
   const model=merchantFirstRunModel(rt,canGoOnline);
   if(!model)return '';
   const title=model.financialHold?'Novas vendas aguardam regularização':
-    model.needsAdminApproval?'A liberação depende do TAMÃO':
-    model.next?'Prepare sua revenda para começar':'Verifique o que ainda falta';
+    model.next?.key==='business'?'Complete o cadastro da sua empresa':
+    model.next?'Prepare sua revenda para começar':
+    model.needsAdminApproval?'A liberação depende do TAMÃO':'Verifique o que ainda falta';
   const lead=model.financialHold
     ?'Há uma restrição financeira. Consulte os detalhes do financeiro para acompanhar a regularização.'
-    :model.needsAdminApproval
-      ?'Aguarde a aprovação do TAMÃO enquanto prepara sua operação.'
+    :model.next?.key==='business'
+      ?'Informe os dados reais da empresa para iniciar a conferência. O envio não libera vendas automaticamente.'
       :model.next
-        ?'Revise os dados da empresa para que ela possa ser encontrada pelos clientes elegíveis.'
-        :'Dados preenchidos. Aguarde a validação.';
+        ?model.next.detail+(model.needsAdminApproval?' A liberação depende do TAMÃO.':'')
+        :model.needsAdminApproval
+          ?'Você concluiu as etapas de preparação exibidas. Acompanhe a conferência do TAMÃO.'
+          :'Confira a situação atual dos requisitos de venda antes de ficar online.';
   const groups=[
     {title:'Minha empresa',items:model.steps.filter(step=>step.key==='business')},
     {title:'Produtos e entregas',items:model.steps.filter(step=>['products','delivery'].includes(step.key))},
@@ -2572,7 +2575,8 @@ function merchantFirstRunView(rt,canGoOnline){
   const cta=model.financialHold?
     '<button type="button" class="primary" onclick="merchantWorkspaceJump(\'finance\')">Conferir situação financeira →</button>':
     model.next?
-    '<button type="button" class="primary" onclick="merchantSetupGo(\''+model.next.key+'\')">Continuar por '+esc(model.next.title)+' →</button>':
+    '<button type="button" class="primary" onclick="merchantSetupGo(\''+model.next.key+'\')">'+
+      (model.next.key==='business'?'Completar cadastro da empresa':'Continuar por '+esc(model.next.title))+' →</button>':
     '<button type="button" class="primary" onclick="merchantFirstRunReview()">Conferir requisitos →</button>';
   return '<section id="merchant-first-run" class="merchant-first-run" aria-label="Guia para começar a vender">'+
     '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
