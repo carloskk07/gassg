@@ -113,6 +113,23 @@ function tamaoPublicModuleGoHome(){
  }
  return true;
 }
+// Bound optional route downloads without retry loops or late callback races.
+function tamaoAppendPublicRouteScript(script,isReady){
+  const onReady=script.onload,onFailure=script.onerror;
+  let settled=false;
+  let timer;
+  const finish=ok=>{
+    if(settled)return;
+    settled=true;
+    clearTimeout(timer);
+    if(!ok)script.remove();
+    if(ok)onReady();else onFailure();
+  };
+  script.onload=()=>finish(isReady());
+  script.onerror=()=>finish(false);
+  timer=setTimeout(()=>finish(false),20000);
+  try{document.head.appendChild(script);}catch{finish(false);}
+}
 // V1.971 — one honest, accessible recovery layout for every lazy public route.
 function tamaoPublicModuleState({title,loading,error,retry}){
  const safeTitle=esc(title);
@@ -133,6 +150,7 @@ function discoveryLoadingPage(){
     loading:'Preparando os anúncios disponíveis para consulta.',error:discoveryModuleError,retry:'retryDiscoveryModule'});
 }
 function retryDiscoveryModule(){
+  if(!discoveryModuleError)return;
   discoveryModuleRequested=false;discoveryModuleError=false;
   discoveryRequestModule();
   render();
@@ -155,7 +173,7 @@ function discoveryRequestModule(){
   script.src='./js/discovery.js'+suffix;
   script.onload=()=>render();
   script.onerror=()=>{discoveryModuleError=true;render();};
-  document.head.appendChild(script);
+  tamaoAppendPublicRouteScript(script,()=>typeof discoveryPage==='function');
 }
 let mobilityModuleRequested=false,mobilityModuleError=false;
 function mobilityReturnIntent(){
@@ -167,6 +185,7 @@ function mobilityLoadingPage(){
   error:mobilityModuleError,retry:'mobilityRetryModule'});
 }
 function mobilityRetryModule(){
+ if(!mobilityModuleError)return;
  mobilityModuleRequested=mobilityModuleError=false;mobilityRequestModule();render();
 }
 function mobilityRequestModule(){
@@ -177,7 +196,7 @@ function mobilityRequestModule(){
  const s=document.createElement('script');
  s.src='./js/mobility.js'+(document.querySelector('script[src*="/js/bootstrap.js"]')?.src.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'');
  s.onload=()=>render();s.onerror=()=>{mobilityModuleError=true;render()};
- document.head.appendChild(s);
+ tamaoAppendPublicRouteScript(s,()=>typeof mobilityPage==='function');
 }
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;
@@ -193,6 +212,7 @@ function discoveryOwnerLoadingPage(){
     error:discoveryOwnerModuleError,retry:'retryDiscoveryOwnerModule'});
 }
 function retryDiscoveryOwnerModule(){
+  if(!discoveryOwnerModuleError)return;
   discoveryOwnerModuleRequested=false;discoveryOwnerModuleError=false;
   discoveryOwnerRequestModule();render();
 }
@@ -214,7 +234,7 @@ function discoveryOwnerRequestModule(){
   script.src='./js/discovery-owner.js'+suffix;
   script.onload=()=>render();
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
-  document.head.appendChild(script);
+  tamaoAppendPublicRouteScript(script,()=>typeof discoveryOwnerPage==='function');
 }
 /* Page styles load on demand. */
 function tamaoEnsurePublicExperienceStyles(page){
