@@ -1843,17 +1843,30 @@ async function merchantBusinessProfileSaveFromUi(){
     const raw=String(el.value||'').trim();
     payload[key]=key==='state'?raw.toUpperCase():raw;
   }
-  if(payload.legalName.length<3||payload.tradeName.length<2||
-    payload.responsibleName.length<3||payload.city.length<2||
-    payload.addressText.length<8||!/^[0-9]{10,11}$/.test(payload.phone)||
-    !/^[0-9]{10,11}$/.test(payload.whatsapp)||
-    !/^[0-9]{8}$/.test(payload.postalCode)||
-    !/^[A-Z]{2}$/.test(payload.state))
-    return toast('Revise razão social, endereço, cidade, UF, CEP e telefones.');
+  const checks=[
+    ['legalName',payload.legalName.length>=3,'Informe a razão social da empresa.'],
+    ['tradeName',payload.tradeName.length>=2,'Informe o nome do estabelecimento.'],
+    ['responsibleName',payload.responsibleName.length>=3,'Informe o nome do responsável.'],
+    ['phone',/^[0-9]{10,11}$/.test(payload.phone),'Informe o telefone com DDD, usando 10 ou 11 dígitos.'],
+    ['whatsapp',/^[0-9]{10,11}$/.test(payload.whatsapp),'Informe o WhatsApp com DDD, usando 10 ou 11 dígitos.'],
+    ['postalCode',/^[0-9]{8}$/.test(payload.postalCode),'Informe o CEP com 8 dígitos.'],
+    ['city',payload.city.length>=2,'Informe a cidade da revenda.'],
+    ['state','AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').includes(payload.state),'Selecione a UF da revenda.'],
+    ['addressText',payload.addressText.length>=8,'Informe o endereço completo da revenda.']
+  ];
+  const invalid=checks.find(([,valid])=>!valid);
+  if(invalid){
+    merchantRevealControl('#merchant-business-'+invalid[0]);
+    return toast(invalid[2]);
+  }
   // Also capture browser-autofilled values that did not fire an input event.
   // A failed readback must keep this draft available for review/retry.
   if(!merchantBusinessProfileChanged())
     return toast('Não foi possível preservar seus dados. Atualize o painel antes de salvar.');
+  // Keep the precise normalized submission in memory. Surrounding whitespace
+  // must not leave a false "unsaved" draft after a verified server readback.
+  // Any later input event still replaces this snapshot with the new edits.
+  merchantBusinessUnsavedDraft={key:merchantBusinessDraftKey(rt),values:{...payload}};
   try{
     const result=await merchantUpdateBusinessDetailsLive(payload);
     if(result?.pendingAdministrativeVerification!==true)
