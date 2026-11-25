@@ -311,7 +311,8 @@ for(const role of ['readonly','support','finance']){
  assert.match(cardHtml,/<select id="anp-m" class="input" disabled>/);
  assert.match(cardHtml,/id="mixed-m" type="checkbox"\s+disabled/);
  assert.doesNotMatch(cardHtml,/onclick="admin(?:SaveCompliance|SaveDeliveryCapability|ReviewMerchantRepresentation|SetMerchantStatus|ConsultMerchantAnp)/);
- assert.match(cardHtml,/Consultar revenda 360° e preços/);
+ assert.match(cardHtml,/Ver preços e simular cesta/);
+ assert.match(cardHtml,/onclick="adminOpenEntity\('merchant','m'\)"/);
 }
 for(const role of ['superadmin','operations','compliance']){
  cardRole=role;cardHtml=cardCtx.card({...readyMerchant,status:'active'});
