@@ -4120,7 +4120,7 @@ function merchantPriceBatchStart(){
 async function merchantLiveSaveProduct(code){
   if(typeof merchantBulkPriceBusy!=='undefined'&&merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
-  if(!/^[A-Z0-9_-]{1,24}$/.test(String(code||'')))return toast('Produto inválido.');
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||'')))return toast('Produto inválido.');
   const read=id=>String(document.getElementById(id+'-'+code)?.value??'').trim();
   const money=raw=>/^\d{1,5}(?:[.,]\d{1,2})?$/.test(raw)?Math.round(Number(raw.replace(',','.'))*100):NaN;
   const cents=money(read('live-price'));
@@ -4907,7 +4907,7 @@ function merchantLiveCatalog(){
     <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(item.productCode,{icon},"cart"):esc(icon)}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
+        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
         <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label>
           <div class="merchant-catalog-stock-controls"><button type="button" class="secondary" aria-label="Diminuir estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',-1)">−</button>
           <input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.availableStock}">
@@ -4921,8 +4921,8 @@ function merchantLiveCatalog(){
       <div class="form-stack">
         <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo de preço</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
-        <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
         <div class="input-wrap"><label for="live-pricing-strategy-${item.productCode}">Estratégia</label><select id="live-pricing-strategy-${item.productCode}" class="input" ${range?'':'disabled'}><option value="volume" ${item.pricingStrategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${item.pricingStrategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${item.pricingStrategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
       </div>
       <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço informado para este produto.'}</div>
@@ -4988,7 +4988,7 @@ function merchantLiveCatalog(){
           ${addableCategories.map(category=>`<optgroup label="${esc(category)}">${addableProducts.filter(item=>item.categoryName===category).map(item=>`<option value="${esc(item.productCode)}">${esc(item.productName||item.productCode)}</option>`).join('')}</optgroup>`).join('')}
         </select><small class="field-help" id="live-new-registry-count" aria-live="polite">${addableProducts.length} produto(s) para escolher</small></div>
         <div class="field-row">
-          <div class="input-wrap"><label for="live-new-registry-price">Preço</label><select class="input" aria-label="Preço rápido opcional" onchange="this.value&&(this.nextElementSibling.value=this.value)"><option value="">Escolha o preço que conferiu</option><option value="10">R$ 10</option><option value="20">R$ 20</option><option value="50">R$ 50</option><option value="100">R$ 100</option></select><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+          <div class="input-wrap"><label for="live-new-registry-price">Preço</label><select class="input" aria-label="Preço rápido opcional" onchange="this.value&&(this.nextElementSibling.value=this.value)"><option value="">Escolha o preço que conferiu</option><option value="10">R$ 10</option><option value="20">R$ 20</option><option value="50">R$ 50</option><option value="100">R$ 100</option></select><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
           <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-registry-stock'):''}<label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
         </div>
         <button class="primary merchant-catalog-add-btn" id="live-new-registry-add" onclick="merchantLiveAddRegisteredProduct()">Adicionar produto</button>
@@ -5000,7 +5000,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Tamanho do botijão</label><select id="live-new-glp-code" class="input">${merchantCatalogGasOptions(rt)}</select></div>
-      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
       <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-glp-stock'):''}<label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
@@ -5011,7 +5011,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Cadastre o recipiente separadamente da carga. Ex.: P13 cria o SKU P13_CONTAINER.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-container-code">Tamanho do vasilhame</label><select id="live-new-container-code" class="input">${merchantCatalogGasOptions(rt,true)}</select></div>
-      <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.01" class="input" placeholder="0,00"></div>
       <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-container-stock'):''}<label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
