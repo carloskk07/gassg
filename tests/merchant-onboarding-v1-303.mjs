@@ -179,7 +179,11 @@ let actor={id:'admin'},target=business,calls=[],notices=[],focusRef=false;
 const nodes={'anp-lookup-m':{},'anp-result-m':{},'anp-consult-m':{disabled:false},'anp-copy-m':{hidden:true},'anpref-m':{value:'',focus:()=>{focusRef=true;}}};
 const runtime={session:actor};
 let response=report;
+let timerSequence=0;
+const pendingTimers=new Map();
 const anpCtx=vm.createContext({adminRuntime:runtime,adminPartnerVerificationMutationTarget:()=>target,
+ setTimeout:(callback,ms)=>{assert.equal(ms,20000);const id=++timerSequence;pendingTimers.set(id,callback);return id;},
+ clearTimeout:id=>pendingTimers.delete(id),
  document:{getElementById:key=>nodes[key]||null},adminInvoke:async payload=>{calls.push(payload);return response;},
  formatDateTime:x=>x,toast:x=>notices.push(x)});
 vm.runInContext(adminSource.slice(anpStart,anpEnd)+';this.lookup=adminMerchantAnpReference;this.consult=adminConsultMerchantAnp;',anpCtx);
@@ -208,3 +212,60 @@ assert.equal(nodes['anpref-m'].value,'','stale session cannot apply prior sugges
 target=null;
 await anpCtx.consult('m');assert.equal(calls.length,1);
 console.log('PASS: ANP exact regional identity, freshness, read-only consultation, explicit non-overwriting reference and stale-session guard.');
+
+ // A slow token/fetch/body cannot leave the administrator permanently blocked.
+target=business;runtime.session=actor;
+let completeLate;
+response=new Promise(resolve=>{completeLate=resolve;});
+const slow=anpCtx.consult('m');
+assert.equal(nodes['anp-consult-m'].disabled,true);
+assert.equal(nodes['anp-copy-m'].hidden,true);
+assert.equal(pendingTimers.size,1);
+[...pendingTimers.values()][0]();
+await slow;
+assert.equal(nodes['anp-consult-m'].disabled,false);
+assert.match(nodes['anp-result-m'].textContent,/demorou demais/);
+assert.equal(pendingTimers.size,0);
+response=report;
+await anpCtx.consult('m');
+assert.equal(nodes['anp-copy-m'].hidden,false);
+const recoveredText=nodes['anp-result-m'].textContent;
+completeLate({...report,prospects:[{...prospect,anp_authorization:'LATE-RESULT'}]});
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(nodes['anp-result-m'].textContent,recoveredText);
+nodes['anp-copy-m'].onclick();
+assert.equal(nodes['anpref-m'].value,'REF-TESTE');
+assert.equal(pendingTimers.size,0);
+
+// The same in-memory merchant object may change while the read is pending.
+nodes['anpref-m'].value='';
+let finishIdentity;
+response=new Promise(resolve=>{finishIdentity=resolve;});
+const changedIdentity=anpCtx.consult('m');
+business.cnpj='99999999000199';
+finishIdentity(report);
+await changedIdentity;
+assert.equal(nodes['anp-copy-m'].hidden,true);
+assert.equal(nodes['anpref-m'].value,'');
+assert.equal(nodes['anp-consult-m'].disabled,false);
+business.cnpj='12.345.678/0001-90';
+
+// A reference that becomes stale while the screen is open cannot be applied.
+response={...report};
+await anpCtx.consult('m');
+response.checkedAt=new Date(now-90000000).toISOString();
+nodes['anp-copy-m'].onclick();
+assert.equal(nodes['anpref-m'].value,'');
+assert.equal(nodes['anp-copy-m'].hidden,true);
+assert.match(nodes['anp-result-m'].textContent,/perdeu a validade/);
+assert.equal(pendingTimers.size,0);
+
+// A missing CNPJ blocks lookup without a network request.
+business.cnpj='';
+const beforeInvalid=calls.length;
+await anpCtx.consult('m');
+assert.equal(calls.length,beforeInvalid);
+assert.match(nodes['anp-result-m'].textContent,/CNPJ, cidade e UF/);
+assert.equal(nodes['anp-copy-m'].hidden,true);
+console.log('PASS: ANP bounded read, late result, retry, changed identity, expired evidence and invalid input.');
