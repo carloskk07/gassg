@@ -29,7 +29,7 @@ const catalog=[
  {productCode:'MISSINGPRICE',active:true,priceCents:0,availableStock:0,priceConfirmedAt:stale},
  {productCode:'P13',active:true,priceCents:12990,availableStock:0,priceConfirmedAt:stale}
 ];
-const rt={status:'ready',merchant:{memberRole:'owner',merchantId:'m1'},catalog,actionPending:false};
+const rt={status:'ready',session:{user:{id:'actor-A'}},accessEpoch:1,merchant:{memberRole:'owner',merchantId:'m1'},catalog,actionPending:false};
 const fields={},writes=[],toasts=[];
 const ctx=vm.createContext({
  esc,globalThis:{merchantRuntime:rt},

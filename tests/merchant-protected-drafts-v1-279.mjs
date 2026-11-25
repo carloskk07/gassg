@@ -18,7 +18,7 @@ const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;");
 const now=new Date(Date.now()-2*60000).toISOString();
 const older=new Date(Date.now()-3*3600000).toISOString();
-const rt={status:'ready',actionPending:false,
+const rt={status:'ready',session:{user:{id:'actor-A'}},accessEpoch:1,actionPending:false,
  merchant:{merchantId:'merchant-A',memberRole:'owner'},catalog:[
  {productCode:'P13',productName:'Gás P13',priceCents:12000,availableStock:8,active:true,
   updatedAt:now,priceConfirmedAt:now,pricingMode:'fixed'},
@@ -43,7 +43,7 @@ const ctx=vm.createContext({Date,Map,esc,globalThis:{merchantRuntime:rt},
  toast:message=>alerts.push(String(message))
 });
 const bodies=[
- 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',
+ 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',take('merchantClearQuickDrafts'),
  take('merchantTimestampFresh'),take('merchantQuickDraftKey'),
  take('merchantQuickCatalogVersion'),take('merchantQuickDraftFor'),
  take('merchantQuickCatalogChanged'),take('merchantQuickHasDrafts'),
@@ -158,6 +158,35 @@ await ctx.logout();
 assert.equal(signouts,1);
 assert.equal(ctx.drafts.size,0);
 
+// Renders following a change of actor must never expose the previous actor's draft.
+inputs['merchant-quick-price-P13'].value='139.00';
+inputs['merchant-quick-stock-P13'].value='18';
+ctx.changed('P13');
+assert.equal(ctx.hasDrafts(rt),true);
+rt.session={user:{id:'actor-B'}};rt.accessEpoch++;
+assert.equal(ctx.hasDrafts(rt),false);
+assert.doesNotMatch(ctx.view(rt),/value="139.00"/);
+inputs['merchant-quick-price-P13'].value='132.00';
+ctx.changed('P13');
+assert.equal(ctx.hasDrafts(rt),true);
+assert.match(ctx.view(rt),/value="132.00"/);
+rt.catalog[0].pricingMode='range';
+rt.catalog[0].minPriceCents=11000;rt.catalog[0].maxPriceCents=14000;
+assert.doesNotMatch(ctx.view(rt),/value="132.00"/,'changed pricing contract invalidates draft even if timestamp unchanged');
+assert.equal(ctx.hasDrafts(rt),false);
+rt.catalog[0].pricingMode='fixed';
+let finishLate;
+ctx.merchantUpdateProductLive=()=>new Promise(resolve=>finishLate=resolve);
+inputs['merchant-quick-price-P13'].value='133.00';ctx.changed('P13');
+const late=ctx.save('P13');
+rt.session={user:{id:'actor-C'}};rt.accessEpoch++;
+inputs['merchant-quick-price-P13'].value='134.00';ctx.changed('P13');
+const messageCount=alerts.length;
+finishLate({});await late;
+assert.equal(alerts.length,messageCount,'late success never appears in another session');
+assert.match(ctx.view(rt),/value="134.00"/,'late success cannot delete current actor draft');
+ctx.merchantUpdateProductLive=originalWrite;
+
 // Invalid code/role cannot create drafts or edits.
 rt.merchant.memberRole='driver';
 inputs['merchant-quick-price-P13'].value='129.00';
@@ -176,3 +205,9 @@ assert.match(deferredMutations,/expectedUpdatedAt=String\(current.updatedAt\)/);
 assert.match(css,/\.merchant-quick-recent-list/);
 assert.match(audit,/node tests\/merchant-protected-drafts-v1-279.mjs/);
 console.log('V1.279 PASS: unsaved drafts survive renders, require exit confirmation, respect merchant versions, and show truthful timestamps.');
+
+// Invalidating protected access discards all former actor drafts.
+assert.ok(ctx.drafts.size>0);
+vm.runInContext('merchantClearQuickDrafts()',ctx);
+assert.equal(ctx.drafts.size,0);
+assert.match(backend,/function merchantClearProtectedSnapshot\(\)\{[\s\S]{0,180}merchantClearQuickDrafts\?\.\(\)/);

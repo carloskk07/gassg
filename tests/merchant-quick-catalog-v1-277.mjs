@@ -30,7 +30,7 @@ const original=[
  ...Array.from({length:6},(_,i)=>({productCode:'OTHER'+i,active:true,
   productName:'Outro '+i,priceCents:1200+i*10,availableStock:2}))
 ];
-const rt={status:'ready',merchant:{memberRole:'owner',merchantId:'m-1'},
+const rt={status:'ready',session:{user:{id:'actor-A'}},accessEpoch:1,merchant:{memberRole:'owner',merchantId:'m-1'},
  catalog:original,actionPending:false};
 const els={},opened=[],routes=[],messages=[],writes=[];
 const ctx=vm.createContext({esc,globalThis:{merchantRuntime:rt},

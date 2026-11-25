@@ -15,11 +15,12 @@ on:
 permissions:
   contents: read
 
-# Port 54322 is bound by the disposable Supabase stack. Serialize runs
-# across PR refs to prevent shared runner collisions during rapid releases.
+# GitHub-hosted ubuntu-latest jobs use separate disposable VMs and local
+# Docker ports. Keep one integration per PR/ref so an unrelated PR cannot
+# replace a pending run. A newer commit supersedes only its own PR's run.
 concurrency:
-  group: tamao-isolated-supabase-${{ github.repository }}
-  cancel-in-progress: false
+  group: tamao-isolated-supabase-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   local-integration:
