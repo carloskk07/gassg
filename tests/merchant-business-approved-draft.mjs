@@ -300,3 +300,47 @@ ownerRt.actionPending=false;
 draftCtx.globalThis.merchantRuntime=manager;
 assert.equal(vm.runInContext('merchantBusinessReusePhone()',draftCtx),false);
 console.log('PASS: UF selection and explicit phone reuse preserve the owner draft without a mutation.');
+
+
+// Guided validation must point to the first incomplete real field, not write
+// guessed company details, and keep the exact normalized submission in RAM.
+const formFrom=merchant.indexOf('async function merchantBusinessProfileSaveFromUi(){');
+const formTo=merchant.indexOf('function merchantSetupGo(',formFrom);
+assert.ok(formFrom>0&&formTo>formFrom);
+const guidedRt={...ownerRt,actionPending:false,merchant:{...ownerRt.merchant,businessDetails:null}};
+const guidedValues={...submitted,legalName:'  '+submitted.legalName+'  ',postalCode:'97300000',state:'RS'};
+const guidedMessages=[],focused=[],payloads=[];
+let rejectSave=false;
+const guided=vm.createContext({
+ globalThis:{merchantRuntime:guidedRt},
+ document:{getElementById(id){const key=id.replace('merchant-business-','');return Object.hasOwn(guidedValues,key)?{value:guidedValues[key]}:null;}},
+ merchantRevealControl:selector=>focused.push(selector),toast:msg=>guidedMessages.push(String(msg)),
+ merchantUpdateBusinessDetailsLive:async payload=>{
+  payloads.push(payload);if(rejectSave)throw Error('readback indisponível');
+  return {pendingAdministrativeVerification:true};
+ }
+});
+vm.runInContext(source+merchant.slice(formFrom,formTo)+';this.submit=merchantBusinessProfileSaveFromUi;this.draft=()=>merchantBusinessUnsavedDraft;',guided);
+guidedValues.postalCode='';
+await guided.submit();
+assert.equal(focused.at(-1),'#merchant-business-postalCode');
+assert.match(guidedMessages.at(-1),/CEP com 8 dígitos/);
+assert.equal(payloads.length,0);
+guidedValues.postalCode='97300000';guidedValues.state='ZZ';
+await guided.submit();
+assert.equal(focused.at(-1),'#merchant-business-state');
+assert.equal(payloads.length,0);
+guidedValues.state='RS';rejectSave=true;
+await guided.submit();
+assert.equal(payloads.length,1);
+assert.equal(payloads[0].legalName,submitted.legalName);
+assert.equal(guided.draft().values.legalName,submitted.legalName);
+assert.match(guidedMessages.at(-1),/readback indisponível/);
+rejectSave=false;
+await guided.submit();
+assert.equal(payloads.length,2);
+assert.match(guidedMessages.at(-1),/Dados salvos/);
+guidedRt.merchant.memberRole='manager';
+await guided.submit();
+assert.equal(payloads.length,2);
+console.log('PASS: exact field recovery, valid Brazilian UF, normalized draft and owner-only submission.');
