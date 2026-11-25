@@ -1037,7 +1037,44 @@ function merchantBillingPixChargeView(request){
   return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''} • confirmação acompanhada automaticamente</small></div><span class="status-pill online">QR ATIVO</span></div>${identity}${qr}${copy}${link}</div>`;
 }
 
-function merchantBenefitsContractSection(r){if(!globalThis._mb){globalThis._mb=1;let s=document.createElement('script');s.src='./js/merchant-benefits-contract.js';s.onload=render;document.head.append(s)}return globalThis.merchantBenefitsContractRender?.(r)||''}
+// Only these two deferred read/render modules may be requested by this loader.
+const merchantDeferredBenefitStates=new Map();
+function merchantDeferredBenefitModule(key,retry=false){
+  const modules={contract:['merchant-benefits-contract.js','merchantBenefitsContractRender'],
+    receipt:['merchant-order-benefits.js','merchantOrderBenefitDisclosureImpl']};
+  const spec=Object.hasOwn(modules,key)?modules[key]:null;
+  if(!spec||typeof document==='undefined')return 'unavailable';
+  if(typeof globalThis[spec[1]]==='function')return 'ready';
+  const existing=merchantDeferredBenefitStates.get(key);
+  if(existing==='loading'||(existing==='error'&&!retry))return existing;
+  merchantDeferredBenefitStates.set(key,'loading');
+  const script=document.createElement('script');
+  const source=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+  let version='';
+  try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
+  script.src='./js/'+spec[0]+(/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+  const settle=ok=>{
+    merchantDeferredBenefitStates.set(key,ok?'ready':'error');
+    if(!ok)script.remove();
+    if(typeof render==='function')render();
+  };
+  script.onload=()=>settle(typeof globalThis[spec[1]]==='function');
+  script.onerror=()=>settle(false);
+  try{document.head.append(script);}catch{merchantDeferredBenefitStates.set(key,'error');return 'error';}
+  return 'loading';
+}
+function merchantRetryBenefitModule(key){
+  merchantDeferredBenefitModule(key,true);
+  if(typeof render==='function')render();
+}
+function merchantBenefitsContractSection(r){
+  if(!['owner','manager'].includes(String(r?.merchant?.memberRole||'')))return '';
+  if(typeof globalThis.merchantBenefitsContractRender==='function')return globalThis.merchantBenefitsContractRender(r);
+  const state=merchantDeferredBenefitModule('contract');
+  return '<div class="notice" role="status">'+(state==='error'?
+    'Não foi possível carregar os benefícios. <button type="button" class="secondary small" onclick="merchantRetryBenefitModule(\'contract\')">Tentar novamente</button>':
+    'Carregando condições dos benefícios…')+'</div>';
+}
 
 function merchantBillingLiveView(rt){
   const billing=rt.billing||null;
@@ -3789,13 +3826,9 @@ function merchantOrderBenefitDisclosure(o,demo=false){
   const impl=globalThis.merchantOrderBenefitDisclosureImpl;
   if(impl)return impl(o,demo);
   if(!Number(demo?o?.cashbackReserved:o?.cashbackReservedCents))return '';
-  if(typeof document!=='undefined'&&!globalThis._merchantBenefitReceiptPending){
-    globalThis._merchantBenefitReceiptPending=true;
-    const s=document.createElement('script');
-    s.src='./js/merchant-order-benefits.js';s.onload=render;
-    document.head.append(s);
-  }
-  return '<aside class="notice merchant-benefit-disclosure">Benefício em conferência. Atualize antes de aceitar.</aside>';
+  const state=typeof document==='undefined'?'unavailable':merchantDeferredBenefitModule('receipt');
+  return '<aside class="notice merchant-benefit-disclosure" role="status">Benefício em conferência. Atualize antes de aceitar.'+
+    (state==='error'?' <button type="button" class="secondary small" onclick="merchantRetryBenefitModule(\'receipt\')">Tentar novamente</button>':'')+'</aside>';
 }
 
 function merchantLiveOrder(o){
