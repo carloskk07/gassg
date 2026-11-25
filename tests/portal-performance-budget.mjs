@@ -18,6 +18,18 @@ try{
   const limits=readBudgets().limits,report=auditPortalBudgets(dir);
   assert.deepEqual(report.portals.map(x=>x.role),ROLES);
   assert.equal(report.violations.length,0);
+  assert.equal(report.warningUtilization,0.85);
+  assert.ok(Array.isArray(report.warnings));
+  for(const item of report.portals){
+    assert.equal(item.transfer.gzipBytes,item.js.gzipBytes+item.css.gzipBytes);
+    assert.equal(item.transfer.brotliBytes,item.js.brotliBytes+item.css.brotliBytes);
+    for(const [key,value] of Object.entries(item.budgetUtilization)){
+      assert.equal(value.limit,limits[item.role][key]);
+      assert.equal(value.remaining,value.limit-value.measured);
+      assert.equal(value.ratio,value.measured/value.limit);
+    }
+    assert.equal(Object.keys(item.budgetUtilization).length,8);
+  }
   for(const item of report.portals){
     assert.ok(item.js.requests<=limits[item.role].initialJsRequests,
       item.role+' must not exceed the startup request budget');
@@ -46,6 +58,25 @@ try{
   assert.throws(()=>measurePortalBundle(roleDir,{limits:{customer:{
     ...limits.customer,initialJsBytes:m.js.rawBytes-1
   }}}),/initialJsBytes exceeded/);
+  for(const [key,value] of [
+    ['initialJsGzipBytes',m.js.gzipBytes],
+    ['initialJsBrotliBytes',m.js.brotliBytes],
+    ['initialTransferGzipBytes',m.transfer.gzipBytes],
+    ['initialTransferBrotliBytes',m.transfer.brotliBytes]
+  ]){
+    const reduced={customer:{...limits.customer,[key]:value-1}};
+    assert.throws(()=>measurePortalBundle(roleDir,{limits:reduced}),new RegExp(key+' exceeded'));
+    assert.ok(measurePortalBundle(roleDir,{limits:reduced,strict:false}).violations.some(s=>s.includes(key+' exceeded')));
+    const exact={customer:{...limits.customer,[key]:value}};
+    const near=measurePortalBundle(roleDir,{limits:exact});
+    assert.ok(near.warnings.some(s=>s.includes(key+' at 100%')));
+    assert.equal(near.violations.length,0);
+    const missing={customer:{...limits.customer}};
+    delete missing.customer[key];
+    assert.throws(()=>measurePortalBundle(roleDir,{limits:missing}),new RegExp('invalid budget '+key));
+  }
+  assert.throws(()=>measurePortalBundle(roleDir,{limits,warningUtilization:1}),/Invalid performance warning threshold/);
+  assert.throws(()=>measurePortalBundle(roleDir,{limits,warningUtilization:0}),/Invalid performance warning threshold/);
   const index=path.join(roleDir,'index.html'),old=fs.readFileSync(index,'utf8');
   fs.writeFileSync(index,old.replace('</head>',
     '<script defer src="./js/admin-owner-finance.js?v=perf-fixture"></script></head>'));
@@ -57,5 +88,5 @@ try{
   assert.throws(()=>measurePortalBundle(path.join(dir,'admin'),{limits}),
     /unexpectedly eager or precached/);
   fs.writeFileSync(sw,oldSw);
-  console.log('TAMÃO startup budgets PASS: 3 roles, byte limits, cache parity, lazy module isolation');
+  console.log('TAMÃO startup budgets PASS: 3 roles, raw and compressed limits, preventive warnings, cache parity, lazy module isolation');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}
