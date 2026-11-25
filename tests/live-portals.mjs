@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import vm from 'node:vm';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,splitAdminOperationalViews,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from '../scripts/cloudflare-native-routes-v1-1073.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
@@ -21,6 +21,52 @@ const splitOwnerFinance=splitAdminOwnerFinanceCore(splitAcquisition.core);
 assert.equal(splitOwnerFinance.prefix+splitOwnerFinance.ownerFinance+splitOwnerFinance.leads,splitAcquisition.core);
 assert.ok(splitAcquisition.expansion.length>90000,'Expansion chunk size unexpectedly small');
 assert.equal(splitAcquisition.core+splitAcquisition.expansion,originalAcquisition,'Byte-for-byte source parity');
+const canonicalAdmin=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
+const operational=splitAdminOperationalViews(canonicalAdmin);
+assert.ok(Buffer.byteLength(operational.deferred)>10000);
+for(const name of ['adminIncidentCenter','adminAuditView','adminProductRegistrySection']){
+ assert.ok(operational.deferred.includes('function '+name+'('));
+ assert.ok(!operational.startup.includes('function '+name+'('));
+}
+for(const name of ['adminCreateIncident','adminIncidentAction','adminAuditSearch','adminCreateRegistryProduct'])
+ assert.ok(operational.startup.includes('function '+name+'('));
+assert.equal(operational.startup.length+operational.deferred.length,canonicalAdmin.length);
+const advancedStart=canonicalAdmin.indexOf('let adminAdvancedViewsLoading=null');
+const advancedEnd=canonicalAdmin.indexOf('let adminAdvancedNavOpen=',advancedStart);
+const attempts=[],queued=[];
+let section='overview',ready=true,permitted=true,redraws=0;
+const advanced=vm.createContext({URL,adminActivationModuleUrl:'https://admin.tamao.com.br/js/admin-activations.js?v=test-sha',
+ adminRuntime:{get section(){return section}},adminReady:()=>ready,adminRoleCanSection:()=>permitted,
+ esc:String,queueMicrotask:fn=>queued.push(fn),render:()=>redraws++,
+ document:{createElement:()=>({remove(){this.removed=true;}})},
+ adminAppendDeferredModule:(tag,reject)=>attempts.push({tag,reject})});
+vm.runInContext(canonicalAdmin.slice(advancedStart,advancedEnd),advanced);
+assert.equal(await advanced.adminAdvancedViewsLoad(),false);
+section='audit';permitted=false;
+assert.equal(advanced.adminAdvancedViewsRender(section,{}),'');
+assert.equal(await advanced.adminAdvancedViewsLoad(),false);
+assert.equal(attempts.length,0);
+permitted=true;
+assert.match(advanced.adminAdvancedViewsRender(section,{}),/Carregando/);
+queued.shift()();
+const first=advanced.adminAdvancedViewsLoad();
+assert.equal(attempts.length,1);
+assert.equal(attempts[0].tag.src,'https://admin.tamao.com.br/js/admin-operational-views.js?v=test-sha');
+attempts[0].reject(Error('timeout'));
+assert.equal(await first,false);
+assert.match(advanced.adminAdvancedViewsRender(section,{}),/Tentar novamente/);
+const retry=advanced.adminAdvancedViewsLoad();
+assert.equal(attempts.length,2);
+advanced.adminIncidentCenter=()=> 'incident';
+advanced.adminAuditView=()=> 'audit';
+advanced.adminProductRegistrySection=()=> 'catalog';
+section='overview';const before=redraws;
+attempts[1].tag.onload();
+assert.equal(await retry,true);
+assert.equal(redraws,before);
+section='catalog';
+assert.equal(advanced.adminAdvancedViewsRender(section,{}),'catalog');
+assert.equal(attempts.length,2);
 const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
 assert.ok(sharedAdminClasses.has('admin-entity-grid'),'Merchant shared class needs explicit preservation');
 const optimizedComponents=stripAdminOnlyCss(originalComponents,{sharedAdminClasses});
@@ -99,6 +145,14 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  const optionalOperational=path.join(dir,'js','admin-operational-views.js');
+  assert.equal(fs.existsSync(optionalOperational),role==='admin');
+  assert.ok(!html.includes('src="./js/admin-operational-views.js?v=test-sha"'));
+  assert.ok(!sw.includes("'./js/admin-operational-views.js?v=test-sha'"));
+  if(role==='admin'){
+   assert.equal(fs.readFileSync(optionalOperational,'utf8'),operational.deferred);
+   assert.equal(fs.readFileSync(path.join(dir,'js','admin.js'),'utf8'),operational.startup);
+  }
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.
   // Only the revenda portal ships privileged merchant operations.
