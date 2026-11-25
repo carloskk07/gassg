@@ -1392,15 +1392,26 @@ jobs:
       - name: V1.978 accessible recovery and nested workspaces
         run: node tests/authenticated-error-recovery-v1-978.mjs
       - name: Browser smoke — mobile routes
+        timeout-minutes: 25
         run: |
-          python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/chama-http.log 2>&1 &
           SERVER_PID=$!
-          trap 'kill $SERVER_PID' EXIT
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
           for route in home learn earn order club refer merchants sponsors privacy terms contact merchant admin; do
-            "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
+            echo "Browser smoke: $route"
+            if timeout --kill-after=10s 90s "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html" 2> "/tmp/chrome-$route.log"; then
+              test -s "/tmp/$route.html"
+            else
+              code=$?
+              echo "::error::Browser smoke failed for route $route (exit $code)"
+              tail -n 40 "/tmp/chrome-$route.log" || true
+              tail -n 20 /tmp/chama-http.log || true
+              exit "$code"
+            fi
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
           grep -Fq 'tamao-home-catalog' /tmp/home.html
