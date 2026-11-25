@@ -1565,7 +1565,9 @@ function merchantSetupSnapshot(rt){
   const methods=m.paymentMethods||{};
   const enabled=['pix','card','cash'].filter(key=>methods[key]===true);
   const matches=key=>enabled.includes(key)||(['card_credit','card_debit'].includes(key)&&enabled.includes('card'));
-  // Delivery: manual or verified device; never online checkout.
+  // The server requires an active delivery route, not an online checkout.
+  // Merchant-confirmed routes need no PSP; device routes need the matching
+  // connected provider account with both direct-sale and validation capability.
   const accounts=Array.isArray(rt?.receivingAccounts)?rt.receivingAccounts:[];
   const routed=Array.isArray(rt?.paymentRoutes)&&rt.paymentRoutes.some(route=>{
     if(route?.active!==true||route.channel!=='delivery'||!matches(String(route.paymentMethod||'')))return false;
@@ -1637,7 +1639,8 @@ function merchantRevealControl(selector){
   el.focus?.({preventScroll:true});
   return true;
 }
-// Owner declarations do not establish legal or ANP compliance.
+// Permanent owner may complete missing commercial address, but this is
+// self-declared information: it NEVER confirms CNPJ/representation/ANP.
 async function merchantUpdateBusinessDetailsLive(payload){
   if(merchantRuntime.status!=='ready'||merchantRuntime.merchant?.memberRole!=='owner')
     throw new Error('Somente o proprietário pode atualizar o endereço cadastral');
@@ -1651,7 +1654,9 @@ async function merchantUpdateBusinessDetailsLive(payload){
       result?.pendingAdministrativeVerification!==true)
       throw new Error('Não foi possível confirmar o salvamento do cadastro');
     const refreshed=await merchantRefresh({silent:true});
-    // Require current, owner-bound server readback.
+    // An RPC acknowledgement is not proof that the owner's saved record was
+    // read back. merchantRefresh may resolve null (expired session/no access)
+    // or return an obsolete response after a competing refresh.
     if(merchantBusinessDraftKey(merchantRuntime)!==submittedKey||
       String(refreshed?.merchant?.merchantId||'')!==submittedMerchantId||
       refreshed?.merchant?.memberRole!=='owner'||
@@ -1670,7 +1675,8 @@ async function merchantUpdateBusinessDetailsLive(payload){
   }
 }
 
-// Owner drafts: RAM only; no browser storage or telemetry.
+// Preserve an owner's unsaved form during background redraws in RAM only.
+// Never store company/contact fields in browser storage or telemetry.
 let merchantBusinessUnsavedDraft=null;
 const merchantBusinessProfileFields=[
   'legalName','tradeName','responsibleName','phone','whatsapp',
@@ -1799,7 +1805,8 @@ async function merchantBusinessProfileSaveFromUi(){
     !/^[0-9]{8}$/.test(payload.postalCode)||
     !/^[A-Z]{2}$/.test(payload.state))
     return toast('Revise razão social, endereço, cidade, UF, CEP e telefones.');
-  // Capture autofill; retain draft until readback.
+  // Also capture browser-autofilled values that did not fire an input event.
+  // A failed readback must keep this draft available for review/retry.
   if(!merchantBusinessProfileChanged())
     return toast('Não foi possível preservar seus dados. Atualize o painel antes de salvar.');
   try{
@@ -1908,7 +1915,8 @@ async function merchantEnablementRecheck(){
   catch(error){toast(String(error?.message||error))}
 }
 
-// Reveal results after redraw only in the original session.
+// Reveal the actual verification results, including after an async redraw.
+// Capture the operation and session before the read; never navigate a new account.
 async function merchantFirstRunReview(){
   const rt=globalThis.merchantRuntime||{};
   const m=rt.merchant;
@@ -4071,7 +4079,9 @@ async function merchantLiveRefresh(){
   try{
     await merchantRefresh();
     if(rt.status==='no-access'&&rt.session?.access_token){
-      // No workspace: refresh only this authenticated user's applications.
+      // An applicant has no merchant workspace yet: merchant-orders cannot
+      // refresh a pending/approved application. Query only this authenticated
+      // person's applications, never another user's company by CNPJ.
       try{
         await merchantLoadOwnApplications();
         rt.applicationFetchError=null;
@@ -4131,7 +4141,8 @@ async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
 const merchantCatalogSaving=new Set();
-// Load batch confirmation only on demand.
+// Loaded only when a merchant actually chooses to confirm reviewed prices.
+// Keep the Admin initial JS bundle below its strict performance limit.
 let merchantPriceBatchLoading=false;
 function merchantPriceBatchStart(){
   if(merchantPriceBatchLoading)return;
@@ -4200,7 +4211,8 @@ async function merchantLiveSaveP13(){
   if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
   try{await merchantUpdateProductLive('P13',Math.round(price*100),stock,true);toast('Preço e estoque confirmados')}catch(e){toast(String(e?.message||e))}
 }
-// Reconfirm existing freight terms only.
+// Owner/manager attests the *existing* freight terms. Never change fee,
+// ETA or coverage merely to make the freshness gate turn green.
 async function merchantLiveReconfirmDelivery(){
   const rt=globalThis.merchantRuntime||{},m=rt.merchant||{};
   if(rt.status!=='ready'||rt.actionPending===true||
@@ -4247,7 +4259,7 @@ async function merchantLiveReconfirmDelivery(){
     return false;
   }catch(e){toast(String(e?.message||e));return false;}
 }
-// Presets fill fields; explicit save and server validation required.
+// Presets fill existing fields only. Server-side validation and explicit save remain authoritative.
 function merchantSettingQuickChoice(select,fieldId){
   const options={
     'live-delivery-fee':['0','5','10','15'],
