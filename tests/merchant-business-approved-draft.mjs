@@ -111,10 +111,19 @@ assert.match(html,/Nenhum campo foi aprovado automaticamente/);
 assert.match(html,/Salvar meus dados para conferência/);
 assert.ok(!html.includes('value="São Gabriel"'),'city must not be invented');
 const saved={city:'São Gabriel',state:'RS',postalCode:'97300000',
- addressText:'Centro 123',legalName:'Empresa Confirmada'};
+ addressText:'Centro 123',legalName:'Empresa Confirmada',tradeName:'Revenda Confirmada',
+ responsibleName:'Responsável Confirmado',phone:'55999998888',whatsapp:'55999998888'};
 const savedHtml=view.draw({...pending,merchant:{...pending.merchant,businessDetails:saved}});
 assert.match(savedHtml,/Empresa Confirmada/);
 assert.doesNotMatch(savedHtml,/Dados sugeridos do seu cadastro anterior/);
+assert.match(savedHtml,/Informações declaradas/);
+assert.doesNotMatch(savedHtml,/<details id="merchant-business-profile"[^>]* open>/);
+for(const partial of [{legalName:''},{phone:'123'},{state:'ZZ'},{postalCode:'123'}]){
+ const incomplete=view.draw({...pending,merchant:{...pending.merchant,businessDetails:{...saved,...partial}}});
+ assert.match(incomplete,/<details id="merchant-business-profile"[^>]* open>/);
+ assert.match(incomplete,/Complete os dados da empresa/);
+ assert.doesNotMatch(incomplete,/Informações declaradas/);
+}
 assert.doesNotMatch(view.draw({...pending,merchant:{...pending.merchant,memberRole:'manager'}}),
  /Razão social/,'manager must not see owner form');
 const safeHtml=view.draw({...pending,merchant:{...pending.merchant,businessDraft:{
