@@ -163,3 +163,48 @@ assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],
  {cnpjCurrent:true,anpCurrent:true}).complianceReady,true);
 
 console.log('V1.303 PASS — merchant tasks and orders first, owner-only guidance, admin control and retained operations.');
+
+
+ // ANP consultation is read-only, exact CNPJ and region, and never overwrites evidence.
+const adminSource=read('js/admin.js');
+new vm.Script(adminSource,{filename:'js/admin.js'});
+const anpStart=adminSource.indexOf('function adminMerchantAnpReference(');
+const anpEnd=adminSource.indexOf('function adminMerchantCard(',anpStart);
+assert.ok(anpStart>=0&&anpEnd>anpStart);
+const now=Date.now(), stamp=new Date(now-60000).toISOString();
+const business={id:'m',cnpj:'12.345.678/0001-90',businessDetails:{city:'São Gabriel',state:'RS'}};
+const prospect={cnpj:'12345678000190',legal_name:'Empresa de teste',anp_authorization:'REF-TESTE',sigaf_status:'Ativa',source_checked_at:stamp};
+const report={city:'São Gabriel',state:'RS',sourceStatus:'ok',checkedAt:stamp,prospects:[prospect]};
+let actor={id:'admin'},target=business,calls=[],notices=[],focusRef=false;
+const nodes={'anp-lookup-m':{},'anp-result-m':{},'anp-consult-m':{disabled:false},'anp-copy-m':{hidden:true},'anpref-m':{value:'',focus:()=>{focusRef=true;}}};
+const runtime={session:actor};
+let response=report;
+const anpCtx=vm.createContext({adminRuntime:runtime,adminPartnerVerificationMutationTarget:()=>target,
+ document:{getElementById:key=>nodes[key]||null},adminInvoke:async payload=>{calls.push(payload);return response;},
+ formatDateTime:x=>x,toast:x=>notices.push(x)});
+vm.runInContext(adminSource.slice(anpStart,anpEnd)+';this.lookup=adminMerchantAnpReference;this.consult=adminConsultMerchantAnp;',anpCtx);
+assert.equal(anpCtx.lookup(report,business,now).reference,'REF-TESTE');
+for(const bad of [{...report,sourceStatus:'unavailable'},{...report,state:'SC'},{...report,city:'Outra cidade'},
+ {...report,checkedAt:new Date(now-90000000).toISOString()},
+ {...report,prospects:[{...prospect,cnpj:'99999999000199'}]},
+ {...report,prospects:[prospect,prospect]},
+ {...report,prospects:[{...prospect,source_checked_at:new Date(now-90000000).toISOString()}]},
+ {...report,prospects:[{...prospect,anp_authorization:''}]}])
+ assert.equal(anpCtx.lookup(bad,business,now),null);
+await anpCtx.consult('m');
+assert.equal(calls.length,1);assert.equal(calls[0].action,'prospect-intelligence');
+assert.equal(calls[0].force,false);
+assert.equal(nodes['anpref-m'].value,'','lookup must never silently change evidence');
+assert.equal(nodes['anp-copy-m'].hidden,false);
+nodes['anp-copy-m'].onclick();
+assert.equal(nodes['anpref-m'].value,'REF-TESTE');assert.equal(focusRef,true);
+nodes['anpref-m'].value='existing';
+nodes['anp-copy-m'].onclick();
+assert.equal(nodes['anpref-m'].value,'existing');
+runtime.session={id:'other'};
+nodes['anpref-m'].value='';
+nodes['anp-copy-m'].onclick();
+assert.equal(nodes['anpref-m'].value,'','stale session cannot apply prior suggestion');
+target=null;
+await anpCtx.consult('m');assert.equal(calls.length,1);
+console.log('PASS: ANP exact regional identity, freshness, read-only consultation, explicit non-overwriting reference and stale-session guard.');
