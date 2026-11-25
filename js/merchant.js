@@ -1918,6 +1918,10 @@ async function merchantFirstRunReview(){
 // V1.277 — the quick editor shows only eligible, server-scoped active catalog items.
 // V1.279: temporary unsaved catalog edits, in memory only and scoped to a merchant.
 const merchantQuickDrafts=new Map();
+function merchantClearQuickDrafts(){
+  merchantQuickDrafts.clear();
+}
+
 function merchantQuickDraftKey(rt,code){
   const merchantId=String(rt?.merchant?.merchantId||'');
   const actor=String(rt?.session?.user?.id||'');
