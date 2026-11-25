@@ -3845,6 +3845,47 @@ function adminOfficialAreasView(){
   return '<section class="section"><p role="status" class="muted">Carregando áreas oficiais…</p></section>';
 }
 
+// Release builds defer the advanced operational views; canonical local source retains them.
+let adminAdvancedViewsLoading=null,adminAdvancedViewsError='';
+function adminAdvancedViewsAllowed(section=adminRuntime.section){
+ return ['incidents','audit','catalog'].includes(section)&&section===adminRuntime.section&&adminReady()&&adminRoleCanSection(section);
+}
+function adminAdvancedViewRenderer(section){
+ if(section==='incidents'&&typeof adminIncidentCenter==='function')return adminIncidentCenter;
+ if(section==='audit'&&typeof adminAuditView==='function')return adminAuditView;
+ if(section==='catalog'&&typeof adminProductRegistrySection==='function')return adminProductRegistrySection;
+ return null;
+}
+function adminAdvancedViewsReady(){
+ return ['incidents','audit','catalog'].every(section=>typeof adminAdvancedViewRenderer(section)==='function');
+}
+async function adminAdvancedViewsLoad(){
+ if(!adminAdvancedViewsAllowed())return false;
+ if(adminAdvancedViewsReady())return true;
+ if(!adminAdvancedViewsLoading){
+  adminAdvancedViewsError='';
+  adminAdvancedViewsLoading=new Promise((resolve,reject)=>{
+   if(!adminActivationModuleUrl){reject(Error('Módulo indisponível nesta publicação.'));return;}
+   const url=new URL('admin-operational-views.js',adminActivationModuleUrl);
+   url.search=new URL(adminActivationModuleUrl).search;
+   const tag=document.createElement('script');
+   tag.src=url.href;tag.async=true;
+   tag.onload=()=>{if(adminAdvancedViewsReady())resolve(true);else{tag.remove?.();reject(Error('Não foi possível inicializar a área.'));}};
+   tag.onerror=()=>reject(Error('Não foi possível carregar a área.'));
+   adminAppendDeferredModule(tag,reject);
+  }).catch(error=>{adminAdvancedViewsError=String(error?.message||error);return false;})
+   .finally(()=>{adminAdvancedViewsLoading=null;if(adminAdvancedViewsAllowed())render();});
+ }
+ return adminAdvancedViewsLoading;
+}
+function adminAdvancedViewsRender(section,data){
+ if(!adminAdvancedViewsAllowed(section))return '';
+ const view=adminAdvancedViewRenderer(section);
+ if(view)return view(data);
+ if(adminAdvancedViewsError)return '<section class="section"><p class="notice danger">'+esc(adminAdvancedViewsError)+'</p><button type="button" class="secondary" onclick="adminAdvancedViewsLoad()">Tentar novamente</button></section>';
+ if(!adminAdvancedViewsLoading)queueMicrotask(()=>adminAdvancedViewsLoad());
+ return '<section class="section"><p role="status" class="muted">Carregando área administrativa…</p></section>';
+}
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
@@ -12600,7 +12641,7 @@ function adminPage(){
     ${adminPartnersWorkspaceTab==='verification'?adminVerificationMerchantView(d):''}
   `):'';
 
-  const catalogContent=(sectionActive('catalog'))?(`${adminProductRegistrySection(d)}`):'';
+  const catalogContent=(sectionActive('catalog'))?(`${adminAdvancedViewsRender('catalog',d)}`):'';
 
   // Only the selected finance workspace is assembled and retained.
   const financeSelection=sectionActive('finance')?adminFinanceWorkspaceCurrent():'summary';
@@ -12672,8 +12713,8 @@ function adminPage(){
 
 
   const alertsContent=(sectionActive('alerts'))?(adminOperationalAlertsView()):'';
-  const incidentsContent=(sectionActive('incidents'))?(adminIncidentCenter(d)):'';
-  const auditContent=(sectionActive('audit'))?(adminAuditView(d)):'';
+  const incidentsContent=(sectionActive('incidents'))?(adminAdvancedViewsRender('incidents',d)):'';
+  const auditContent=(sectionActive('audit'))?(adminAdvancedViewsRender('audit',d)):'';
 
   const adminAccessContent=(sectionActive('system'))?(currentRole==='superadmin'
     ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
