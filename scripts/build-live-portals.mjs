@@ -579,7 +579,8 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       const from=homeSource.indexOf(open),to=homeSource.indexOf(close,from);
       if(from<0||to<=from||homeSource.indexOf(open,from+1)>=0)
         throw new Error('Customer-only pricing loader boundary changed');
-      fs.writeFileSync(homeFile,homeSource.slice(0,from)+homeSource.slice(to+close.length),'utf8');
+      const partnerHome=homeSource.slice(0,from)+homeSource.slice(to+close.length);
+      fs.writeFileSync(homeFile,compactReleasedHomeQuoteComments(partnerHome),'utf8');
       fs.rmSync(path.join(target,'js','guest-price-board.js'),{force:true});
     }
     if(role==='merchant'){

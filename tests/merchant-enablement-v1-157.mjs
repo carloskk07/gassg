@@ -223,3 +223,27 @@ for(const invalid of [{...valid,checked_at:new Date(Date.now()-181000).toISOStri
 }
 assert.match(sandbox.card(valid),/<details><summary>Ver diagnóstico técnico completo/);
 console.log('PASS: current and complete evidence, simple administrative phase and technical details remain available.');
+
+const actualOwners={
+ location:['admin','merchant'],cnpj:['admin','merchant'],representation:['admin','merchant'],
+ product_authority:['admin','merchant'],financial:['admin','merchant'],merchant_status:['admin','merchant'],
+ inventory:['merchant','merchant'],delivery_fee:['merchant','merchant'],delivery_area:['merchant','merchant'],
+ payment_method:['merchant','merchant'],payment_route:['merchant','merchant'],online:['merchant','realtime'],
+ heartbeat:['merchant','realtime'],operation_mode:['admin','global'],city_pause:['admin','city'],
+ global_commerce:['admin','global'],quote_authority:['system','realtime']
+};
+const diagnose=pending=>({...valid,ready:false,checks:canonicalKeys.map(key=>({
+ key,ok:!pending.includes(key),owner:actualOwners[key][0],scope:actualOwners[key][1],
+ label:key,action:'ACTION '+key
+}))});
+const initial=diagnose(['merchant_status','cnpj','representation','product_authority','location',
+ 'global_commerce','inventory','delivery_fee','online','heartbeat','quote_authority']);
+assert.match(sandbox.card(initial),/Próxima ação:<\/strong> ACTION location/);
+assert.deepEqual(Array.from(sandbox.plan(initial.checks).admin,x=>x.key),
+ ['location','cnpj','representation','product_authority','merchant_status']);
+assert.match(sandbox.card(diagnose(['merchant_status','inventory','quote_authority'])),/Próxima ação:<\/strong> ACTION merchant_status/);
+assert.match(sandbox.card(diagnose(['inventory','global_commerce','online','quote_authority'])),/Próxima ação:<\/strong> ACTION inventory/);
+assert.match(sandbox.card(diagnose(['global_commerce','online','heartbeat','quote_authority'])),/Próxima ação:<\/strong> ACTION global_commerce/);
+assert.match(sandbox.card(diagnose(['online','heartbeat','quote_authority'])),/Conferir disponibilidade/);
+assert.match(sandbox.card(diagnose(['online','heartbeat','quote_authority'])),/Próxima ação:<\/strong> ACTION online/);
+console.log('PASS: actual dependencies precede activation, platform release and temporary availability; no new mutation.');
