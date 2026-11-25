@@ -45,7 +45,7 @@ assert.equal(steps.filter(step=>step.done).length,4,
 const view=sandbox.renderSetup(runtime);
 assert.ok(view.includes('3 de 3 etapas concluídas'));
 assert.ok(view.includes('Dados informados, aguardando conferência'));
-assert.ok(view.includes('Esses ajustes não liberam vendas automaticamente'));
+assert.ok(view.includes('Configurar não libera vendas automaticamente'));
 assert.ok(!view.includes('Ativada automaticamente'),'No auto activation promise');
 assert.ok(view.includes("merchantSetupGo('products')")&&view.includes("merchantSetupGo('delivery')")&&view.includes("merchantSetupGo('payment')"));
 runtime.merchant.memberRole='driver';
