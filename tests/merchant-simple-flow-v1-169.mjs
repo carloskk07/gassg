@@ -23,6 +23,7 @@ const userGlobal={
   merchantPortalRequested:()=>true,merchantRuntime:{status:'no-access',session:{access_token:'fake'}},
   merchantOwnApplicationForInvite:()=>app
 };
+userGlobal.merchantContactSuggestion=vm.runInNewContext(functionSource(merchant,'merchantContactSuggestion')+';merchantContactSuggestion');
 const pageContext=vm.createContext({
   globalThis:userGlobal,esc,shell:markup=>markup,
   currentMerchantProspectInviteToken:()=>'',currentMerchantPilotInviteToken:()=>''
@@ -37,6 +38,19 @@ pageContext.growthAttributionCode=()=> 'ABCDE1';
 assert.match(pageContext.drawMerchantJoin(),/<details class="merchant-lead-options" open>/);
 assert.match(pageContext.drawMerchantJoin(),/value="ABCDE1"/);
 delete pageContext.growthAttributionCode;
+userGlobal.merchantRuntime.session.user={user_metadata:{full_name:'Maria Souza',phone:'(55) 99999-1234'}};
+assert.match(pageContext.drawMerchantJoin(),/id="j-owner"[^>]*value="João"/);
+assert.match(pageContext.drawMerchantJoin(),/id="j-phone"[^>]*value="55999999999"/);
+userGlobal.merchantRuntime.newApplicationMode=true;
+assert.match(pageContext.drawMerchantJoin(),/id="j-owner"[^>]*value="Maria Souza"/);
+assert.match(pageContext.drawMerchantJoin(),/id="j-phone"[^>]*value="55999991234"/);
+assert.match(pageContext.drawMerchantJoin(),/id="j-cnpj"[^>]*value=""/);
+assert.match(pageContext.drawMerchantJoin(),/id="j-address"[^>]*value=""/);
+userGlobal.merchantRuntime.session.user.user_metadata={full_name:'<script>',phone:'abc55999991234'};
+assert.match(pageContext.drawMerchantJoin(),/id="j-owner"[^>]*value=""/);
+assert.match(pageContext.drawMerchantJoin(),/id="j-phone"[^>]*value=""/);
+delete userGlobal.merchantRuntime.newApplicationMode;
+delete userGlobal.merchantRuntime.session.user;
 assert.ok(form.includes('<form class="card flat form-stack merchant-join-form"'));
 assert.ok(form.includes('onsubmit="event.preventDefault();joinMerchant()"'),'Enter must submit without reload');
 assert.ok(form.includes('type="submit"'),'submit button must be semantic');
