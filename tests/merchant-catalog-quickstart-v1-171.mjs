@@ -44,6 +44,10 @@ assert.ok(html.includes('Adicionar outro produto ou vasilhame'));
 assert.ok(html.indexOf('Meus produtos')<html.indexOf('Adicionar outro produto ou vasilhame'),
  'Existing catalog precedes new product choices');
 assert.ok(html.includes('live-price-P13')&&html.includes('live-stock-P13'),'Basic price and stock controls');
+assert.match(html,/id="live-price-P13"[^>]*step="0.01"/);
+assert.match(html,/id="live-min-price-P45"[^>]*step="0.01"/);
+assert.match(html,/id="live-max-price-P45"[^>]*step="0.01"/);
+
 assert.ok(html.includes('merchant-catalog-save'));
 assert.ok(html.includes('merchant-catalog-pricing'),'Advanced strategy preserved');
 assert.ok(html.includes('live-pricing-mode-P13'));
@@ -131,6 +135,19 @@ await saveCtx.saveCatalog('P13');
 assert.equal(calls,2,'Saving after failed request must remain possible');
 assert.equal(fields['live-save-product-P13'].disabled,false,'Failure must restore save button');
 assert.ok(alerts.some(s=>String(s).includes('Conflito de versão')));
+// Use the same SKU grammar as the full catalog, including 32-character identifiers.
+const longCode='A'+'B'.repeat(31);
+for(const [key,value] of Object.entries(fields))if(key.endsWith('-P13'))
+ fields[key.replace(/-P13$/,'-'+longCode)]={...value};
+fields['live-price-'+longCode].value='120.99';
+fields['live-stock-'+longCode].value='0';
+let exactArgs;
+saveCtx.merchantUpdateProductLive=async(...args)=>{exactArgs=args;};
+await saveCtx.saveCatalog(longCode);
+assert.equal(exactArgs[0],longCode);
+assert.equal(exactArgs[1],12099);
+assert.equal(exactArgs[2],0);
+
 assert.ok(css.includes('.merchant-catalog-save')&&css.includes('.merchant-catalog-kind'));
 assert.ok(css.includes('@media(max-width:520px)'));
 console.log('V1.171: configured-first catalog, optional categories, price-range preservation, role isolation, XSS rejection and save concurrency passed.');
