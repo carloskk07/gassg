@@ -20,7 +20,7 @@ const m={merchantId:'m1',memberRole:'owner',status:'active',online:false,
  acceptsCitywide:true,deliveryFeeConfirmedAt:now,
  paymentMethods:{pix:true,card:false,cash:false}};
 const rt={status:'ready',merchant:m,catalog:[active('WATER20'),active('WOOD',old)],
- paymentRoutes:[{paymentMethod:'pix',active:true}]};
+ paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]};
 const sandbox=vm.createContext({globalThis:{merchantRuntime:rt},Date,Number,Array,String,Boolean});
 vm.runInContext(take('merchantTimestampFresh')+'\n'+take('merchantLiveFreshness')+
  '\n'+take('merchantSetupSnapshot')+
@@ -49,15 +49,19 @@ rt.catalog=[active('WATER20')];
 assert.equal(product().done,true);
 rt.paymentRoutes=[];
 assert.equal(payment().done,false,'no valid payment route');
-rt.paymentRoutes=[{paymentMethod:'pix',active:false}];
+rt.paymentRoutes=[{paymentMethod:'pix',active:false,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}];
 assert.equal(payment().done,false,'inactive payment route cannot count');
-rt.paymentRoutes=[{paymentMethod:'pix',active:true}];
+rt.paymentRoutes=[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}];
 assert.equal(payment().done,true,'active matching route counts');
+rt.paymentRoutes=[{paymentMethod:'pix',active:true,channel:'online',verificationMode:'provider_api'}];
+assert.equal(payment().done,false,'online checkout cannot authorize payment on delivery');
+rt.paymentRoutes=[{paymentMethod:'pix',active:true}];
+assert.equal(payment().done,false,'incomplete route cannot authorize payment on delivery');
 m.paymentMethods={pix:false,card:true,cash:false};
-rt.paymentRoutes=[{paymentMethod:'card_debit',active:true}];
+rt.paymentRoutes=[{paymentMethod:'card_debit',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}];
 assert.equal(payment().done,true,'card and card-debit route compatibility remains');
 m.paymentMethods={pix:true,card:false,cash:false};
-rt.paymentRoutes=[{paymentMethod:'pix',active:true}];
+rt.paymentRoutes=[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}];
 
 const page=js.slice(js.indexOf('function merchantLivePage(){'),
  js.indexOf('\nfunction merchantScheduledDispatchState(',js.indexOf('function merchantLivePage(){')));
@@ -76,7 +80,7 @@ const decide=(status='active',complianceReady=true,financialHold=false)=>{
 assert.equal(decide().canGoOnline,true,'valid merchant, current products, city and route');
 rt.paymentRoutes=[];
 assert.equal(decide().canGoOnline,false,'online toggle must not promise readiness without route');
-rt.paymentRoutes=[{paymentMethod:'pix',active:true}];
+rt.paymentRoutes=[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}];
 m.acceptsCitywide=undefined;
 assert.equal(decide().canGoOnline,false,'unknown delivery coverage must not authorize online');
 m.acceptsCitywide=true;
