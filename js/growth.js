@@ -919,6 +919,32 @@ function openSponsorContact(format='general',quoteBrief=''){
   if(route()!=='contact'){go('contact');setTimeout(focus,160);return}
   focus();
 }
+// The storefront only needs the read/display module, not advertiser checkout.
+function tamaoAdsLoadHomeDirect(){
+ if(globalThis.route?.()!=='home')return;
+ if(typeof globalThis.tamaoAdsDisplayHome==='function'){
+  setTimeout(()=>globalThis.tamaoAdsDisplayHome?.(),0);return;
+ }
+ if(globalThis.tamaoAdsHomeScript)return;
+ globalThis.tamaoAdsHomeScript=true;
+ const tag=document.createElement('script');
+ const source=document.querySelector('script[src*="growth.js"]')?.src||location.origin+'/js/growth.js';
+ const url=new URL('ads-display.js',source);
+ url.search=new URL(source).search;
+ tag.src=url.href;tag.async=true;
+ let settled=false,timer;
+ const finish=ok=>{
+  if(settled)return;
+  settled=true;clearTimeout(timer);
+  globalThis.tamaoAdsHomeScript=false;
+  if(!ok){tag.remove?.();return;}
+  if(globalThis.route?.()==='home')globalThis.tamaoAdsDisplayHome?.();
+ };
+ tag.onload=()=>finish(typeof globalThis.tamaoAdsDisplayHome==='function');
+ tag.onerror=()=>finish(false);
+ timer=setTimeout(()=>finish(false),15000);
+ try{document.head.appendChild(tag);}catch{finish(false);}
+}
 function tamaoAdsPlannerLoad(){
 if(globalThis.tamaoAdsPlannerSection||globalThis.tamaoAdsLoading)return;
 globalThis.tamaoAdsLoading=true;
