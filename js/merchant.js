@@ -1823,10 +1823,15 @@ function merchantEnablementAssistantView(rt){
   const checkedMs=Date.parse(timestamp),now=Date.now();
   const fresh=Number.isFinite(checkedMs)&&checkedMs<=now&&now-checkedMs<=3*60*1000;
   // A partial list, stale cache or failed recheck cannot certify availability.
-  const authority=checks.filter(item=>item?.key==='quote_authority');
-  const coherent=checks.length>0&&authority.length===1&&
-    typeof diagnostic?.ready==='boolean'&&typeof authority[0]?.ok==='boolean'&&
-    diagnostic.ready===authority[0].ok;
+  const required=['merchant_status','cnpj','representation','product_authority','operation_mode',
+    'global_commerce','location','city_pause','financial','inventory','payment_method','payment_route',
+    'delivery_area','delivery_fee','online','heartbeat','quote_authority'];
+  const keys=new Set(checks.map(item=>item?.key));
+  const authority=checks.find(item=>item?.key==='quote_authority');
+  const coherent=keys.size===checks.length&&required.every(key=>keys.has(key))&&
+    checks.every(item=>typeof item?.ok==='boolean')&&
+    typeof diagnostic?.ready==='boolean'&&diagnostic.ready===authority?.ok&&
+    (!diagnostic.ready||missing.length===0);
   const confirmed=Boolean(diagnostic&&fresh&&coherent&&!rt.enablementError&&!rt.enablementLoading);
   const ready=confirmed&&diagnostic.ready===true&&missing.length===0;
   const lead=merchantIssues[0]||otherIssues[0]||null;
