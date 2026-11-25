@@ -2162,6 +2162,7 @@ function merchantOfflineGuard(denied){
 // Invalidate protected data when merchant access changes.
 function merchantClearProtectedSnapshot(){
   merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
+  globalThis.merchantClearQuickDrafts?.();
   merchantPushRuntime.toggleToken=null;
   merchantPushRuntime.togglePending=false;
   merchantPushRuntime.checkToken=null;
