@@ -93,6 +93,28 @@ export function splitAdminOwnerFinanceCore(core){
   return {startup,ownerFinance,prefix,leads};
 }
 
+// Extract complete, side-effect-free view declarations only; action handlers,
+ // authorization, and canonical source are preserved.
+export function splitAdminOperationalViews(source){
+ if(typeof source!=='string')throw new TypeError('Expected canonical admin source');
+ const markers=[["function adminIncidentCard(","function adminAuditChoiceChanged("],["function adminAuditView(","/* V1.208 — one fresh, scoped, read-only diagnostic request per consultation. */"],["function adminProductRegistrySection(","function adminCommercialPolicySection("]];
+ let cursor=0,startup='',deferred='';
+ for(const [start,end] of markers){
+  const a=source.indexOf(start),b=source.indexOf(end,a);
+  if(a<cursor||b<=a||source.indexOf(start,a+1)!==-1||source.indexOf(end,b+1)!==-1)
+   throw new Error('Missing or ambiguous Admin operational view boundary: '+start);
+  startup+=source.slice(cursor,a);
+  deferred+=source.slice(a,b);
+  cursor=b;
+ }
+ startup+=source.slice(cursor);
+ if(startup.length+deferred.length!==source.length||Buffer.byteLength(deferred)<10000)
+  throw new Error('Admin operational view split contract changed');
+ validateClassicScriptSyntax(startup,'admin.js (startup)');
+ validateClassicScriptSyntax(deferred,'admin-operational-views.js (deferred)');
+ return {startup,deferred};
+}
+
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -517,6 +539,10 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(acquisitionFile,owner.startup,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-owner-finance.js'),owner.ownerFinance,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-expansion.js'),parts.expansion,'utf8');
+      const adminFile=path.join(target,'js','admin.js');
+      const operational=splitAdminOperationalViews(fs.readFileSync(adminFile,'utf8'));
+      fs.writeFileSync(adminFile,operational.startup,'utf8');
+      fs.writeFileSync(path.join(target,'js','admin-operational-views.js'),operational.deferred,'utf8');
     }
     // All portals render genuine Pix locally. The encoder is loaded only
     // when a payable, owner-bound BR Code is displayed.
