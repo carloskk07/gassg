@@ -1317,42 +1317,65 @@ function agendaCancelReschedule(){
 }
 async function agendaConfirmReschedule(){
  const s=agendaRuntime;
- if(!s.user||!s.client||s.busy||!agendaUuid.test(s.rescheduleId)||!s.selectedStart)return;
- const current=[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.status==='confirmed');
- if(!current||current.page_id!==s.publicProfile?.id||
-  current.service_id!==s.serviceId||(current.staff_id||'')!==s.staffId)return;
+ if(!s.user||!s.client||s.busy||s.slotBusy||s.slotError||!agendaUuid.test(s.rescheduleId)||!s.selectedStart)return;
+ const booking=[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.status==='confirmed');
+ if(!booking||booking.page_id!==s.publicProfile?.id||
+  booking.service_id!==s.serviceId||(booking.staff_id||'')!==s.staffId)return;
  const target=s.selectedStart;
  if(!s.slots.some(x=>x.starts_at===target))return;
- s.busy=true;s.error='';s.notice='';
+ const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
+ const id=booking.id,page=booking.page_id,service=booking.service_id,staff=booking.staff_id||null,original=booking.starts_at;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ const sameChoice=()=>current()&&agendaSlug()===slug&&s.rescheduleId===id&&
+  s.serviceId===service&&(s.staffId||null)===staff&&s.selectedStart===target;
+ const matches=row=>row?.id===id&&row.status==='confirmed'&&
+  (row.customer_id===userId||row.owner_id===userId)&&row.page_id===page&&
+  row.service_id===service&&(row.staff_id||null)===staff&&
+  Date.parse(row.starts_at)===Date.parse(target)&&Date.parse(row.ends_at)>Date.parse(target)&&
+  Number.isSafeInteger(row.reschedule_count)&&row.reschedule_count>0;
+ s.busy=true;s.error='';s.notice='';render();
+ let failure=null,confirmed=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_reschedule_booking',{
-   p_appointment_id:current.id,p_expected_starts_at:current.starts_at,p_new_starts_at:target
-  });
-  if(error)throw error;
-  if(data?.status!=='confirmed'||data?.id!==current.id||Date.parse(data?.starts_at)!==Date.parse(target))
-   throw Error('readback failed');
-  const verify=await s.client.from('agenda_appointments').select('id,starts_at,status')
-   .eq('id',current.id).maybeSingle();
-  if(verify.error||verify.data?.status!=='confirmed'||
-   Date.parse(verify.data.starts_at)!==Date.parse(target))
-   throw Error('readback failed');
-  s.rescheduleId='';s.notice='Horário remarcado para '+agendaDateTime(target)+'. Atualize seu calendário com a nova reserva.';
-  await agendaRefreshOwner();await agendaLoadSlots();
- }catch(e){
-  let result={error:true};
-  try{result=await s.client.from('agenda_appointments').select('starts_at,status')
-    .eq('id',current.id).maybeSingle();}catch(_){}
-  if(!result.error&&result.data?.status==='confirmed'&&
-     Date.parse(result.data.starts_at)===Date.parse(target)){
-   s.rescheduleId='';s.notice='Remarcação confirmada para '+agendaDateTime(target)+'.';
-   await agendaRefreshOwner();await agendaLoadSlots();
-  }else{
-   s.error=e?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')?
-    'Este horário foi reservado por outra pessoa. Escolha outro.':
+  try{
+   const result=await client.rpc('agenda_reschedule_booking',{
+    p_appointment_id:id,p_expected_starts_at:original,p_new_starts_at:target
+   });
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return;
+  const result=await client.from('agenda_appointments')
+   .select('id,status,customer_id,owner_id,page_id,service_id,staff_id,starts_at,ends_at,reschedule_count')
+   .eq('id',id).maybeSingle();
+  if(!current())return;
+  confirmed=!result.error&&matches(result.data);
+  if(!sameChoice())return;
+  if(!confirmed){
+   s.error=failure?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')&&!result.error&&
+    result.data?.id===id&&result.data.status==='confirmed'&&Date.parse(result.data.starts_at)===Date.parse(original)
+    ?'Este horário foi reservado por outra pessoa. Escolha outro.':
     'A remarcação não foi confirmada. Confira sua reserva antes de tentar novamente.';
+   return;
   }
+  const row=result.data;
+  // Preserve calendar metadata even if a later list refresh fails. Do not
+  // overwrite a newer reschedule, cancellation or different booking.
+  const update=list=>list.map(x=>x.id===id&&x.status==='confirmed'&&
+    x.page_id===page&&x.service_id===service&&(x.staff_id||null)===staff&&
+    Date.parse(x.starts_at)===Date.parse(original)&&
+    Number(x.reschedule_count||0)<row.reschedule_count
+    ?{...x,starts_at:row.starts_at,ends_at:row.ends_at,reschedule_count:row.reschedule_count}:x);
+  s.mine=update(s.mine);s.bookings=update(s.bookings);
+  s.rescheduleId='';s.selectedStart='';s.requestKey='';
+  s.notice='Horário remarcado para '+agendaDateTime(target)+'. Atualize seu calendário com a nova reserva.';
+  try{await agendaRefreshOwner();}catch(_){}
+  if(!current())return;
+  s.mine=update(s.mine);s.bookings=update(s.bookings);
+  if(agendaSlug()===slug&&s.serviceId===service&&(s.staffId||null)===staff)await agendaLoadSlots();
+ }catch(_){
+  if(!confirmed&&sameChoice())s.error='A remarcação não foi confirmada. Confira sua reserva antes de tentar novamente.';
+ }finally{
+  s.busy=false;if(agendaRoute())render();
  }
- s.busy=false;render();
 }
 async function agendaCancel(id){
  const s=agendaRuntime;
