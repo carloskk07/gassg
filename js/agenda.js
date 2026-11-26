@@ -1032,55 +1032,41 @@ async function agendaQuickCreate(ev){
   if(!current())return false;
   // A pre-existing draft belongs in the editor, never overwrite its configuration.
   if(page){s.page=page;s.ownerMode=true;throw Error('existing page');}
+  // This client candidate requires the separately homologated atomic RPC.
+  // Never fall back to direct multi-step writes after an uncertain response.
+  let receipt=null;
   for(let attempt=0;attempt<3;attempt++){
    const suffix=attempt?'-'+crypto.randomUUID().replace(/-/g,'').slice(0,6):'';
    const slug=rawSlug.slice(0,60-suffix.length).replace(/-$/,'')+suffix;
    let failure=null;
    try{
-    const result=await client.from('agenda_pages').insert({slug,title,city,published:false});
+    const result=await client.rpc('agenda_create_atomic',{p_slug:slug,p_title:title,p_city:city,
+     p_service:service,p_duration:duration,p_price_cents:cents,p_schedule:schedule});
     if(result.error)throw result.error;
+    receipt=result.data;
    }catch(e){failure=e;}
    if(!current())return false;
    page=await readPage();
    if(!current())return false;
    if(page)break;
-   if(failure?.code!=='23505'||attempt===2)throw failure||Error('unconfirmed page');
+   if(failure?.code!=='23505'||attempt===2)throw failure||Error('unconfirmed atomic setup');
   }
-  if(!page||!samePage(page)||page.published!==false)throw Error('unconfirmed draft');
-  s.page=page;s.ownerMode=true;
-  let rows=await readRows('agenda_services',page.id);
-  if(!current())return false;
-  if(!rows.length){
-   try{await client.from('agenda_services').insert({page_id:page.id,title:service,duration_min:duration,price_cents:cents});}catch(_){}
-   if(!current())return false;
-   rows=await readRows('agenda_services',page.id);
-  }
+  if(page){s.page=page;s.ownerMode=true;}
+  if(receipt&&(receipt.created!==true||receipt.id!==page?.id||receipt.slug!==page?.slug||receipt.published!==true))
+   throw Error('existing or mismatched page');
+  if(!page||!samePage(page)||page.published!==true)throw Error('unconfirmed publication');
+  const rows=await readRows('agenda_services',page.id);
   if(!current())return false;
   if(rows.length!==1||!sameService(rows[0])||!agendaUuid.test(rows[0].id||''))throw Error('service unconfirmed');
-  s.services=rows;
-  let hours=await readRows('agenda_hours',page.id);
-  if(!current())return false;
-  if(!hours.length){
-   try{await client.rpc('agenda_replace_hours',{p_page_id:page.id,p_hours:weekdays});}catch(_){}
-   if(!current())return false;
-   hours=await readRows('agenda_hours',page.id);
-  }
+  const hours=await readRows('agenda_hours',page.id);
   if(!current())return false;
   if(!sameHours(hours))throw Error('hours unconfirmed');
-  s.hours=hours;
-  const before=await readPage();
+  const final=await readPage();
   if(!current())return false;
-  if(!before||before.id!==page.id||!samePage(before)||before.published!==false||
-   !before.updated_at)throw Error('draft changed');
-  // Publish only the confirmed draft; do not overwrite a concurrent page edit.
-  try{await client.from('agenda_pages').update({published:true})
-   .eq('id',page.id).eq('owner_id',userId).eq('updated_at',before.updated_at).eq('published',false);}catch(_){}
-  if(!current())return false;
-  const published=await readPage();
-  if(!current())return false;
-  if(!published||published.id!==page.id||!samePage(published)||published.published!==true)throw Error('publication unconfirmed');
-  s.page=published;
-  s.notice='Sua agenda está publicada! Compartilhe o link e comece a receber reservas gratuitas.';
+  if(!final||final.id!==page.id||!samePage(final)||final.published!==true||final.updated_at!==page.updated_at)
+   throw Error('page changed');
+  s.page=final;s.services=rows;s.hours=hours;
+  s.notice='Sua agenda está publicada e conferida! Compartilhe o link e comece a receber reservas gratuitas.';
   try{await agendaRefreshOwner();}catch(_){}
   if(current()){try{await agendaRefreshDirectory();}catch(_){}}
  }catch(_){

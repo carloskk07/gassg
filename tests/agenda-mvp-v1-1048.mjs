@@ -230,62 +230,45 @@ assert.match(vm.runInContext('agendaPublicView()',ctx),/Ver horários do dia seg
 ctx.FormData=class{constructor(form){this.form=form}get(name){return this.form[name]??null}};
 ctx.quickEvents=[];
 const quickOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',quickId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const makeQuickClient=({collision=false,lost=false,failService=false,failHours=false,failPublish=false,existing=null}={})=>{
+const makeQuickClient=({collision=false,lost=false,failSetup=false,failService=false,failHours=false,failPublish=false,existing=null,existingReply=false}={})=>{
  let page=existing,services=[],hours=[],attempt=0;
  const events=ctx.quickEvents;
  return {from(table){
-  const filters={};let mode='',record;
-  const q={
-   select(){return q},eq(k,v){filters[k]=v;return q},
+  const filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q},
    async maybeSingle(){assert.equal(filters.owner_id,quickOwner);return {data:page,error:null}},
-   insert(v){mode='insert';record=v;return q},
-   update(v){mode='update';record=v;return q},
+   insert(){throw Error('No direct setup writes')},update(){throw Error('No direct setup writes')},
    then(resolve,reject){
-    let result={data:null,error:null};
-    if(mode==='insert'){
-     events.push({step:'insert',table,record});
-     if(table==='agenda_pages'){
-      if(collision&&attempt++===0)result.error={code:'23505'};
-      else page={...record,id:quickId,owner_id:quickOwner,photo_paths:[],updated_at:'2026-11-25T22:00:00Z'};
-     }else if(!failService)services.push({...record,id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',owner_id:quickOwner,active:true});
-    }else if(mode==='update'){
-     events.push({step:'publish',table,record});
-     assert.equal(filters.id,quickId);assert.equal(filters.owner_id,quickOwner);assert.equal(filters.published,false);
-     if(!failPublish)page={...page,...record};
-    }else{
-     assert.equal(filters.owner_id,quickOwner);assert.equal(filters.page_id,quickId);
-     result.data=table==='agenda_services'?services:hours;
-    }
-    if(lost&&mode&&!result.error)result.error=Error('lost response');
-    return Promise.resolve(result).then(resolve,reject);
-   }
-  };return q;
- },rpc(name,args){
-  events.push({step:'hours',name,args});
-  if(!failHours)hours=args.p_hours.map(x=>({...x,owner_id:quickOwner,page_id:quickId}));
-  return Promise.resolve({data:null,error:lost?Error('lost response'):null});
+    assert.equal(filters.owner_id,quickOwner);assert.equal(filters.page_id,quickId);
+    return Promise.resolve({data:table==='agenda_services'?services:hours,error:null}).then(resolve,reject);
+   }};return q;
+ },async rpc(name,args){
+  assert.equal(name,'agenda_create_atomic');events.push({step:'atomic',name,args});
+  if(collision&&attempt++===0)return {error:{code:'23505'}};
+  if(failSetup)return {error:Error('setup failed and rolled back')};
+  page={id:quickId,owner_id:quickOwner,slug:args.p_slug,title:args.p_title,city:args.p_city,
+   published:!failPublish,updated_at:'2026-11-25T22:00:00Z'};
+  if(!failService)services=[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',page_id:quickId,owner_id:quickOwner,
+   title:args.p_service,duration_min:args.p_duration,price_cents:args.p_price_cents,active:true}];
+  if(!failHours)hours=[1,2,3,4,5,6].map(weekday=>({weekday,opens_min:540,closes_min:weekday===6?780:1080,page_id:quickId,owner_id:quickOwner}));
+  return lost?{error:Error('lost response')}:{data:{id:quickId,slug:page.slug,published:page.published,created:!existingReply}};
  }};
 };
 ctx.quickClient=makeQuickClient({lost:true});
 vm.runInContext('agendaRefreshOwner=async()=>{};agendaRefreshDirectory=async()=>{};agendaRuntime.client=quickClient;agendaRuntime.page=null;agendaRuntime.ownerMode=true;agendaRuntime.busy=false;agendaRuntime.user={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};',ctx);
 const quickSubmit=()=>vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
 await quickSubmit();
-assert.deepEqual(ctx.quickEvents.map(x=>x.step),['insert','insert','hours','publish']);
-assert.equal(ctx.quickEvents[0].record.published,false);
-assert.equal(ctx.quickEvents[0].record.slug,'barbearia-centro');
-assert.equal(ctx.quickEvents[1].record.price_cents,3500);
-assert.equal(ctx.quickEvents[2].args.p_hours.length,6);
-assert.equal(ctx.quickEvents[2].args.p_hours.find(h=>h.weekday===6).closes_min,780);
-assert.equal(ctx.quickEvents[3].record.published,true);
+assert.deepEqual(ctx.quickEvents.map(x=>x.step),['atomic']);
+assert.equal(ctx.quickEvents[0].args.p_slug,'barbearia-centro');
+assert.equal(ctx.quickEvents[0].args.p_price_cents,3500);
+assert.equal(ctx.quickEvents[0].args.p_schedule,'week_sat');
+assert.equal(vm.runInContext('agendaRuntime.hours.length',ctx),6);
 assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
 ctx.quickEvents=[];ctx.collisionClient=makeQuickClient({collision:true});
 vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=collisionClient;',ctx);
 await quickSubmit();
-const collisionEvents=ctx.quickEvents.filter(x=>x.table==='agenda_pages'&&x.step==='insert');
-assert.equal(collisionEvents.length,2);
-assert.equal(collisionEvents[0].record.slug,'barbearia-centro');
-assert.match(collisionEvents[1].record.slug,/^barbearia-centro-[a-f0-9]{6}$/);
-assert.equal(collisionEvents[1].record.published,false);
+assert.equal(ctx.quickEvents.length,2);
+assert.equal(ctx.quickEvents[0].args.p_slug,'barbearia-centro');
+assert.match(ctx.quickEvents[1].args.p_slug,/^barbearia-centro-[a-f0-9]{6}$/);
 assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
 assert.match(vm.runInContext('agendaRuntime.notice',ctx),/publicada/);
 
@@ -320,19 +303,18 @@ assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_available_staff_slots').
 assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_day_is_closed').length,1);
 assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_deposit_quote').length,0);
 
-// Never publish an incomplete setup, and never overwrite an existing page.
-for(const options of [{failService:true},{failHours:true},{failPublish:true},{existing:{
+// Never claim completion without independent readback; never overwrite existing pages.
+for(const options of [{failSetup:true},{failService:true},{failHours:true},{failPublish:true},{existingReply:true},{existing:{
  id:quickId,owner_id:quickOwner,slug:'outra-agenda',title:'Outra Agenda',city:'São Gabriel',published:false}}]){
  ctx.quickEvents=[];ctx.failedClient=makeQuickClient(options);
  vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=failedClient;',ctx);
  await quickSubmit();
- assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),false);
  assert.equal(vm.runInContext('agendaRuntime.notice',ctx),'');
- assert.match(vm.runInContext('agendaRuntime.error',ctx),/Confira os dados/);
- if(!options.failPublish)assert.equal(ctx.quickEvents.filter(x=>x.step==='publish').length,0);
- if(options.existing)assert.equal(ctx.quickEvents.length,0);
+ assert.match(vm.runInContext('agendaRuntime.error',ctx),/Confira/);
+ assert.equal(ctx.quickEvents.length,options.existing?0:1,'no duplicate request after uncertain or failed write');
+ if(options.failSetup)assert.equal(vm.runInContext('agendaRuntime.page',ctx),null);
 }
-console.log('PASS: Agenda quick onboarding persisted proof, lost responses, slug collision, no overwrite and incomplete draft safety.');
+console.log('PASS: atomic Agenda RPC, scoped independent readback, lost response, slug collision and no direct fallback.');
 
 // Latest request wins even if the visitor returns to the same date (A-B-A).
 // Transport failures must not be presented as confirmed lack of availability.
