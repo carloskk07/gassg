@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import {execFileSync,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
-import {readFileSync} from 'node:fs';
 // Dedicated last step of disposable integration only. No provider calls or hosted DB.
 assert.equal(process.env.CI,'true');
 assert.equal(process.env.TAMAO_DISPOSABLE_CONCURRENCY,'1');
@@ -52,14 +51,10 @@ assert.equal(count(),'1','parallel retries must not create duplicates');
 console.log('PASS: 8 concurrent sessions, one booking, 7 slot conflicts, 4 safe replays. No live users or payments.');
 
  
-// Candidate RPC is installed only on this guarded disposable localhost stack.
-// Independent sessions cannot share a rollback-only transaction; fixtures
-// are synthetic and the disposable stack is destroyed by the workflow.
+// Canonical RPC installed by the disposable migration chain. Synthetic
+// fixtures are confined to the guarded localhost stack destroyed by CI.
 const atomicOwner=randomUUID(),atomicSlug='ci-atomic-'+randomUUID();
-const signature='public.agenda_create_atomic(text,text,text,text,integer,integer,text)';
-const candidate=readFileSync(new URL('../supabase/proposals/agenda_atomic_onboarding.sql',import.meta.url),'utf8');
-sql(candidate);
-try{
+{
  sql(`insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,is_anonymous,created_at,updated_at)
  values('${atomicOwner}','00000000-0000-0000-0000-000000000000','authenticated','authenticated','${atomicOwner}@example.org',now(),false,now(),now());`);
  const create=i=>`begin; set local statement_timeout='15s'; set local role authenticated;
@@ -77,6 +72,4 @@ try{
  assert.equal(sql(`select count(*) from public.agenda_services where page_id='${id}' and owner_id='${atomicOwner}';`),'1');
  assert.equal(sql(`select count(*) from public.agenda_hours where page_id='${id}' and owner_id='${atomicOwner}';`),'6');
  console.log('PASS: eight independent atomic onboarding sessions; one creation, seven safe replays, one service and six days.');
-}finally{
- sql(`drop function ${signature};`);
 }
