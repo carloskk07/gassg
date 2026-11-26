@@ -888,106 +888,197 @@ async function agendaQuickCreate(ev){
  const s=agendaRuntime;
  if(s.busy||!s.client||!s.user||s.page)return false;
  const f=new FormData(ev.target),
-  title=String(f.get('business')||'').trim(),
-  city=String(f.get('city')||'').trim(),
-  service=String(f.get('service')||'').trim(),
-  duration=Number(f.get('duration')),
-  price=Number(f.get('price')),
+  title=String(f.get('business')||'').trim(),city=String(f.get('city')||'').trim(),
+  service=String(f.get('service')||'').trim(),duration=Number(f.get('duration')),
+  rawPrice=String(f.get('price')??'').trim(),price=Number(rawPrice),
   schedule=String(f.get('schedule')||'week_sat');
  const cents=Math.round(price*100);
  if(title.length<3||title.length>100||city.length<2||city.length>100||
   service.length<3||service.length>100||![15,30,45,60,75,90,120,150,180,240].includes(duration)||
-  !Number.isFinite(price)||price<0||price>20000||
-  Math.abs(price*100-cents)>0.000001||
+  !/^\d+(?:\.\d{1,2})?$/.test(rawPrice)||!Number.isFinite(price)||price<0||price>20000||
   !['week_sat','weekdays','all_week'].includes(schedule)){
   s.error='Confira o nome, o serviço, o valor e os horários.';render();return false;
  }
  const weekdays=Array.from({length:schedule==='all_week'?7:5},(_,i)=>
   ({weekday:schedule==='all_week'?i:i+1,opens_min:540,closes_min:1080}));
  if(schedule==='week_sat')weekdays.push({weekday:6,opens_min:540,closes_min:780});
+ const client=s.client,userId=s.user.id,epoch=s.epoch;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ const readPage=async()=>{
+  const check=await client.from('agenda_pages').select('*').eq('owner_id',userId).maybeSingle();
+  if(check.error)throw check.error;
+  if(check.data&&(check.data.owner_id!==userId||!agendaUuid.test(check.data.id||'')))throw Error('page scope');
+  return check.data;
+ };
+ const readRows=async(table,page)=>{
+  const check=await client.from(table).select('*').eq('page_id',page).eq('owner_id',userId);
+  if(check.error||!Array.isArray(check.data)||check.data.some(x=>x.page_id!==page||x.owner_id!==userId))
+   throw check.error||Error('read scope');
+  return check.data;
+ };
+ const baseSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+ const rawSlug=baseSlug.length<4?baseSlug+'-agenda':baseSlug;
+ const samePage=p=>p&&p.title===title&&p.city===city&&
+  (p.slug===rawSlug||(/^[a-f0-9]{6}$/.test(p.slug?.slice(-6)||'')&&
+   p.slug?.slice(0,-7)===rawSlug.slice(0,53).replace(/-$/,'')));
+ const sameService=x=>x.title===service&&x.duration_min===duration&&x.price_cents===cents&&x.active===true;
+ const sameHours=rows=>rows.length===weekdays.length&&weekdays.every(h=>
+  rows.some(x=>x.weekday===h.weekday&&x.opens_min===h.opens_min&&x.closes_min===h.closes_min));
  s.busy=true;s.error='';s.notice='';
- let created=false,ready=false;
+ let page=null;
  try{
-  const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
-  // Prefer the establishment name. Add a short suffix only when already used.
-  // UNIQUE in PostgreSQL handles concurrent claims safely.
-  let page=null;
+  page=await readPage();
+  if(!current())return false;
+  // A pre-existing draft belongs in the editor, never overwrite its configuration.
+  if(page){s.page=page;s.ownerMode=true;throw Error('existing page');}
   for(let attempt=0;attempt<3;attempt++){
    const suffix=attempt?'-'+crypto.randomUUID().replace(/-/g,'').slice(0,6):'';
    const slug=rawSlug.slice(0,60-suffix.length).replace(/-$/,'')+suffix;
-   const {data,error}=await s.client.from('agenda_pages').insert({
-    slug,title,city,published:false
-   }).select('*').single();
-   if(!error){page=data;break;}
-   if(error.code!=='23505'||attempt===2)throw error;
+   let failure=null;
+   try{
+    const result=await client.from('agenda_pages').insert({slug,title,city,published:false});
+    if(result.error)throw result.error;
+   }catch(e){failure=e;}
+   if(!current())return false;
+   page=await readPage();
+   if(!current())return false;
+   if(page)break;
+   if(failure?.code!=='23505'||attempt===2)throw failure||Error('unconfirmed page');
   }
-  // Publish last: incomplete setup must never receive customer bookings.
-  if(!page?.id)throw Error('agenda draft was not confirmed');
-  created=true;s.page=page;
-  const {data:serviceRow,error:serviceError}=await s.client.from('agenda_services').insert({
-   page_id:page.id,title:service,duration_min:duration,price_cents:cents
-  }).select('id').single();
-  if(serviceError||!serviceRow?.id)throw serviceError||Error('service not confirmed');
-  const {error:hoursError}=await s.client.rpc('agenda_replace_hours',{
-   p_page_id:page.id,p_hours:weekdays
-  });
-  if(hoursError)throw hoursError;
-  const {data:published,error:publishError}=await s.client.from('agenda_pages')
-   .update({published:true}).eq('id',page.id).select('*').single();
-  if(publishError||!published?.published)throw publishError||Error('publication not confirmed');
-  s.page=published;ready=true;
-  try{await agendaRefreshOwner();}catch(_){/* Published page is already confirmed. */}
-  try{await agendaRefreshDirectory();}catch(_){}
+  if(!page||!samePage(page)||page.published!==false)throw Error('unconfirmed draft');
+  s.page=page;s.ownerMode=true;
+  let rows=await readRows('agenda_services',page.id);
+  if(!current())return false;
+  if(!rows.length){
+   try{await client.from('agenda_services').insert({page_id:page.id,title:service,duration_min:duration,price_cents:cents});}catch(_){}
+   if(!current())return false;
+   rows=await readRows('agenda_services',page.id);
+  }
+  if(!current())return false;
+  if(rows.length!==1||!sameService(rows[0])||!agendaUuid.test(rows[0].id||''))throw Error('service unconfirmed');
+  s.services=rows;
+  let hours=await readRows('agenda_hours',page.id);
+  if(!current())return false;
+  if(!hours.length){
+   try{await client.rpc('agenda_replace_hours',{p_page_id:page.id,p_hours:weekdays});}catch(_){}
+   if(!current())return false;
+   hours=await readRows('agenda_hours',page.id);
+  }
+  if(!current())return false;
+  if(!sameHours(hours))throw Error('hours unconfirmed');
+  s.hours=hours;
+  const before=await readPage();
+  if(!current())return false;
+  if(!before||before.id!==page.id||!samePage(before)||before.published!==false||
+   !before.updated_at)throw Error('draft changed');
+  // Publish only the confirmed draft; do not overwrite a concurrent page edit.
+  try{await client.from('agenda_pages').update({published:true})
+   .eq('id',page.id).eq('owner_id',userId).eq('updated_at',before.updated_at).eq('published',false);}catch(_){}
+  if(!current())return false;
+  const published=await readPage();
+  if(!current())return false;
+  if(!published||published.id!==page.id||!samePage(published)||published.published!==true)throw Error('publication unconfirmed');
+  s.page=published;
   s.notice='Sua agenda está publicada! Compartilhe o link e comece a receber reservas gratuitas.';
- }catch(e){
-  s.error=created?'Sua página foi guardada como rascunho. Complete os passos pendentes nas configurações e publique.':
-   (e?.code==='23505'?'Já existe uma agenda nesta conta. Atualize a página.':
-    'Não foi possível criar a agenda. Confira os dados e tente novamente.');
   try{await agendaRefreshOwner();}catch(_){}
- }
- if(ready)s.ownerMode=true;
- s.busy=false;render();return false;
+  if(current()){try{await agendaRefreshDirectory();}catch(_){}}
+ }catch(_){
+  if(current()){
+   try{const found=await readPage();if(current()&&found){s.page=found;s.ownerMode=true;}}catch(_){}
+   if(current()){
+    s.error=s.page?'Sua página já existe. Confira os dados, o serviço, os horários e a publicação nas configurações.':
+     'Não foi possível confirmar a criação da agenda. Confira sua conta antes de repetir.';
+    try{await agendaRefreshOwner();}catch(_){}
+   }
+  }
+ }finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+ return false;
 }
+// Keep the same object key for a repeated photo attempt in this session.
+const agendaPhotoPending=new Map();
 async function agendaSaveProfile(ev){
- ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user)return false;
+ ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user||!s.client)return false;
  const form=ev.target,f=new FormData(form);
  const slug=String(f.get('slug')||'').trim();
  if(!agendaSlugPattern.test(slug)||slug.length<4||slug.length>60){s.error='Escolha um link com letras minúsculas, números e hífens.';render();return false;}
  const data={slug,title:String(f.get('title')||'').trim(),about:String(f.get('about')||'').trim(),
   city:String(f.get('city')||'').trim(),public_area:String(f.get('public_area')||'').trim(),
   whatsapp_e164:String(f.get('whatsapp')||'').trim()||null,published:f.get('published')==='on'};
- const file=form.elements.photo.files?.[0]||null;
+ if(data.title.length<3||data.title.length>100||data.city.length<2||data.city.length>100||
+  data.about.length>1000||data.public_area.length>120||
+  (data.whatsapp_e164&&!/^\+[1-9][0-9]{7,14}$/.test(data.whatsapp_e164))){
+  s.error='Confira o nome, a cidade, a apresentação e o WhatsApp.';render();return false;
+ }
+ const file=form.elements?.photo?.files?.[0]||null;
  if(file&&(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size<1||file.size>5242880)){
   s.error='Selecione uma imagem JPG, PNG ou WebP de até 5 MB.';render();return false;}
+ const client=s.client,userId=s.user.id,epoch=s.epoch,initial=s.page?.id||null;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch&&
+  (!initial||s.page?.id===initial);
+ const readPage=async()=>{
+  const result=await client.from('agenda_pages').select('*').eq('owner_id',userId).maybeSingle();
+  if(result.error)throw result.error;
+  const row=result.data;
+  if(!row||row.owner_id!==userId||!agendaUuid.test(row.id||'')||
+   (initial&&row.id!==initial)||!Array.isArray(row.photo_paths))return null;
+  return row;
+ };
  s.busy=true;s.error='';s.notice='';
+ let saved=false,photoDone=!file,failure=null;
  try{
-  let page=s.page;
-  if(page){
-   const {data:updated,error}=await s.client.from('agenda_pages').update(data).eq('id',page.id).select('*').single();
-   if(error)throw error;page=updated;
-  }else{
-   const {data:created,error}=await s.client.from('agenda_pages').insert(data).select('*').single();
-   if(error)throw error;page=created;s.page=created;
+  try{
+   const result=initial?await client.from('agenda_pages').update(data).eq('id',initial).eq('owner_id',userId):
+    await client.from('agenda_pages').insert(data);
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return false;
+  let page=await readPage();
+  if(!current())return false;
+  if(!page||!Object.entries(data).every(([k,v])=>page[k]===v)){
+   s.error=failure?.code==='23505'?'Este link já está em uso ou a conta já possui uma agenda. Confira os dados.':
+    'Não foi possível confirmar a página salva. Confira os dados antes de repetir.';
+   return false;
   }
-  if(file&&page.photo_paths.length<6){
-   const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-   const key=s.user.id+'/'+crypto.randomUUID()+'.'+ext;
-   const uploaded=await s.client.storage.from('tamao-discovery-photos')
-    .upload(key,file,{contentType:file.type,cacheControl:'3600',upsert:false});
-   if(uploaded.error)throw uploaded.error;
-   const {data:withPhoto,error}=await s.client.from('agenda_pages')
-    .update({photo_paths:[...page.photo_paths,key]}).eq('id',page.id).select('*').single();
-   if(error)throw error;page=withPhoto;s.page=page;
+  s.page=page;saved=true;
+  if(file){
+   try{
+    const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
+    // Hash bytes, not the file name; different images must never share a retry key.
+    const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
+    const signature=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
+    const pendingKey=JSON.stringify([userId,page.id,file.type,signature]);
+    let key=agendaPhotoPending.get(pendingKey);
+    if(!key){key=userId+'/'+crypto.randomUUID()+'.'+ext;agendaPhotoPending.set(pendingKey,key);}
+    if(!current())return false;
+    if(!page.photo_paths.includes(key)&&page.photo_paths.length<6){
+     // A lost upload response may still mean the object exists. The existing
+     // database trigger verifies storage ownership and MIME before attachment.
+     try{await client.storage.from('tamao-discovery-photos')
+      .upload(key,file,{contentType:file.type,cacheControl:'3600',upsert:false});}catch(_){}
+     if(!current())return false;
+     page=await readPage();
+     if(!current())return false;
+     if(page&&!page.photo_paths.includes(key)&&page.photo_paths.length<6&&page.updated_at){
+      try{await client.from('agenda_pages').update({photo_paths:[...page.photo_paths,key]})
+       .eq('id',page.id).eq('owner_id',userId).eq('updated_at',page.updated_at);}catch(_){}
+     }
+    }
+    if(!current())return false;
+    const after=await readPage();
+    if(!current())return false;
+    if(after){s.page=after;photoDone=after.photo_paths.includes(key);}
+    if(photoDone)agendaPhotoPending.delete(pendingKey);
+   }catch(_){}
   }
-  await agendaRefreshOwner();
-  await agendaRefreshDirectory();
-  s.notice='Página salva. '+(page.published?'Seu link está disponível.':'Publique quando desejar receber agendamentos.');
- }catch(e){
-  s.error=e?.code==='23505'?'Este link já está em uso. Escolha outro.':
-   'Não foi possível concluir tudo. Confira sua página antes de repetir o envio.';
-  try{await agendaRefreshOwner();}catch{}
- }
- s.busy=false;render();return false;
+  if(!current())return false;
+  s.notice='Dados da página salvos. '+(s.page.published?'Seu link está publicado.':'A página permanece privada.');
+  if(!photoDone)s.error='Os dados foram salvos, mas a foto não foi confirmada. Confira a galeria antes de repetir.';
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()){try{await agendaRefreshDirectory();}catch(_){}}
+ }catch(_){if(current())s.error=saved?'Dados salvos, mas não foi possível confirmar todos os ajustes.':
+  'Não foi possível confirmar a página salva. Confira os dados antes de repetir.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+ return false;
 }
 async function agendaSaveDepositPolicy(ev){
  ev.preventDefault();const s=agendaRuntime;
@@ -1402,19 +1493,24 @@ async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
  if(s.busy||s.rescheduleId||!s.user||!s.client||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
  if(s.slotBusy||s.slotError||!s.slots.some(x=>x.starts_at===s.selectedStart))return false;
+ const profile=s.publicProfile,page=profile?.id;
+ const selectedService=profile?.services?.find(x=>x.id===s.serviceId);
+ if(!agendaUuid.test(page||'')||!selectedService||profile.slug!==agendaSlug())return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
- if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
+ if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)||phone.replace(/\D/g,'').length<8||phone.replace(/\D/g,'').length>15){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
- if((s.publicProfile?.staff||[]).length&&!agendaUuid.test(s.staffId))return false;
+ if((profile.staff||[]).length&&(!agendaUuid.test(s.staffId)||!profile.staff.some(x=>x.id===s.staffId)))return false;
+ if(!(profile.staff||[]).length&&s.staffId)return false;
  const request=s.requestKey,instant=s.selectedStart,service=s.serviceId,staff=s.staffId||null;
  const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
  const current=()=>s.client===client&&s.epoch===epoch&&s.user?.id===userId;
- const sameChoice=()=>current()&&agendaSlug()===slug&&s.serviceId===service&&
+ const sameChoice=()=>current()&&agendaSlug()===slug&&s.publicProfile?.id===page&&s.serviceId===service&&
   (s.staffId||null)===staff&&s.requestKey===request&&s.selectedStart===instant;
  const matches=row=>agendaUuid.test(String(row?.id||''))&&row.status==='confirmed'&&
-  row.request_id===request&&row.customer_id===userId&&row.service_id===service&&
-  (row.staff_id||null)===staff&&Date.parse(row.starts_at)===Date.parse(instant);
+  row.request_id===request&&row.customer_id===userId&&row.page_id===page&&row.service_id===service&&
+  (row.staff_id||null)===staff&&Date.parse(row.starts_at)===Date.parse(instant)&&
+  Date.parse(row.ends_at)>Date.parse(instant)&&Number.isSafeInteger(row.reschedule_count)&&row.reschedule_count>=0;
  s.busy=true;s.error='';s.notice='';
  let failure=null,confirmed=false;
  try{
@@ -1430,13 +1526,21 @@ async function agendaBook(ev){
   // Both successful and ambiguous writes require the same exact, customer-bound
   // persisted evidence. A mismatched idempotency key cannot certify a new slot.
   const readback=await client.from('agenda_appointments')
-   .select('id,status,starts_at,request_id,customer_id,service_id,staff_id')
-   .eq('request_id',request).eq('customer_id',userId).maybeSingle();
+   .select('id,status,starts_at,ends_at,request_id,customer_id,service_id,staff_id,page_id,reschedule_count')
+   .eq('request_id',request).eq('customer_id',userId).eq('page_id',page).maybeSingle();
   if(!current())return false;
   confirmed=!readback.error&&matches(readback.data);
   if(!sameChoice())return false;
   if(confirmed){
    s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
+   const row=readback.data;
+   // Match the customer booking-list shape using verified row and public labels.
+   // Do not wait for a potentially unavailable list request to show the reservation.
+   const receipt={id:row.id,status:row.status,page_id:page,service_id:service,staff_id:staff,
+    starts_at:row.starts_at,ends_at:row.ends_at,reschedule_count:row.reschedule_count,
+    customer_id:userId,page_title:profile.title,service_title:selectedService.title,slug,
+    staff_title:profile.staff?.find(x=>x.id===staff)?.name||null};
+   if(!s.mine.some(x=>x.id===row.id))s.mine=[receipt,...s.mine].sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
    s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
    // A refresh failure cannot invalidate a booking already proven persisted.
    try{await agendaRefreshOwner();}catch(_){}

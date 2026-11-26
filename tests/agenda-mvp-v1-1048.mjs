@@ -229,61 +229,64 @@ assert.match(vm.runInContext('agendaPublicView()',ctx),/Ver horários do dia seg
 // One form creates a DRAFT, then service, weekly hours and finally publishes.
 ctx.FormData=class{constructor(form){this.form=form}get(name){return this.form[name]??null}};
 ctx.quickEvents=[];
-const quickPage={
- id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',slug:'barbearia-centro-11111111',
- title:'Barbearia Centro',city:'São Gabriel',published:false,photo_paths:[]
+const quickOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',quickId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const makeQuickClient=({collision=false,lost=false,failService=false,failHours=false,failPublish=false,existing=null}={})=>{
+ let page=existing,services=[],hours=[],attempt=0;
+ const events=ctx.quickEvents;
+ return {from(table){
+  const filters={};let mode='',record;
+  const q={
+   select(){return q},eq(k,v){filters[k]=v;return q},
+   async maybeSingle(){assert.equal(filters.owner_id,quickOwner);return {data:page,error:null}},
+   insert(v){mode='insert';record=v;return q},
+   update(v){mode='update';record=v;return q},
+   then(resolve,reject){
+    let result={data:null,error:null};
+    if(mode==='insert'){
+     events.push({step:'insert',table,record});
+     if(table==='agenda_pages'){
+      if(collision&&attempt++===0)result.error={code:'23505'};
+      else page={...record,id:quickId,owner_id:quickOwner,photo_paths:[],updated_at:'2026-11-25T22:00:00Z'};
+     }else if(!failService)services.push({...record,id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',owner_id:quickOwner,active:true});
+    }else if(mode==='update'){
+     events.push({step:'publish',table,record});
+     assert.equal(filters.id,quickId);assert.equal(filters.owner_id,quickOwner);assert.equal(filters.published,false);
+     if(!failPublish)page={...page,...record};
+    }else{
+     assert.equal(filters.owner_id,quickOwner);assert.equal(filters.page_id,quickId);
+     result.data=table==='agenda_services'?services:hours;
+    }
+    if(lost&&mode&&!result.error)result.error=Error('lost response');
+    return Promise.resolve(result).then(resolve,reject);
+   }
+  };return q;
+ },rpc(name,args){
+  events.push({step:'hours',name,args});
+  if(!failHours)hours=args.p_hours.map(x=>({...x,owner_id:quickOwner,page_id:quickId}));
+  return Promise.resolve({data:null,error:lost?Error('lost response'):null});
+ }};
 };
-const quickClient={
- from(table){return {
-  insert(record){
-   ctx.quickEvents.push({step:'insert',table,record});
-   return {select(){return {single:async()=>({data:table==='agenda_pages'?quickPage:
-    {id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},error:null})}}};
-  },
-  update(record){
-   ctx.quickEvents.push({step:'publish',table,record});
-   return {eq(){return {select(){return {single:async()=>({data:{...quickPage,published:true},error:null})}}}}};
-  }
- }},
- rpc(name,args){
-  ctx.quickEvents.push({step:'hours',name,args});
-  return Promise.resolve({data:args.p_hours.length,error:null});
- }
-};
-ctx.quickClient=quickClient;
+ctx.quickClient=makeQuickClient({lost:true});
 vm.runInContext('agendaRefreshOwner=async()=>{};agendaRefreshDirectory=async()=>{};agendaRuntime.client=quickClient;agendaRuntime.page=null;agendaRuntime.ownerMode=true;agendaRuntime.busy=false;agendaRuntime.user={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};',ctx);
-await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
+const quickSubmit=()=>vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
+await quickSubmit();
 assert.deepEqual(ctx.quickEvents.map(x=>x.step),['insert','insert','hours','publish']);
-assert.equal(ctx.quickEvents[0].record.published,false,'Draft must precede service and weekly hours');
-assert.equal(ctx.quickEvents[0].record.slug,'barbearia-centro','Friendly slug should use business name without random suffix when available');
+assert.equal(ctx.quickEvents[0].record.published,false);
+assert.equal(ctx.quickEvents[0].record.slug,'barbearia-centro');
 assert.equal(ctx.quickEvents[1].record.price_cents,3500);
 assert.equal(ctx.quickEvents[2].args.p_hours.length,6);
 assert.equal(ctx.quickEvents[2].args.p_hours.find(h=>h.weekday===6).closes_min,780);
 assert.equal(ctx.quickEvents[3].record.published,true);
 assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
-
-const collisionEvents=[];
-ctx.collisionClient={
- from(table){return {
-  insert(record){
-   collisionEvents.push({table,record});
-   if(table==='agenda_pages'&&collisionEvents.filter(x=>x.table==='agenda_pages').length===1)
-    return {select(){return {single:async()=>({data:null,error:{code:'23505',message:'slug already used'}})}}};
-   return {select(){return {single:async()=>({data:table==='agenda_pages'?quickPage:
-    {id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},error:null})}}};
-  },
-  update(record){return {eq(){return {select(){return {single:async()=>({data:{...quickPage,published:true},error:null})}}}}};}
- }},
- rpc(name,args){return Promise.resolve({data:args.p_hours.length,error:null});}
-};
+ctx.quickEvents=[];ctx.collisionClient=makeQuickClient({collision:true});
 vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=collisionClient;',ctx);
-await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
-assert.equal(collisionEvents.filter(x=>x.table==='agenda_pages').length,2,'Conflict must retry only the slug');
+await quickSubmit();
+const collisionEvents=ctx.quickEvents.filter(x=>x.table==='agenda_pages'&&x.step==='insert');
+assert.equal(collisionEvents.length,2);
 assert.equal(collisionEvents[0].record.slug,'barbearia-centro');
 assert.match(collisionEvents[1].record.slug,/^barbearia-centro-[a-f0-9]{6}$/);
-assert.equal(collisionEvents[1].record.published,false,'Never publish on conflict retry');
-assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true,'After safe collision retry user can publish');
-
+assert.equal(collisionEvents[1].record.published,false);
+assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
 assert.match(vm.runInContext('agendaRuntime.notice',ctx),/publicada/);
 
 // Browser email-link navigation retains a slot, but NEVER confirms a booking.
@@ -317,29 +320,19 @@ assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_available_staff_slots').
 assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_day_is_closed').length,1);
 assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_deposit_quote').length,0);
 
-// No approval if a service could not be saved: leave an unpublished draft.
-ctx.quickEvents=[];
-ctx.failedClient={
- from(table){return {
-  insert(record){
-   ctx.quickEvents.push({step:'insert',table,record});
-   return {select(){return {single:async()=>table==='agenda_services'?
-    {data:null,error:{code:'400',message:'temporary failed service'}}:
-    {data:quickPage,error:null}}}};
-  },
-  update(){throw Error('No publication permitted after partial failure')}
- }},
- rpc(){throw Error('No weekly hours after service failure')}
-};
-vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=failedClient;',ctx);
-await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
-assert.equal(ctx.quickEvents.length,2);
-assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),false);
-assert.match(vm.runInContext('agendaRuntime.error',ctx),/rascunho/);
-console.log('PASS: Agenda V1.1053 rápida, RLS-only signup, draft-first publication, dates, login continuity, minimal calls, partial failure safely unpublished.');
-
-
-
+// Never publish an incomplete setup, and never overwrite an existing page.
+for(const options of [{failService:true},{failHours:true},{failPublish:true},{existing:{
+ id:quickId,owner_id:quickOwner,slug:'outra-agenda',title:'Outra Agenda',city:'São Gabriel',published:false}}]){
+ ctx.quickEvents=[];ctx.failedClient=makeQuickClient(options);
+ vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=failedClient;',ctx);
+ await quickSubmit();
+ assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),false);
+ assert.equal(vm.runInContext('agendaRuntime.notice',ctx),'');
+ assert.match(vm.runInContext('agendaRuntime.error',ctx),/Confira os dados/);
+ if(!options.failPublish)assert.equal(ctx.quickEvents.filter(x=>x.step==='publish').length,0);
+ if(options.existing)assert.equal(ctx.quickEvents.length,0);
+}
+console.log('PASS: Agenda quick onboarding persisted proof, lost responses, slug collision, no overwrite and incomplete draft safety.');
 
 // Latest request wins even if the visitor returns to the same date (A-B-A).
 // Transport failures must not be presented as confirmed lack of availability.
@@ -389,26 +382,31 @@ const bookRt=bookCtx.rt;
 const evidence={id:'22222222-2222-4222-8222-222222222222',status:'confirmed',
  request_id:'11111111-1111-4111-8111-111111111111',customer_id:'33333333-3333-4333-8333-333333333333',
  service_id:'44444444-4444-4444-8444-444444444444',staff_id:'55555555-5555-4555-8555-555555555555',
- starts_at:'2026-12-01T12:00:00Z'};
+ page_id:'66666666-6666-4666-8666-666666666666',reschedule_count:0,
+ starts_at:'2026-12-01T12:00:00Z',ends_at:'2026-12-01T12:30:00Z'};
 let stored={...evidence},writeError=true,readError=false,writes=0,reads=0;
 const client={rpc:async(name,args)=>{assert.equal(name,'agenda_book_staff_slot');assert.equal(args.p_request_id,evidence.request_id);writes++;return writeError?{error:Error('network')}:{data:{id:evidence.id,status:'confirmed'}};},
  from(table){assert.equal(table,'agenda_appointments');const filters={};
   const q={select(fields){assert.match(fields,/request_id,customer_id,service_id,staff_id/);return q;},
-   eq(k,v){filters[k]=v;return q;},async maybeSingle(){reads++;assert.equal(filters.customer_id,evidence.customer_id);assert.equal(filters.request_id,evidence.request_id);return {data:stored,error:readError?Error('read failed'):null};}};return q;}};
+   eq(k,v){filters[k]=v;return q;},async maybeSingle(){reads++;assert.equal(filters.customer_id,evidence.customer_id);assert.equal(filters.request_id,evidence.request_id);assert.equal(filters.page_id,evidence.page_id);return {data:stored,error:readError?Error('read failed'):null};}};return q;}};
 bookCtx.agendaRefreshOwner=async()=>{throw Error('refresh unavailable')};
 bookCtx.agendaLoadSlots=async()=>{};
 const prepare=()=>Object.assign(bookRt,{client,user:{id:evidence.customer_id},busy:false,slotBusy:false,slotError:'',
  serviceId:evidence.service_id,staffId:evidence.staff_id,selectedStart:evidence.starts_at,requestKey:evidence.request_id,
- slots:[{starts_at:evidence.starts_at}],publicProfile:{staff:[{id:evidence.staff_id}]},notice:'',error:''});
+ slots:[{starts_at:evidence.starts_at}],publicProfile:{id:evidence.page_id,slug:'barbearia-sg',title:'Barbearia SG',services:[{id:evidence.service_id,title:'Corte'}],staff:[{id:evidence.staff_id,name:'Ana'}]},notice:'',error:''});
 const submit=()=>bookCtx.book({preventDefault(){},target:{name:'Pessoa Teste',phone:'55999998888'}});
-for(const mismatch of [{starts_at:'2026-12-01T13:00:00Z'},{service_id:'other'},{staff_id:null},{customer_id:'other'},{request_id:'other'},{status:'cancelled'}]){
+for(const mismatch of [{starts_at:'2026-12-01T13:00:00Z'},{service_id:'other'},{staff_id:null},{customer_id:'other'},{request_id:'other'},{status:'cancelled'},{page_id:'other'},{ends_at:evidence.starts_at},{reschedule_count:-1}]){
  prepare();stored={...evidence,...mismatch};await submit();
  assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);assert.equal(bookRt.busy,false);
 }
 prepare();stored={...evidence};readError=true;await submit();assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);
 readError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);assert.equal(bookRt.requestKey,'');assert.equal(bookRt.error,'');
 writeError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);
-assert.equal(writes,9);assert.equal(reads,9);
+assert.equal(writes,12);assert.equal(reads,12);
+assert.equal(bookRt.mine.length,1);assert.equal(bookRt.mine[0].page_title,'Barbearia SG');
+assert.equal(bookRt.mine[0].ends_at,evidence.ends_at);assert.equal(bookRt.mine[0].staff_title,'Ana');
+prepare();bookRt.publicProfile.slug='outra-agenda';await submit();assert.equal(writes,12);
+prepare();await bookCtx.book({preventDefault(){},target:{name:'Pessoa Teste',phone:'--------'}});assert.equal(writes,12);
 console.log('PASS: exact persisted booking confirmation on normal and ambiguous writes, mismatches rejected, refresh failure preserves proof.');
 
 
@@ -646,6 +644,50 @@ hoursReadError=false;prepareHours();hoursFailure='AGENDA_DAY_HAS_BOOKINGS';await
 assert.match(hoursRt.error,/já tem reservas confirmadas/);
 console.log('PASS: exact weekly schedule and holiday reconciliation, malformed hours rejected, refresh failures tolerated.');
 
+
+// Profile fields and gallery must each be confirmed from the owner row.
+const profileOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ profilePage='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ profilePhoto='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const profileCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},crypto:{randomUUID:()=>profilePhoto,subtle:{digest:async()=>new Uint8Array([1,2]).buffer}},
+ FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.save=agendaSaveProfile;',profileCtx);
+const profileRt=profileCtx.rt;
+const profileData={slug:'barbearia-centro',title:'Barbearia Centro',about:'Apresentação',city:'São Gabriel',
+ public_area:'Centro',whatsapp_e164:null,published:true};
+let profileRow={...profileData,id:profilePage,owner_id:profileOwner,photo_paths:[],updated_at:'2026-11-25T22:00:00Z'},
+ profileWrite=true,profilePhotoWrite=true,profileUploads=[],profileWrites=0,profileReadError=false;
+const profileClient={from(table){assert.equal(table,'agenda_pages');let values,filters={};const q={
+ update(v){values=v;return q},insert(v){values=v;return q},select(){return q},eq(k,v){filters[k]=v;return q},
+ async maybeSingle(){assert.equal(filters.owner_id,profileOwner);return {data:profileRow,error:profileReadError?Error('read unavailable'):null}},
+ then(resolve,reject){
+  profileWrites++;
+  if(profileWrite&&(!values.photo_paths||profilePhotoWrite)&&Object.entries(filters).every(([k,v])=>profileRow[k]===v))
+   profileRow={...profileRow,...values};
+  return Promise.resolve({error:Error('lost response')}).then(resolve,reject);
+ }};return q;},
+ storage:{from(bucket){assert.equal(bucket,'tamao-discovery-photos');return {async upload(key){profileUploads.push(key);throw Error('lost upload response')}}}}};
+profileCtx.agendaRefreshOwner=async()=>{throw Error('refresh unavailable')};
+profileCtx.agendaRefreshDirectory=async()=>{throw Error('directory unavailable')};
+Object.assign(profileRt,{client:profileClient,user:{id:profileOwner},page:{...profileRow}});
+const profileForm=(file=null,overrides={})=>({preventDefault(){},target:{...profileData,whatsapp:'',published:'on',
+ ...overrides,elements:{photo:{files:file?[file]:[]}}}});
+await profileCtx.save(profileForm());assert.match(profileRt.notice,/Dados da página salvos/);assert.equal(profileRt.busy,false);
+profileWrite=false;await profileCtx.save(profileForm(null,{title:'Novo nome'}));assert.equal(profileRt.notice,'');
+profileWrite=true;const oldProfileWrites=profileWrites;
+await profileCtx.save(profileForm(null,{whatsapp:'123'}));assert.equal(profileWrites,oldProfileWrites);
+const samplePhoto={type:'image/png',size:10,arrayBuffer:async()=>new Uint8Array([1]).buffer};
+profilePhotoWrite=false;await profileCtx.save(profileForm(samplePhoto));
+assert.match(profileRt.notice,/Dados da página salvos/);assert.match(profileRt.error,/foto não foi confirmada/);
+assert.equal(profileRt.page.photo_paths.length,0);
+profilePhotoWrite=true;await profileCtx.save(profileForm(samplePhoto));
+assert.equal(profileUploads[0],profileUploads[1]);assert.equal(profileRt.error,'');
+assert.equal(profileRt.page.photo_paths[0],profileOwner+'/'+profilePhoto+'.png');
+profileReadError=true;await profileCtx.save(profileForm());assert.equal(profileRt.notice,'');
+profileReadError=false;profileRow={...profileRow,owner_id:profilePage};await profileCtx.save(profileForm());
+assert.equal(profileRt.notice,'');assert.equal(profileRt.busy,false);
+console.log('PASS: owner-scoped page readback, independent photo confirmation, stable retry key and invalid input.');
 
 // Staff blocks reconcile the same owner, page and staff plus interval coverage.
 // The server may reuse an existing broader block instead of inserting a new row.
