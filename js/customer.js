@@ -1781,6 +1781,14 @@ function customerInterruptedPaymentView(order){
       label:'Transação aprovada anteriormente',
       detail:'Existe uma aprovação registrada, mas não há confirmação de reembolso nesta consulta. Confira a transação no provedor e registre um atendimento se precisar.'
     },
+    pending:{
+      label:'Pagamento original aguardando confirmação',
+      detail:'Há uma tentativa registrada, mas a confirmação ainda está pendente. Não pague novamente. Atualize o acompanhamento ou solicite atendimento se já realizou o pagamento.'
+    },
+    checkout_ready:{
+      label:'Pagamento original aguardando confirmação',
+      detail:'Há uma cobrança registrada, sem confirmação de pagamento nesta consulta. Não utilize um código antigo nem faça novo pagamento. Atualize o acompanhamento.'
+    },
     review_required:{
       label:'Pagamento em revisão',
       detail:'O estado do pagamento ainda depende de verificação. Não considere um reembolso concluído sem confirmação do provedor.'
