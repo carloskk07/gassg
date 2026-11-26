@@ -1119,13 +1119,13 @@ async function liveSyncFinancialProfile({force=false}={}){
     networkDirect:liveRuntime.networkDirect??null
   });
   const seq=++liveRuntime.financialSyncSeq;
-  const userId=liveRuntime.session?.user?.id;
+  const userId=liveRuntime.session?.user?.id,generation=Number(liveRuntime.authGeneration||0);
+  const current=()=>liveReady()&&seq===liveRuntime.financialSyncSeq&&generation===Number(liveRuntime.authGeneration||0)&&userId===liveRuntime.session?.user?.id;
   try{
     const invite=typeof growthAttributionCode==='function'?growthAttributionCode():'';
     const summary=await liveInvoke('customer-summary',
-      /^[A-Z0-9]{5,40}$/.test(invite)?{referralCode:invite}:{});
-    if(seq!==liveRuntime.financialSyncSeq||
-       userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
+      /^[A-Z0-9]{5,40}$/.test(invite)?{referralCode:invite}:{},{sessionGuard:current});
+    if(!current())return false;
     if(!summary||typeof summary!=='object'||
        !Object.prototype.hasOwnProperty.call(summary,'activeOrderId')||
        summary.activeOrderId!==null&&(typeof summary.activeOrderId!=='string'||!summary.activeOrderId.trim()))
@@ -1196,12 +1196,13 @@ async function liveSyncFinancialProfile({force=false}={}){
       qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
       comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
       cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
-    networkPackage:liveRuntime.networkPackage??null
+      networkPackage:liveRuntime.networkPackage??null,
+      moduleBenefits:liveRuntime.moduleBenefits??null,
+      networkDirect:liveRuntime.networkDirect??null
     });
     return before!==after||activeOrderChanged;
   }catch(error){
-    if(seq!==liveRuntime.financialSyncSeq||
-       userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
+    if(!current())return false;
     liveRuntime.customerSummaryState='error';
     console.warn('Não foi possível sincronizar o resumo financeiro live',error);
     return false;
