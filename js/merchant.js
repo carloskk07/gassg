@@ -1625,7 +1625,7 @@ function merchantSetupSnapshot(rt){
   });
   const owner=String(m.memberRole||'')==='owner';
   const business=m.businessDetails||{};
-  const profileComplete=Boolean(business.city&&business.state&&business.postalCode&&business.addressText);
+  const profileComplete=!merchantBusinessInvalidField(business);
   return [
     ...(owner&&m.status==='pending'?[{key:'business',title:'Dados e endereço',
       detail:profileComplete?'Dados informados, aguardando conferência do TAMÃO':
@@ -1803,7 +1803,7 @@ function merchantBusinessProfileView(rt){
   const unsaved=draftKey&&merchantBusinessUnsavedDraft?.key===draftKey
     ?merchantBusinessUnsavedDraft.values:null;
   const b=unsaved||saved||suggestion||{};
-  const completed=!!(saved?.city&&saved?.state&&saved?.postalCode&&saved?.addressText);
+  const completed=Boolean(saved&&!merchantBusinessInvalidField(saved));
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
     ['responsibleName','Responsável',120],['phone','Telefone (DDD + número)',11],
@@ -1813,7 +1813,7 @@ function merchantBusinessProfileView(rt){
   return '<details id="merchant-business-profile" class="merchant-settings-drawer"'+
     (completed&&!unsaved?'':' open')+'><summary>Dados e endereço da minha revenda'+
     '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
-      'Complete o endereço para análise do cadastro')+'</span></summary>'+
+      'Complete os dados da empresa para análise do cadastro')+'</span></summary>'+
     '<div class="card flat form-stack">'+
     (unsaved?'<p class="tiny muted">Seus ajustes ainda não foram salvos. Foram mantidos nesta aba.</p>':'')+
     (suggestion&&!saved

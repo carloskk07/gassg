@@ -19,7 +19,9 @@ const fresh=value=>Boolean(value&&value!==stale);
 const runtime={
  status:'ready',merchant:{merchantId:'merchant-1',memberRole:'owner',status:'pending',acceptsCitywide:true,
   deliveryFeeConfirmedAt:now,paymentMethods:{pix:true,card:false,cash:false},
-  businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
+  businessDetails:{legalName:'Empresa Exemplo Ltda',tradeName:'Revenda Exemplo',
+    responsibleName:'Responsável Exemplo',phone:'55999998888',whatsapp:'55999998888',
+    city:'São Gabriel',state:'RS',postalCode:'97300000',
     addressText:'Endereço informado para análise pelo proprietário'}},
  catalog:[{productCode:'P13',productName:'Botijão 13 kg',priceCents:12000,availableStock:5,active:true,priceConfirmedAt:now}],
  paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]
@@ -31,7 +33,9 @@ const base={
  shell:html=>html,document:null
 };
 const sandbox=vm.createContext(base);
-vm.runInContext(['merchantSetupSnapshot','merchantSetupView','merchantRevealControl','merchantSetupGo','merchantCatalogAvailableChoices','merchantCatalogGasOptions','merchantLiveCatalog']
+const profileFields=ui.match(/const merchantBusinessProfileFields=\[[\s\S]*?\];/);
+assert.ok(profileFields,'Use canonical business profile fields');
+vm.runInContext(profileFields[0]+'\n'+['merchantBusinessInvalidField','merchantSetupSnapshot','merchantSetupView','merchantRevealControl','merchantSetupGo','merchantCatalogAvailableChoices','merchantCatalogGasOptions','merchantLiveCatalog']
  .map(extract).join('\n')+';this.snapshot=merchantSetupSnapshot;this.renderSetup=merchantSetupView;this.renderCatalog=merchantLiveCatalog;this.show=merchantRevealControl;this.goSetup=merchantSetupGo;',sandbox);
 const evaluate=expr=>vm.runInContext(expr,sandbox);
 const missingOwnerAddress={...runtime,merchant:{...runtime.merchant,businessDetails:null}};
@@ -42,6 +46,15 @@ const steps=JSON.parse(evaluate('JSON.stringify(snapshot(globalThis.merchantRunt
 assert.equal(steps.length,4);
 assert.equal(steps.filter(step=>step.done).length,4,
  'All 4 owner setup steps are filled but business address is still self-declared');
+for(const partial of [
+ {legalName:''},{tradeName:''},{responsibleName:''},{phone:'123'},
+ {whatsapp:''},{postalCode:'123'},{state:'ZZ'},{city:' '},{addressText:'Rua'}
+]){
+ const incomplete={...runtime,merchant:{...runtime.merchant,
+  businessDetails:{...runtime.merchant.businessDetails,...partial}}};
+ assert.equal(sandbox.snapshot(incomplete).find(s=>s.key==='business').done,false);
+ assert.match(sandbox.renderSetup(incomplete),/Seu próximo passo: Dados e endereço/);
+}
 const view=sandbox.renderSetup(runtime);
 assert.ok(view.includes('3 de 3 etapas concluídas'));
 assert.ok(view.includes('Dados informados, aguardando conferência'));

@@ -374,7 +374,9 @@ console.log('PASS: merchant verification stages, role-limited controls, pending 
 // Payment in delivery is independent of online checkout and requires a valid route.
 // Exercise the production preparation predicate without creating a sale or a PSP charge.
 const paymentCtx=vm.createContext({merchantTimestampFresh:()=>true});
-vm.runInContext(cut('merchantSetupSnapshot')+';this.setup=merchantSetupSnapshot;',paymentCtx);
+const profileFields=merchant.match(/const merchantBusinessProfileFields=\[[\s\S]*?\];/);
+assert.ok(profileFields);
+vm.runInContext(profileFields[0]+'\n'+cut('merchantBusinessInvalidField')+'\n'+cut('merchantSetupSnapshot')+';this.setup=merchantSetupSnapshot;',paymentCtx);
 const paymentMerchant={memberRole:'owner',status:'active',paymentMethods:{pix:true,card:true,cash:true}};
 const manualDelivery={paymentMethod:'pix',channel:'delivery',verificationMode:'merchant_confirmed',active:true,provider:'manual'};
 const deviceDelivery={paymentMethod:'card_credit',channel:'delivery',verificationMode:'device',active:true,provider:'stone',connectionId:'account-1'};

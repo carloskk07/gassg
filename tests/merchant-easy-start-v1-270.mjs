@@ -10,7 +10,12 @@ const b=src.indexOf('function merchantRevealControl(',a);
 assert.ok(a>=0&&b>a);
 const esc=x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const ctx=vm.createContext({esc,merchantTimestampFresh:()=>true});
-vm.runInContext(src.slice(a,b),ctx);
+const profilePrelude=src.indexOf('const merchantBusinessProfileFields=');
+const profileEnd=src.indexOf('function merchantBusinessDraftKey(',profilePrelude);
+const validatorStart=src.indexOf('function merchantBusinessInvalidField(');
+const validatorEnd=src.indexOf('function merchantBusinessProfileView(',validatorStart);
+assert.ok(profilePrelude>0&&profileEnd>profilePrelude&&validatorStart>0&&validatorEnd>validatorStart);
+vm.runInContext(src.slice(profilePrelude,profileEnd)+src.slice(validatorStart,validatorEnd)+src.slice(a,b),ctx);
 const provider=(key,name)=>({
  provider:key,displayName:name,connectionMode:'oauth',
  connectReady:key==='mercadopago',setupState:'ready',adapterStatus:'implemented',
@@ -61,7 +66,9 @@ const ownerMissingAddress={...base,merchant:{...base.merchant,acceptsCitywide:fa
 assert.match(ctx.merchantSetupView(ownerMissingAddress),/Seu próximo passo: Dados e endereço/);
 assert.match(ctx.merchantSetupView(ownerMissingAddress),/0 de 3 etapas concluídas/);
 const empty={...base,merchant:{...base.merchant,acceptsCitywide:false,
- businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
+ businessDetails:{legalName:'Empresa Exemplo Ltda',tradeName:'Revenda Exemplo',
+  responsibleName:'Responsável Exemplo',phone:'55999998888',whatsapp:'55999998888',
+  city:'São Gabriel',state:'RS',postalCode:'97300000',
   addressText:'Endereço declarado pelo proprietário'}},
  catalog:[]};
 assert.match(ctx.merchantSetupView(empty),/Dados informados, aguardando conferência/);

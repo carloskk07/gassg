@@ -22,7 +22,9 @@ const m={merchantId:'m1',memberRole:'owner',status:'active',online:false,
 const rt={status:'ready',merchant:m,catalog:[active('WATER20'),active('WOOD',old)],
  paymentRoutes:[{paymentMethod:'pix',active:true,channel:'delivery',verificationMode:'merchant_confirmed',provider:'manual'}]};
 const sandbox=vm.createContext({globalThis:{merchantRuntime:rt},Date,Number,Array,String,Boolean});
-vm.runInContext(take('merchantTimestampFresh')+'\n'+take('merchantLiveFreshness')+
+const profileFields=js.match(/const merchantBusinessProfileFields=\[[\s\S]*?\];/);
+assert.ok(profileFields);
+vm.runInContext(profileFields[0]+'\n'+take('merchantBusinessInvalidField')+'\n'+take('merchantTimestampFresh')+'\n'+take('merchantLiveFreshness')+
  '\n'+take('merchantSetupSnapshot')+
  '\nthis.snapshot=merchantSetupSnapshot;this.freshness=merchantLiveFreshness;',sandbox);
 let steps=Array.from(sandbox.snapshot(rt));
