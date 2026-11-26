@@ -52,6 +52,11 @@
        throw Error('O pedido não recebeu uma atualização confirmada. Confira antes de pagar.');
      return order;
    };
+   // Revalidate on each transport retry and after asynchronous token acquisition.
+   const checkout=(key)=>retryAmbiguousOnce(()=>{
+     if(!same())throw Error('A conta ou o pedido mudou. Retome o acompanhamento.');
+     return liveInvoke('order-payment-checkout',{orderId:id},{idempotencyKey:key,sessionGuard:same});
+   });
    let mutationStarted=false;
    try{
      // An old DOM or provider link cannot authorize a payment:
@@ -70,7 +75,7 @@
        if(payment.canStart!==true)throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
        mutationStarted=true;
        const key=liveIdempotency('merchant-sale-payment');
-       const reply=await retryAmbiguousOnce(()=>liveInvoke('order-payment-checkout',{orderId:id},{idempotencyKey:key}));
+       const reply=await checkout(key);
        if(!same())return false;
        if(reply?.ok!==true||reply.orderId!==id||reply.error)throw Error('O Pix não foi confirmado pelo servidor.');
        order=await readFresh();if(!same())return false;
@@ -90,8 +95,7 @@
          throw Error('O pagamento ainda não pode ser iniciado para este pedido.');
        const idempotencyKey=liveIdempotency('merchant-sale-payment');
        mutationStarted=true;
-       const reply=await retryAmbiguousOnce(()=>liveInvoke('order-payment-checkout',
-         {orderId:id},{idempotencyKey}));
+       const reply=await checkout(idempotencyKey);
        if(!same())return false;
        if(reply?.ok!==true||reply.orderId!==id||reply.error||reply.success===false)
          throw Error('O servidor não confirmou a tentativa de pagamento para este pedido.');
