@@ -1012,61 +1012,89 @@ async function agendaSaveDepositPolicy(ev){
  }catch(e){s.error='Não foi possível salvar o sinal planejado. Nenhuma cobrança foi iniciada.';}
  s.busy=false;render();return false;
 }
+// Reuse a creation ID for the same unconfirmed submission in this session.
+const agendaCatalogPending=new Map();
+async function agendaWriteCatalog({table,list,id,values,notice,errorText,creating=false}){
+ const s=agendaRuntime;
+ if(s.busy||!s.client||!s.page||!s.user)return false;
+ const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
+ const key=JSON.stringify([userId,page,table,values]);
+ if(creating){
+  id=agendaCatalogPending.get(key);
+  if(!id){
+   id=globalThis.crypto?.randomUUID?.();
+   if(!agendaUuid.test(id||'')){s.error='Não foi possível iniciar o cadastro. Atualize a página.';render();return false;}
+   agendaCatalogPending.set(key,id);
+  }
+ }
+ if(!agendaUuid.test(id||''))return false;
+ s.busy=true;s.notice='';s.error='';
+ let failure=null,verified=false;
+ try{
+  try{
+   const result=creating?await client.from(table).insert({...values,id,page_id:page}):
+    await client.from(table).update(values).eq('id',id).eq('page_id',page);
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return false;
+  const check=await client.from(table).select('*').eq('id',id).eq('page_id',page).maybeSingle();
+  if(!current())return false;
+  const row=check.data;
+  verified=!check.error&&row?.id===id&&row.page_id===page&&
+   Object.entries(values).every(([k,v])=>row[k]===v);
+  if(!verified){
+   s.error=failure?.message?.includes('AGENDA_STAFF_HAS_BOOKINGS')?
+    'Este colaborador tem atendimentos confirmados. Resolva-os antes de pausar a agenda.':
+    errorText+' Confira os dados antes de repetir.';
+   return false;
+  }
+  if(creating)agendaCatalogPending.delete(key);
+  const index=s[list].findIndex(x=>x.id===id);
+  if(index<0)s[list].push(row);else s[list][index]=row;
+  s.notice=notice;
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()&&agendaSlug()===slug&&s.serviceId){
+   try{await agendaRefreshPublic();}catch(_){}
+  }
+ }catch(_){if(current()&&!verified)s.error=errorText+' Confira os dados antes de repetir.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+ return false;
+}
 async function agendaSaveService(ev){
  ev.preventDefault();const s=agendaRuntime,p=s.page;
- if(s.busy||!p||!s.user)return false;
+ if(s.busy||!p||!s.user||!s.client)return false;
  const f=new FormData(ev.target),id=ev.target.dataset.id;
- const price=Number(f.get('price')),duration=Number(f.get('duration'));
- if(!Number.isFinite(price)||price<0||price>20000||!Number.isInteger(duration)||duration<15||
-  duration>240||duration%15){s.error='Confira preço e duração.';render();return false;}
- const data={title:String(f.get('title')||'').trim(),price_cents:Math.round(price*100),duration_min:duration};
- s.busy=true;s.error='';s.notice='';
- try{
-  const result=id?await s.client.from('agenda_services').update(data).eq('id',id).eq('page_id',p.id):
-   await s.client.from('agenda_services').insert({...data,page_id:p.id,active:true});
-  if(result.error)throw result.error;
-  await agendaRefreshOwner();s.notice='Serviço atualizado.';
- }catch(e){s.error='Não foi possível salvar o serviço.';}
- s.busy=false;render();return false;
+ if(id&&(!agendaUuid.test(id)||!s.services.some(x=>x.id===id)))return false;
+ const rawPrice=String(f.get('price')??'').trim(),price=Number(rawPrice),duration=Number(f.get('duration'));
+ const title=String(f.get('title')||'').trim();
+ if(title.length<3||title.length>100||!/^\d+(?:\.\d{1,2})?$/.test(rawPrice)||
+  !Number.isFinite(price)||price<0||price>20000||!Number.isInteger(duration)||duration<15||
+  duration>240||duration%15){s.error='Confira o nome, o preço e a duração do serviço.';render();return false;}
+ const values={title,price_cents:Math.round(price*100),duration_min:duration,...(!id?{active:true}:{})};
+ return agendaWriteCatalog({table:'agenda_services',list:'services',id,values,creating:!id,
+  notice:id?'Serviço atualizado.':'Serviço adicionado.',errorText:'Não foi possível confirmar o serviço.'});
 }
 async function agendaToggleService(id){
  const s=agendaRuntime,v=s.services.find(x=>x.id===id);
  if(!v||s.busy)return;
- s.busy=true;s.error='';
- try{
-  const {error}=await s.client.from('agenda_services').update({active:!v.active}).eq('id',id).eq('page_id',s.page.id);
-  if(error)throw error;await agendaRefreshOwner();s.notice=v.active?'Serviço pausado.':'Serviço reativado.';
- }catch(e){s.error='Não foi possível alterar este serviço.';}
- s.busy=false;render();
+ return agendaWriteCatalog({table:'agenda_services',list:'services',id,values:{active:!v.active},
+  notice:v.active?'Serviço pausado.':'Serviço reativado.',errorText:'Não foi possível confirmar a alteração do serviço.'});
 }
 async function agendaSaveStaff(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.page||!s.user||s.staff.length>=12)return false;
+ if(s.busy||!s.page||!s.user||!s.client||s.staff.length>=12)return false;
  const name=String(new FormData(ev.target).get('name')||'').trim();
  if(name.length<2||name.length>70){s.error='Informe um nome válido.';render();return false;}
- s.busy=true;s.error='';s.notice='';
- try{
-  const {error}=await s.client.from('agenda_staff').insert({page_id:s.page.id,name,active:true});
-  if(error)throw error;
-  await agendaRefreshOwner();s.notice='Colaborador adicionado. Ele já pode receber agendamentos.';
- }catch(e){s.error='Não foi possível cadastrar o colaborador. Verifique sua equipe.';}
- s.busy=false;render();return false;
+ return agendaWriteCatalog({table:'agenda_staff',list:'staff',values:{name,active:true},creating:true,
+  notice:'Colaborador adicionado à equipe.',errorText:'Não foi possível confirmar o cadastro do colaborador.'});
 }
 async function agendaToggleStaff(id){
  const s=agendaRuntime,t=s.staff.find(x=>x.id===id);
  if(s.busy||!t||!s.page)return;
- s.busy=true;s.error='';s.notice='';
- try{
-  const {error}=await s.client.from('agenda_staff').update({active:!t.active})
-   .eq('id',id).eq('page_id',s.page.id);
-  if(error)throw error;
-  await agendaRefreshOwner();s.notice=t.active?'Agenda do colaborador pausada.':'Agenda do colaborador reativada.';
- }catch(e){
-  s.error=e?.message?.includes('AGENDA_STAFF_HAS_BOOKINGS')?
-   'Este colaborador tem atendimentos confirmados. Resolva-os antes de pausar a agenda.':
-   'Não foi possível atualizar a agenda deste colaborador.';
- }
- s.busy=false;render();
+ return agendaWriteCatalog({table:'agenda_staff',list:'staff',id,values:{active:!t.active},
+  notice:t.active?'Agenda do colaborador pausada.':'Agenda do colaborador reativada.',
+  errorText:'Não foi possível confirmar a alteração da agenda deste colaborador.'});
 }
 function agendaLocalHourToInstant(day,hour){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!/^\d{2}:\d{2}$/.test(hour))return '';
