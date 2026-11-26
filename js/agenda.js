@@ -1121,54 +1121,78 @@ async function agendaRemoveBlock(id){
 }
 async function agendaJoinWaitlist(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.user||!s.publicProfile||!s.serviceId||s.rescheduleId)return false;
+ if(s.busy||!s.user||!s.client||!s.publicProfile||!s.serviceId||s.rescheduleId||
+  s.slotBusy||s.slotError||s.dayClosed||s.slots.length)return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(f.get('consent')!=='on'||name.length<2||name.length>90||
    !/^\+?[0-9 ()-]{8,25}$/.test(phone)){
   s.error='Confira seu nome, WhatsApp e autorização de contato.';render();return false;
  }
- const service=s.serviceId,staff=s.staffId,day=s.day;
- s.busy=true;s.error='';s.notice='';
+ const service=s.serviceId,staff=s.staffId||null,day=s.day,page=s.publicProfile.id;
+ const client=s.client,userId=s.user.id,epoch=s.epoch;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ let confirmed=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_join_waitlist',{
-   p_service_id:service,p_staff_id:staff||null,p_day:day,p_name:name,p_phone:phone,p_consent:true
-  });
-  if(error||!agendaUuid.test(String(data)))throw error||Error('waitlist unconfirmed');
-  const verify=await s.client.from('agenda_waitlist').select('id,status')
-   .eq('id',data).eq('customer_id',s.user.id).maybeSingle();
-  if(verify.error||verify.data?.status!=='waiting')throw Error('waitlist readback unavailable');
-  await agendaRefreshOwner();
+  try{await client.rpc('agenda_join_waitlist',{
+   p_service_id:service,p_staff_id:staff,p_day:day,p_name:name,p_phone:phone,p_consent:true
+  });}catch(_){}
+  if(!current())return false;
+  let q=client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,customer_id,status,created_at')
+   .eq('customer_id',userId).eq('service_id',service).eq('day',day).eq('status','waiting');
+  q=staff?q.eq('staff_id',staff):q.is('staff_id',null);
+  const check=await q.maybeSingle();
+  if(!current())return false;
+  const row=check.data;
+  confirmed=!check.error&&agendaUuid.test(String(row?.id||''))&&row.status==='waiting'&&
+   row.customer_id===userId&&row.page_id===page&&row.service_id===service&&
+   (row.staff_id||null)===staff&&row.day===day;
+  if(!confirmed){s.error='Não foi possível confirmar sua entrada na fila. Consulte suas listas antes de repetir.';return false;}
+  const remember=()=>{
+   if(!s.myWaiting.some(x=>x.id===row.id))s.myWaiting.push({
+    id:row.id,page_id:page,service_id:service,staff_id:staff,day,created_at:row.created_at
+   });
+  };
+  remember();
   s.notice='Pedido de contato registrado. O profissional poderá chamar pelo WhatsApp se surgir vaga.';
- }catch(e){
-  // A network timeout can commit; never imply the request failed without readback.
-  let found=false;
-  try{
-   let q=s.client.from('agenda_waitlist').select('id').eq('customer_id',s.user.id)
-    .eq('service_id',service).eq('day',day).eq('status','waiting');
-   q=staff?q.eq('staff_id',staff):q.is('staff_id',null);
-   const check=await q.maybeSingle();
-   found=!!check.data?.id;
-   if(found)await agendaRefreshOwner();
-  }catch(_){}
-  s.error=found?'':'Não foi possível confirmar sua entrada na fila. Consulte suas listas antes de repetir.';
-  if(found)s.notice='Sua participação na lista de espera está registrada.';
+  try{await agendaRefreshOwner();}catch(_){}
+ }catch(_){
+  if(current()&&!confirmed)s.error='Não foi possível confirmar sua entrada na fila. Consulte suas listas antes de repetir.';
+ }finally{
+  s.busy=false;if(agendaRoute())render();
  }
- s.busy=false;render();return false;
+ return false;
 }
 async function agendaCloseWaitlist(id,contacted){
  const s=agendaRuntime;
- if(s.busy||!agendaUuid.test(id)||
+ if(s.busy||!s.user||!s.client||!agendaUuid.test(id)||typeof contacted!=='boolean'||
   !(s.waiting.some(x=>x.id===id)||(!contacted&&s.myWaiting.some(x=>x.id===id))))return;
- s.busy=true;s.error='';s.notice='';
+ const client=s.client,userId=s.user.id,epoch=s.epoch;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
  try{
-  const {data,error}=await s.client.rpc('agenda_close_waitlist',{
-   p_wait_id:id,p_contacted:contacted===true
-  });
-  if(error||data!==true)throw error||Error('close waitlist failed');
-  await agendaRefreshOwner();
-  s.notice=contacted?'Contato registrado na lista.':'Participação retirada da lista.';
- }catch(e){s.error='Não foi possível alterar a lista. Tente novamente.';}
- s.busy=false;render();
+  try{await client.rpc('agenda_close_waitlist',{p_wait_id:id,p_contacted:contacted});}catch(_){}
+  if(!current())return;
+  const result=await client.from('agenda_waitlist').select('id,status,customer_id,owner_id,closed_at')
+   .eq('id',id).maybeSingle();
+  if(!current())return;
+  const row=result.data,expected=contacted?'contacted':'withdrawn';
+  const authorized=contacted?row?.owner_id===userId:(row?.customer_id===userId||row?.owner_id===userId);
+  if(result.error||row?.id!==id||!authorized||
+   !['contacted','withdrawn'].includes(row.status)||!Number.isFinite(Date.parse(row.closed_at))){
+   s.error='Não foi possível confirmar a alteração da lista. Confira antes de tentar novamente.';return;
+  }
+  const remove=()=>{s.waiting=s.waiting.filter(x=>x.id!==id);s.myWaiting=s.myWaiting.filter(x=>x.id!==id);};
+  remove();
+  s.notice=row.status===expected?(contacted?'Contato registrado na lista.':'Participação retirada da lista.'):
+   (row.status==='contacted'?'Esta participação já foi encerrada com contato registrado.':
+    'Esta participação já foi retirada da lista.');
+  try{await agendaRefreshOwner();}catch(_){}
+ }catch(_){
+  if(current())s.error='Não foi possível confirmar a alteração da lista. Confira antes de tentar novamente.';
+ }finally{
+  s.busy=false;if(agendaRoute())render();
+ }
 }
 async function agendaMarkAttendance(id,result){
  const s=agendaRuntime;
