@@ -855,3 +855,27 @@ readyServices=[readyService];readyError=true;await assert.rejects(checkReady,/un
 assert.equal(await readinessCtx.ready(readinessClient,'bad-id',readyOwner),false);
 assert.match(source,/if\(!ready\)\{data\.published=false;publishDeferred=true;\}/);
 console.log('PASS: manual publication readiness, active service, compatible hours, owner scope and read failure.');
+
+const queueCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},esc:x=>String(x??'')});
+vm.runInContext(source+';this.rt=agendaRuntime;this.refresh=agendaRefreshCustomerWaitlist;this.view=agendaMyWaitingView;this.today=agendaToday;',queueCtx);
+const queueRt=queueCtx.rt,queueUser=evidence.customer_id;
+const queueRow={id:evidence.id,page_id:evidence.page_id,service_id:evidence.service_id,staff_id:evidence.staff_id,
+ customer_id:queueUser,status:'waiting',day:queueCtx.today(1),created_at:new Date().toISOString()};
+let queueResponse={data:[queueRow],error:null},queueReads=0,queueSwitch=false;
+const queueClient={from(table){
+ assert.equal(table,'agenda_waitlist');const filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q},
+ gte(k,v){assert.equal(k,'day');assert.equal(v,queueCtx.today());return q},order(){return q},
+ async limit(n){assert.equal(n,12);assert.equal(filters.customer_id,queueUser);assert.equal(filters.status,'waiting');queueReads++;
+ if(queueSwitch){queueRt.user={id:evidence.page_id};queueRt.myWaiting=[];queueRt.waitlistReadSeq++;queueRt.waitlistRefreshToken=null;queueRt.busy=false}
+ return queueResponse}};
+ return q;}};
+Object.assign(queueRt,{client:queueClient,user:{id:queueUser},myWaiting:[]});
+assert.match(queueCtx.view(),/Atualizar listas de espera/);
+await queueCtx.refresh();assert.equal(queueRt.myWaiting.length,1);assert.match(queueRt.notice,/Listas de espera atualizadas/);
+queueResponse={data:null,error:Error('network')};await queueCtx.refresh();assert.equal(queueRt.myWaiting.length,1);assert.match(queueRt.error,/últimos dados/);
+queueResponse={data:[{...queueRow,customer_id:evidence.page_id}],error:null};await queueCtx.refresh();assert.equal(queueRt.myWaiting.length,1);assert.equal(queueRt.notice,'');
+queueResponse={data:[],error:null};await queueCtx.refresh();assert.equal(queueRt.myWaiting.length,0);assert.match(queueRt.notice,/Nenhuma participação futura/);
+queueResponse={data:[queueRow],error:null};queueSwitch=true;await queueCtx.refresh();assert.equal(queueRt.myWaiting.length,0);assert.equal(queueRt.notice,'');assert.equal(queueRt.busy,false);
+assert.equal(queueReads,5);
+console.log('PASS: independent waitlist refresh, exact account scope, preserved data on failure, confirmed empty and session change.');
