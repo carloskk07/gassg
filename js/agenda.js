@@ -1355,19 +1355,24 @@ async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
  if(s.busy||s.rescheduleId||!s.user||!s.client||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
  if(s.slotBusy||s.slotError||!s.slots.some(x=>x.starts_at===s.selectedStart))return false;
+ const profile=s.publicProfile,page=profile?.id;
+ const selectedService=profile?.services?.find(x=>x.id===s.serviceId);
+ if(!agendaUuid.test(page||'')||!selectedService||profile.slug!==agendaSlug())return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
- if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
+ if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)||phone.replace(/\D/g,'').length<8||phone.replace(/\D/g,'').length>15){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
- if((s.publicProfile?.staff||[]).length&&!agendaUuid.test(s.staffId))return false;
+ if((profile.staff||[]).length&&(!agendaUuid.test(s.staffId)||!profile.staff.some(x=>x.id===s.staffId)))return false;
+ if(!(profile.staff||[]).length&&s.staffId)return false;
  const request=s.requestKey,instant=s.selectedStart,service=s.serviceId,staff=s.staffId||null;
  const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
  const current=()=>s.client===client&&s.epoch===epoch&&s.user?.id===userId;
- const sameChoice=()=>current()&&agendaSlug()===slug&&s.serviceId===service&&
+ const sameChoice=()=>current()&&agendaSlug()===slug&&s.publicProfile?.id===page&&s.serviceId===service&&
   (s.staffId||null)===staff&&s.requestKey===request&&s.selectedStart===instant;
  const matches=row=>agendaUuid.test(String(row?.id||''))&&row.status==='confirmed'&&
-  row.request_id===request&&row.customer_id===userId&&row.service_id===service&&
-  (row.staff_id||null)===staff&&Date.parse(row.starts_at)===Date.parse(instant);
+  row.request_id===request&&row.customer_id===userId&&row.page_id===page&&row.service_id===service&&
+  (row.staff_id||null)===staff&&Date.parse(row.starts_at)===Date.parse(instant)&&
+  Date.parse(row.ends_at)>Date.parse(instant)&&Number.isSafeInteger(row.reschedule_count)&&row.reschedule_count>=0;
  s.busy=true;s.error='';s.notice='';
  let failure=null,confirmed=false;
  try{
@@ -1383,13 +1388,21 @@ async function agendaBook(ev){
   // Both successful and ambiguous writes require the same exact, customer-bound
   // persisted evidence. A mismatched idempotency key cannot certify a new slot.
   const readback=await client.from('agenda_appointments')
-   .select('id,status,starts_at,request_id,customer_id,service_id,staff_id')
-   .eq('request_id',request).eq('customer_id',userId).maybeSingle();
+   .select('id,status,starts_at,ends_at,request_id,customer_id,service_id,staff_id,page_id,reschedule_count')
+   .eq('request_id',request).eq('customer_id',userId).eq('page_id',page).maybeSingle();
   if(!current())return false;
   confirmed=!readback.error&&matches(readback.data);
   if(!sameChoice())return false;
   if(confirmed){
    s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
+   const row=readback.data;
+   // Match the customer booking-list shape using verified row and public labels.
+   // Do not wait for a potentially unavailable list request to show the reservation.
+   const receipt={id:row.id,status:row.status,page_id:page,service_id:service,staff_id:staff,
+    starts_at:row.starts_at,ends_at:row.ends_at,reschedule_count:row.reschedule_count,
+    customer_id:userId,page_title:profile.title,service_title:selectedService.title,slug,
+    staff_title:profile.staff?.find(x=>x.id===staff)?.name||null};
+   if(!s.mine.some(x=>x.id===row.id))s.mine=[receipt,...s.mine].sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
    s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
    // A refresh failure cannot invalidate a booking already proven persisted.
    try{await agendaRefreshOwner();}catch(_){}
