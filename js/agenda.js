@@ -916,7 +916,8 @@ async function agendaQuickCreate(ev){
    throw check.error||Error('read scope');
   return check.data;
  };
- const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+ const baseSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+ const rawSlug=baseSlug.length<4?baseSlug+'-agenda':baseSlug;
  const samePage=p=>p&&p.title===title&&p.city===city&&
   (p.slug===rawSlug||(/^[a-f0-9]{6}$/.test(p.slug?.slice(-6)||'')&&
    p.slug?.slice(0,-7)===rawSlug.slice(0,53).replace(/-$/,'')));
