@@ -16,10 +16,10 @@
     payment.fundsOwner==='merchant'&&payment.tamaoReceivesSaleProceeds===false&&
     payment.provider==='mercadopago'&&payment.available===true;
  }
- const validPix=order=>order?.paymentMethod==='pix'&&order.onlinePayment?.pixPayable===true&&
+ const validPix=order=>order?.paymentMethod==='pix'&&['checkout_ready','pending'].includes(order.onlinePayment?.status)&&order.onlinePayment?.pixPayable===true&&
   typeof order.onlinePayment.pixCode==='string'&&order.onlinePayment.pixCode.length>30&&
   Number.isFinite(Date.parse(order.onlinePayment.expiresAt))&&Date.parse(order.onlinePayment.expiresAt)>Date.now()+60000&&
-  (!globalThis.tamaoPixCodeValid||globalThis.tamaoPixCodeValid(order.onlinePayment.pixCode,order.totalCents));
+  (typeof globalThis.tamaoPixCodeValid==='function'&&globalThis.tamaoPixCodeValid(order.onlinePayment.pixCode,order.totalCents));
  const reusableCheckout=payment=>['checkout_ready','pending'].includes(payment?.status);
  const notExpired=payment=>!payment?.expiresAt||
    Number.isFinite(Date.parse(payment.expiresAt))&&Date.parse(payment.expiresAt)>Date.now()+1000;
@@ -72,7 +72,7 @@
      }
      if(order.paymentMethod==='pix'){
        if(validPix(order)){render();toast('Pix disponível no acompanhamento do pedido.');return true;}
-       if(payment.canStart!==true)throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
+       if(payment.canStart!==true||['review_required','refunded','cancelled','canceled','approved'].includes(payment.status))throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
        mutationStarted=true;
        const key=liveIdempotency('merchant-sale-payment');
        const reply=await checkout(key);
