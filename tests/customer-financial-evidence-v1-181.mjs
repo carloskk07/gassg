@@ -114,3 +114,22 @@ assert.ok(css.includes('.customer-payment-ledger'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(audit.includes('node tests/customer-financial-evidence-v1-181.mjs'));
 console.log('V1.181: payment approval/refund evidence, dated data, amounts, PII restrictions, closed-order scope and ledger boundaries passed.');
+
+// Execute the production detached-payment block with a synthetic scoped read.
+// No provider, real database or financial mutations are involved.
+for(const orderStatus of ['CANCELLED','REASSIGNING']){
+ for(const status of ['pending','checkout_ready','approved','refunded','review_required','unknown']){
+  const query=[];
+  const ctx=vm.createContext({role:'customer',order:{id:'owned-order',status:orderStatus,payment_timing:'prepaid',payment_method:'pix',total_cents:15000},
+   onlinePayment:{available:true,canStart:true,pixPayable:true,pixCode:'OLD-PIX',checkoutUrl:'https://example.invalid',expiresAt:'future',paymentRouteId:'old-route'},
+   admin:{from(table){query.push(table);return this},select(){return this},eq(k,v){query.push([k,v]);return this},
+    order(){return this},limit(){return this},async maybeSingle(){return {data:{status,provider:'mercadopago',amount_cents:15000},error:null}}}});
+  const block=edge.slice(edge.indexOf('    if(',edge.indexOf('// V1.181: the original merchant')),edge.indexOf('    const {data:partnerBenefit'));
+  const result=await vm.runInContext('(async()=>{'+block+';return onlinePayment})()',ctx);
+  assert.deepEqual(query,['merchant_sale_payment_attempts',['order_id','owned-order']]);
+  assert.equal(result.status,status==='unknown'?'not_available':status);
+  for(const key of ['pixCode','checkoutUrl','expiresAt','paymentRouteId'])assert.equal(result[key],null,key);
+  for(const key of ['available','canStart','pixPayable'])assert.equal(result[key],false,key);
+ }
+}
+console.log('PASS: detached payment preserves unresolved state and strips every payable field.');
