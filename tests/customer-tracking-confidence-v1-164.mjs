@@ -142,9 +142,20 @@ const core=read('js/core.js'),vstart=core.indexOf(' function valid(code,amountCe
 assert.ok(vstart>=0&&vend>vstart);
 const validate=vm.runInNewContext(core.slice(vstart,vend)+'\nvalid',{TextEncoder,TextDecoder});
 globals.tamaoPixCodeValid=validate;
-const pix={available:true,pixPayable:true,status:'pending',amountCents:12000,pixCode,expiresAt:new Date(Date.now()+3600000).toISOString()};
+const pix={available:true,provider:'mercadopago',fundsOwner:'merchant',tamaoReceivesSaleProceeds:false,pixPayable:true,status:'pending',amountCents:12000,pixCode,expiresAt:new Date(Date.now()+3600000).toISOString()};
 const pixOrder={paymentMethod:'pix',paymentTiming:'prepaid',onlinePayment:pix};
+runtime.orderCheckedId='00000000-0000-4000-8000-000000000042';
+runtime.orderCheckedAt=new Date(Date.now()-1000).toISOString();
 assert.match(orderFor('PREPARING',pixOrder),/Pix copia e cola/);
+for(const [status,extra] of [['SETTLED',{}],['DELIVERED',{}],['PREPARING',{paymentTiming:'on_delivery'}],['PREPARING',{onlinePayment:{...pix,fundsOwner:'platform'}}],['PREPARING',{onlinePayment:{...pix,provider:'other'}}]]){
+ const html=orderFor(status,{...pixOrder,...extra});
+ assert.doesNotMatch(html,/Pix copia e cola|Copiar código Pix/);
+ assert.ok(!html.includes(pixCode));
+}
+runtime.orderCheckedAt=new Date(Date.now()-600000).toISOString();
+assert.match(orderFor('PREPARING',pixOrder),/Pix aguardando conferência/);
+assert.ok(!orderFor('PREPARING',pixOrder).includes(pixCode));
+runtime.orderCheckedAt=new Date(Date.now()-1000).toISOString();
 for(const payment of [{...pix,pixCode:pixFixture(12001)},{...pix,pixCode:pixCode.slice(0,-1)+'Z'},{...pix,expiresAt:'invalid'},{...pix,status:'not_started',canStart:true}]){
  const html=orderFor('PREPARING',{...pixOrder,onlinePayment:payment});
  assert.match(html,/Pix aguardando conferência/);
@@ -168,7 +179,7 @@ async function copyCase({alter={},stale=false,error=false,switchSession=false}={
  return {result,written,notices};
 }
 assert.deepEqual((await copyCase()).written,[pixCode]);
-for(const options of [{stale:true},{error:true},{switchSession:true},{alter:{orderId:'other'}},{alter:{status:'CANCELLED'}},{alter:{onlinePayment:{...pix,expiresAt:'invalid'}}}]){
+for(const options of [{stale:true},{error:true},{switchSession:true},{alter:{orderId:'other'}},{alter:{status:'CANCELLED'}},{alter:{onlinePayment:{...pix,expiresAt:'invalid'}}},{alter:{onlinePayment:{...pix,fundsOwner:'platform'}}},{alter:{onlinePayment:{...pix,provider:'other'}}}]){
  const x=await copyCase(options);assert.equal(x.result,false);assert.equal(x.written.length,0);
 }
 assert.equal((await copyCase({switchSession:true})).notices.length,0);
