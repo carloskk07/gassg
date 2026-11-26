@@ -564,3 +564,40 @@ assert.equal(qrRt.qrOpen,true);assert.equal(qrRt.qrBusy,false);assert.equal(qrTi
 await qrCtx.toggle();assert.equal(qrRt.qrOpen,false);
 await qrCtx.toggle();assert.equal(qrRt.qrOpen,true);assert.equal(qrScripts.length,2);
 console.log('PASS: Agenda QR bounded download, duplicate guard, retry, late callback and real SVG generation.');
+
+
+// Attendance must reconcile the actual persisted final state, not an RPC ack.
+const attendanceCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},confirm:()=>true});
+vm.runInContext(source+';this.rt=agendaRuntime;this.mark=agendaMarkAttendance;',attendanceCtx);
+const attendanceRt=attendanceCtx.rt,attendanceId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ attendanceOwner='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',attendancePage='cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+ attendanceEnd=new Date(Date.now()-3600000).toISOString();
+const attendanceBooking={id:attendanceId,page_id:attendancePage,status:'confirmed',ends_at:attendanceEnd};
+const attendanceEvidence={...attendanceBooking,status:'completed',owner_id:attendanceOwner};
+let attendanceRow=attendanceEvidence,attendanceReadError=false,attendanceWrites=0;
+const attendanceClient={rpc:async(name,args)=>{assert.equal(name,'agenda_mark_attendance');
+ assert.equal(args.p_appointment_id,attendanceId);attendanceWrites++;throw Error('lost response');},
+ from(table){assert.equal(table,'agenda_appointments');const q={select(fields){assert.match(fields,/owner_id,page_id,ends_at/);return q},
+ eq(k,v){assert.equal(k,'id');assert.equal(v,attendanceId);return q;},
+ async maybeSingle(){return {data:attendanceRow,error:attendanceReadError?Error('read failed'):null}}};return q;}};
+attendanceCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+const prepareAttendance=()=>Object.assign(attendanceRt,{client:attendanceClient,user:{id:attendanceOwner},
+ page:{id:attendancePage},busy:false,bookings:[{...attendanceBooking}],notice:'',error:''});
+for(const mismatch of [{id:attendancePage},{owner_id:attendancePage},{page_id:attendanceOwner},
+ {ends_at:'2020-01-01T00:00:00Z'},{status:'confirmed'}]){
+ prepareAttendance();attendanceRow={...attendanceEvidence,...mismatch};await attendanceCtx.mark(attendanceId,'completed');
+ assert.equal(attendanceRt.notice,'');assert.equal(attendanceRt.bookings[0].status,'confirmed');
+ assert.equal(attendanceRt.busy,false);
+}
+prepareAttendance();attendanceRow=attendanceEvidence;attendanceReadError=true;await attendanceCtx.mark(attendanceId,'completed');
+assert.equal(attendanceRt.bookings[0].status,'confirmed');assert.equal(attendanceRt.notice,'');
+attendanceReadError=false;prepareAttendance();await attendanceCtx.mark(attendanceId,'completed');
+assert.match(attendanceRt.notice,/Atendimento concluído registrado/);assert.equal(attendanceRt.bookings[0].status,'completed');
+prepareAttendance();attendanceRow={...attendanceEvidence,status:'no_show'};await attendanceCtx.mark(attendanceId,'completed');
+assert.match(attendanceRt.notice,/já está registrado como ausência/);assert.equal(attendanceRt.bookings[0].status,'no_show');
+prepareAttendance();attendanceRow={...attendanceEvidence,status:'cancelled'};await attendanceCtx.mark(attendanceId,'no_show');
+assert.match(attendanceRt.notice,/já foi cancelado/);assert.equal(attendanceRt.bookings.length,0);
+const beforeAttendance=attendanceWrites;prepareAttendance();attendanceRt.bookings[0].ends_at='invalid';
+await attendanceCtx.mark(attendanceId,'completed');assert.equal(attendanceWrites,beforeAttendance);
+console.log('PASS: attendance reconciles exact authorized final state and preserves confirmed result despite list refresh failure.');

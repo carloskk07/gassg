@@ -1198,21 +1198,42 @@ async function agendaCloseWaitlist(id,contacted){
 async function agendaMarkAttendance(id,result){
  const s=agendaRuntime;
  const booking=s.bookings.find(b=>b.id===id);
- if(s.busy||!booking||booking.status!=='confirmed'||Date.parse(booking.ends_at)>Date.now()||
+ const ends=Date.parse(booking?.ends_at);
+ if(s.busy||!s.user||!s.client||!s.page||!agendaUuid.test(id)||!booking||
+  booking.page_id!==s.page.id||booking.status!=='confirmed'||!Number.isFinite(ends)||ends>Date.now()||
   !['completed','no_show'].includes(result))return;
  if(result==='no_show'&&!confirm('Registrar que o cliente não compareceu? Esta conclusão não pode ser desfeita pela agenda.'))return;
- s.busy=true;s.error='';s.notice='';
+ const client=s.client,userId=s.user.id,epoch=s.epoch,page=s.page.id;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch&&s.page?.id===page;
+ s.busy=true;s.error='';s.notice='';render();
+ let verified=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_mark_attendance',{
-   p_appointment_id:id,p_result:result
-  });
-  if(error||data!==true)throw error||Error('attendance unconfirmed');
-  const verify=await s.client.from('agenda_appointments').select('id,status').eq('id',id).maybeSingle();
-  if(verify.error||verify.data?.status!==result)throw Error('attendance readback unavailable');
-  await agendaRefreshOwner();
-  s.notice=result==='completed'?'Atendimento concluído registrado.':'Ausência registrada.';
- }catch(e){s.error='Não foi possível confirmar a conclusão. Confira o histórico.';}
- s.busy=false;render();
+  // The RPC may commit even if its response is lost.
+  try{await client.rpc('agenda_mark_attendance',{p_appointment_id:id,p_result:result});}catch(_){}
+  if(!current())return;
+  const check=await client.from('agenda_appointments')
+   .select('id,status,owner_id,page_id,ends_at').eq('id',id).maybeSingle();
+  if(!current())return;
+  const row=check.data;
+  verified=!check.error&&row?.id===id&&row.owner_id===userId&&row.page_id===page&&
+   Date.parse(row.ends_at)===ends&&['completed','no_show','cancelled'].includes(row.status);
+  if(!verified){s.error='Não foi possível confirmar a conclusão. Confira o histórico antes de repetir.';return;}
+  const apply=()=>{
+   s.bookings=s.bookings.flatMap(b=>{
+    if(b.id!==id||b.page_id!==page||Date.parse(b.ends_at)!==ends||b.status!=='confirmed')return [b];
+    return row.status==='cancelled'?[]:[{...b,status:row.status}];
+   });
+  };
+  apply();
+  s.notice=row.status===result?(result==='completed'?'Atendimento concluído registrado.':'Ausência registrada.'):
+   row.status==='completed'?'Este atendimento já está registrado como concluído.':
+   row.status==='no_show'?'Este atendimento já está registrado como ausência.':
+   'Este horário já foi cancelado.';
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current())apply();
+ }catch(_){
+  if(current()&&!verified)s.error='Não foi possível confirmar a conclusão. Confira o histórico antes de repetir.';
+ }finally{s.busy=false;if(agendaRoute())render();}
 }
 async function agendaSaveHours(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page)return false;
