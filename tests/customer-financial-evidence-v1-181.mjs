@@ -133,3 +133,43 @@ for(const orderStatus of ['CANCELLED','REASSIGNING']){
  }
 }
 console.log('PASS: detached payment preserves unresolved state and strips every payable field.');
+
+// The original-payment CTA never starts a new checkout, even after a read fails.
+const pendingHtml=render('CANCELLED',{status:'pending',provider:'mercadopago',amountCents:15000});
+assert.match(pendingHtml,/Atualizar pagamento original/);
+assert.match(pendingHtml,/customerRefreshOriginalPayment\(this.dataset.orderId\)/);
+assert.doesNotMatch(pendingHtml,/Gerar Pix do pedido|Continuar pagamento/);
+const refreshStart=js.indexOf('async function customerRefreshOriginalPayment(');
+const refreshEnd=js.indexOf('\nfunction customerInterruptedPaymentView',refreshStart);
+assert.ok(refreshStart>=0&&refreshEnd>refreshStart);
+async function exerciseRefresh(mode){
+ const orderId='original',order={orderId,status:'CANCELLED'};
+ const rt={session:{user:{id:'buyer'}},authGeneration:1,orderId,order};
+ const notices=[],reads=[];let renders=0;
+ const c=vm.createContext({liveRuntime:rt,liveReady:()=>true,render:()=>renders++,toast:v=>notices.push(v),
+  liveGetOrder:async(id,opts)=>{
+   reads.push(id);assert.equal(opts.silent,true);
+   if(mode==='switch'){rt.authGeneration++;rt.session={user:{id:'buyer'}}}
+   if(mode==='error')throw Error('offline');
+   rt.orderCheckedId=id;rt.orderCheckedAt=new Date(Date.now()-(mode==='stale'?60000:0)).toISOString();
+   return order;
+  }});
+ vm.runInContext(js.slice(refreshStart,refreshEnd),c);
+ const result=await c.customerRefreshOriginalPayment(mode==='wrong'?'other':orderId);
+ return {result,notices,reads,renders,error:rt.error,token:rt.originalPaymentRefreshToken};
+}
+const good=await exerciseRefresh('ok');
+assert.equal(good.result,true);assert.deepEqual(good.reads,['original']);
+assert.match(good.notices.join(' '),/Registro do pagamento atualizado/);
+for(const mode of ['error','stale']){
+ const r=await exerciseRefresh(mode);assert.equal(r.result,false);
+ assert.match(r.error,/Não foi possível conferir/);
+ assert.match(r.notices.join(' '),/não pague novamente/);
+ assert.equal(r.token,null);
+}
+const switched=await exerciseRefresh('switch');
+assert.equal(switched.result,false);assert.equal(switched.notices.length,0);
+assert.equal(switched.error,undefined);
+const wrong=await exerciseRefresh('wrong');
+assert.equal(wrong.result,false);assert.equal(wrong.reads.length,0);
+console.log('PASS: explicit original-payment refresh, fresh evidence, safe failure, revoked session and wrong order.');
