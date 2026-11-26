@@ -661,6 +661,23 @@ function agendaDirectoryView(){
    (s.directoryError?'<button type="button" class="secondary" onclick="agendaRefreshDirectory()">Tentar novamente</button>':'')+
   '</div></section>';
 }
+function agendaMyWaitingView(){
+ const s=agendaRuntime;if(!s.user)return '';
+ return '<section class="agenda-panel"><h2>Minhas listas de espera</h2>'+
+  '<p>O estabelecimento poderá chamar pelo WhatsApp. A lista não garante nem confirma horários.</p>'+
+  '<button type="button" class="secondary" onclick="agendaRefreshCustomerWaitlist()"'+(s.busy?' disabled':'')+'>Atualizar listas de espera</button>'+
+  (!s.myWaiting.length?'<p>'+(s.waitlistVerified?'Nenhuma participação futura encontrada nesta consulta.':'Atualize para consultar suas participações.')+'</p>':'')+
+  (s.myWaiting.length>=12?'<p>Exibindo até 12 participações mais próximas.</p>':'')+
+
+  s.myWaiting.map(w=>{
+   const profile=s.publicProfile?.id===w.page_id?s.publicProfile:null;
+   const member=profile?.staff?.find(t=>t.id===w.staff_id);
+   return '<article class="agenda-booking"><strong>'+esc(agendaDateOnly(w.day))+'</strong>'+
+    '<span>'+esc([member?.name,'Aguardando contato do profissional'].filter(Boolean).join(' • '))+'</span>'+
+    '<button type="button" class="secondary" data-id="'+esc(w.id)+
+    '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Sair da lista</button></article>';
+  }).join('')+'</section>';
+}
 async function agendaReadCustomerWaitlist(){
  const s=agendaRuntime,client=s.client,userId=s.user?.id,epoch=s.epoch;
  if(!client||!userId)return false;
@@ -694,23 +711,6 @@ async function agendaRefreshCustomerWaitlist(){
    s.notice=s.myWaiting.length?'Listas de espera atualizadas.':'Nenhuma participação futura em lista de espera nesta consulta.';
  }catch(_){if(current()){s.waitlistVerified=false;s.error='Não foi possível atualizar suas listas de espera. Os últimos dados foram mantidos.';}}
  finally{if(current()){s.waitlistRefreshToken=null;s.busy=false;if(agendaRoute())render();}}
-}
-function agendaMyWaitingView(){
- const s=agendaRuntime;if(!s.user)return '';
- return '<section class="agenda-panel"><h2>Minhas listas de espera</h2>'+
-  '<p>O estabelecimento poderá chamar pelo WhatsApp. A lista não garante nem confirma horários.</p>'+
-  '<button type="button" class="secondary" onclick="agendaRefreshCustomerWaitlist()"'+(s.busy?' disabled':'')+'>Atualizar listas de espera</button>'+
-  (!s.myWaiting.length?'<p>'+(s.waitlistVerified?'Nenhuma participação futura encontrada nesta consulta.':'Atualize para consultar suas participações.')+'</p>':'')+
-  (s.myWaiting.length>=12?'<p>Exibindo até 12 participações mais próximas.</p>':'')+
-
-  s.myWaiting.map(w=>{
-   const profile=s.publicProfile?.id===w.page_id?s.publicProfile:null;
-   const member=profile?.staff?.find(t=>t.id===w.staff_id);
-   return '<article class="agenda-booking"><strong>'+esc(agendaDateOnly(w.day))+'</strong>'+
-    '<span>'+esc([member?.name,'Aguardando contato do profissional'].filter(Boolean).join(' • '))+'</span>'+
-    '<button type="button" class="secondary" data-id="'+esc(w.id)+
-    '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Sair da lista</button></article>';
-  }).join('')+'</section>';
 }
 async function agendaReadCustomerReservations(){
  const s=agendaRuntime,client=s.client,userId=s.user?.id,epoch=s.epoch;
