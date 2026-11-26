@@ -888,65 +888,110 @@ async function agendaQuickCreate(ev){
  const s=agendaRuntime;
  if(s.busy||!s.client||!s.user||s.page)return false;
  const f=new FormData(ev.target),
-  title=String(f.get('business')||'').trim(),
-  city=String(f.get('city')||'').trim(),
-  service=String(f.get('service')||'').trim(),
-  duration=Number(f.get('duration')),
-  price=Number(f.get('price')),
+  title=String(f.get('business')||'').trim(),city=String(f.get('city')||'').trim(),
+  service=String(f.get('service')||'').trim(),duration=Number(f.get('duration')),
+  rawPrice=String(f.get('price')??'').trim(),price=Number(rawPrice),
   schedule=String(f.get('schedule')||'week_sat');
  const cents=Math.round(price*100);
  if(title.length<3||title.length>100||city.length<2||city.length>100||
   service.length<3||service.length>100||![15,30,45,60,75,90,120,150,180,240].includes(duration)||
-  !Number.isFinite(price)||price<0||price>20000||
-  Math.abs(price*100-cents)>0.000001||
+  !/^\d+(?:\.\d{1,2})?$/.test(rawPrice)||!Number.isFinite(price)||price<0||price>20000||
   !['week_sat','weekdays','all_week'].includes(schedule)){
   s.error='Confira o nome, o serviço, o valor e os horários.';render();return false;
  }
  const weekdays=Array.from({length:schedule==='all_week'?7:5},(_,i)=>
   ({weekday:schedule==='all_week'?i:i+1,opens_min:540,closes_min:1080}));
  if(schedule==='week_sat')weekdays.push({weekday:6,opens_min:540,closes_min:780});
+ const client=s.client,userId=s.user.id,epoch=s.epoch;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ const readPage=async()=>{
+  const check=await client.from('agenda_pages').select('*').eq('owner_id',userId).maybeSingle();
+  if(check.error)throw check.error;
+  if(check.data&&(check.data.owner_id!==userId||!agendaUuid.test(check.data.id||'')))throw Error('page scope');
+  return check.data;
+ };
+ const readRows=async(table,page)=>{
+  const check=await client.from(table).select('*').eq('page_id',page).eq('owner_id',userId);
+  if(check.error||!Array.isArray(check.data)||check.data.some(x=>x.page_id!==page||x.owner_id!==userId))
+   throw check.error||Error('read scope');
+  return check.data;
+ };
+ const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+ const samePage=p=>p&&p.title===title&&p.city===city&&
+  (p.slug===rawSlug||(/^[a-f0-9]{6}$/.test(p.slug?.slice(-6)||'')&&
+   p.slug?.slice(0,-7)===rawSlug.slice(0,53).replace(/-$/,'')));
+ const sameService=x=>x.title===service&&x.duration_min===duration&&x.price_cents===cents&&x.active===true;
+ const sameHours=rows=>rows.length===weekdays.length&&weekdays.every(h=>
+  rows.some(x=>x.weekday===h.weekday&&x.opens_min===h.opens_min&&x.closes_min===h.closes_min));
  s.busy=true;s.error='';s.notice='';
- let created=false,ready=false;
+ let page=null;
  try{
-  const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
-  // Prefer the establishment name. Add a short suffix only when already used.
-  // UNIQUE in PostgreSQL handles concurrent claims safely.
-  let page=null;
+  page=await readPage();
+  if(!current())return false;
+  // A pre-existing draft belongs in the editor, never overwrite its configuration.
+  if(page){s.page=page;s.ownerMode=true;throw Error('existing page');}
   for(let attempt=0;attempt<3;attempt++){
    const suffix=attempt?'-'+crypto.randomUUID().replace(/-/g,'').slice(0,6):'';
    const slug=rawSlug.slice(0,60-suffix.length).replace(/-$/,'')+suffix;
-   const {data,error}=await s.client.from('agenda_pages').insert({
-    slug,title,city,published:false
-   }).select('*').single();
-   if(!error){page=data;break;}
-   if(error.code!=='23505'||attempt===2)throw error;
+   let failure=null;
+   try{
+    const result=await client.from('agenda_pages').insert({slug,title,city,published:false});
+    if(result.error)throw result.error;
+   }catch(e){failure=e;}
+   if(!current())return false;
+   page=await readPage();
+   if(!current())return false;
+   if(page)break;
+   if(failure?.code!=='23505'||attempt===2)throw failure||Error('unconfirmed page');
   }
-  // Publish last: incomplete setup must never receive customer bookings.
-  if(!page?.id)throw Error('agenda draft was not confirmed');
-  created=true;s.page=page;
-  const {data:serviceRow,error:serviceError}=await s.client.from('agenda_services').insert({
-   page_id:page.id,title:service,duration_min:duration,price_cents:cents
-  }).select('id').single();
-  if(serviceError||!serviceRow?.id)throw serviceError||Error('service not confirmed');
-  const {error:hoursError}=await s.client.rpc('agenda_replace_hours',{
-   p_page_id:page.id,p_hours:weekdays
-  });
-  if(hoursError)throw hoursError;
-  const {data:published,error:publishError}=await s.client.from('agenda_pages')
-   .update({published:true}).eq('id',page.id).select('*').single();
-  if(publishError||!published?.published)throw publishError||Error('publication not confirmed');
-  s.page=published;ready=true;
-  try{await agendaRefreshOwner();}catch(_){/* Published page is already confirmed. */}
-  try{await agendaRefreshDirectory();}catch(_){}
+  if(!page||!samePage(page)||page.published!==false)throw Error('unconfirmed draft');
+  s.page=page;s.ownerMode=true;
+  let rows=await readRows('agenda_services',page.id);
+  if(!current())return false;
+  if(!rows.length){
+   try{await client.from('agenda_services').insert({page_id:page.id,title:service,duration_min:duration,price_cents:cents});}catch(_){}
+   if(!current())return false;
+   rows=await readRows('agenda_services',page.id);
+  }
+  if(!current())return false;
+  if(rows.length!==1||!sameService(rows[0])||!agendaUuid.test(rows[0].id||''))throw Error('service unconfirmed');
+  s.services=rows;
+  let hours=await readRows('agenda_hours',page.id);
+  if(!current())return false;
+  if(!hours.length){
+   try{await client.rpc('agenda_replace_hours',{p_page_id:page.id,p_hours:weekdays});}catch(_){}
+   if(!current())return false;
+   hours=await readRows('agenda_hours',page.id);
+  }
+  if(!current())return false;
+  if(!sameHours(hours))throw Error('hours unconfirmed');
+  s.hours=hours;
+  const before=await readPage();
+  if(!current())return false;
+  if(!before||before.id!==page.id||!samePage(before)||before.published!==false||
+   !before.updated_at)throw Error('draft changed');
+  // Publish only the confirmed draft; do not overwrite a concurrent page edit.
+  try{await client.from('agenda_pages').update({published:true})
+   .eq('id',page.id).eq('owner_id',userId).eq('updated_at',before.updated_at).eq('published',false);}catch(_){}
+  if(!current())return false;
+  const published=await readPage();
+  if(!current())return false;
+  if(!published||published.id!==page.id||!samePage(published)||published.published!==true)throw Error('publication unconfirmed');
+  s.page=published;
   s.notice='Sua agenda está publicada! Compartilhe o link e comece a receber reservas gratuitas.';
- }catch(e){
-  s.error=created?'Sua página foi guardada como rascunho. Complete os passos pendentes nas configurações e publique.':
-   (e?.code==='23505'?'Já existe uma agenda nesta conta. Atualize a página.':
-    'Não foi possível criar a agenda. Confira os dados e tente novamente.');
   try{await agendaRefreshOwner();}catch(_){}
- }
- if(ready)s.ownerMode=true;
- s.busy=false;render();return false;
+  if(current()){try{await agendaRefreshDirectory();}catch(_){}}
+ }catch(_){
+  if(current()){
+   try{const found=await readPage();if(current()&&found){s.page=found;s.ownerMode=true;}}catch(_){}
+   if(current()){
+    s.error=s.page?'Sua página já existe. Confira os dados, o serviço, os horários e a publicação nas configurações.':
+     'Não foi possível confirmar a criação da agenda. Confira sua conta antes de repetir.';
+    try{await agendaRefreshOwner();}catch(_){}
+   }
+  }
+ }finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+ return false;
 }
 async function agendaSaveProfile(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user)return false;
