@@ -17,7 +17,7 @@ const OLD='10000000-0000-4000-8000-000000000493';
 const d=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve}};
 function fixture(){
  const pending=new Map(),local=new Map([['order-key',OLD]]);
- const calls=[],reloads=[],saves=[];
+ const calls=[],reloads=[],saves=[],guards=[];
  const user={id:'old-user'};
  const rt={status:'ready',requested:true,session:{user,access_token:'old-token'},
   client:{auth:{getSession:async()=>({data:{session:{user,access_token:'old-token'}},error:null})}},
@@ -43,7 +43,7 @@ function fixture(){
   localStorage:{setItem:(k,v)=>local.set(k,v),removeItem:k=>local.delete(k)},
   CHAMA_BACKEND:{orderStorageKey:'order-key'},
   liveReady:()=>rt.status==='ready',
-  liveInvoke:(route)=>{calls.push(route);
+  liveInvoke:(route,body,options)=>{calls.push(route);guards.push(options?.sessionGuard);
     const req=d();pending.set(route,req);return req.promise;},
   freshSeed:()=>({user:{name:'',cashback:0,referralCode:'',commissionAvailable:0}}),
   location:{reload:()=>reloads.push('reload')},
@@ -53,7 +53,7 @@ function fixture(){
  });
  vm.runInContext(source+
  '\nthis.ops={reset:liveForgetAccount,token:liveAccessToken,order:liveGetOrder,summary:liveSyncFinancialProfile}',ctx);
- return {ctx,rt,state,pending,local,calls,reloads,saves,
+ return {ctx,rt,state,pending,local,calls,reloads,saves,guards,
   nextToken:fn=>tokenResult=fn};
 }
 // A stale get-order from the former customer cannot reopen that customer's PIN.
@@ -123,3 +123,46 @@ assert.match(backend,/client\.auth\.onAuthStateChange\(/,
  'Auth user changes must be detected even without a pending API request');
 assert.ok(audit.includes('node tests/customer-account-race-v1-493.mjs'));
 console.log('TAMÃO #493 PASS — customer balances, PIN and account sessions isolated on Auth switch.');
+
+// Session renewal for the same ID must revoke a summary while token lookup or
+// HTTP is in flight; the endpoint can also register referral attribution.
+{
+ const s=fixture();
+ const request=s.ctx.ops.summary({force:true});
+ assert.equal(s.guards[0](),true);
+ s.rt.authGeneration=1;
+ assert.equal(s.guards[0](),false,'transport must refuse revoked summary before sending');
+ s.pending.get('customer-summary').resolve({activeOrderId:'old-private',cashbackCents:999999});
+ assert.equal(await request,false);
+ assert.equal(s.state.user.cashback,120);
+ assert.equal(s.rt.orderId,OLD);
+ assert.equal(s.saves.length,0);
+}
+{
+ const s=fixture();
+ const request=s.ctx.ops.summary({force:true});
+ s.rt.authGeneration=1;s.rt.customerSummaryState='ready';
+ // Reject without affecting the new session's status.
+ s.pending.get('customer-summary').resolve(null);
+ assert.equal(await request,false);
+ assert.equal(s.rt.customerSummaryState,'ready');
+}
+{
+ const s=fixture();
+ const snapshot={activeOrderId:OLD,referralCode:'PRIVATE',cashbackCents:12000,cashbackDebtCents:0,
+ commissionAvailableCents:1000,commissionPendingCents:2000,settledOrders:5,reversedOrders:0,
+ cashEarningEligible:true,identityType:'verified',lastOrderTemplate:s.rt.lastOrderTemplate,
+ reorderPrediction:s.rt.reorderPrediction,referredCount:2,qualifiedReferralCount:1,
+ comparisonSavingsCents:100,cashbackEarnedCents:250,
+ moduleBenefits:{available:true,source:'network_module_benefits_v1_1041',readOnly:true,cashPayoutsEnabled:false}};
+ const first=s.ctx.ops.summary({force:true});
+ s.pending.get('customer-summary').resolve(snapshot);
+ assert.equal(await first,true,'new module benefits trigger refresh');
+ const second=s.ctx.ops.summary({force:true});
+ s.pending.get('customer-summary').resolve(snapshot);
+ assert.equal(await second,false,'unchanged full benefit snapshot does not force render');
+ const third=s.ctx.ops.summary({force:true});
+ s.pending.get('customer-summary').resolve({...snapshot,moduleBenefits:null});
+ assert.equal(await third,true,'removed module benefits trigger refresh');
+}
+console.log('PASS: financial summary session lease, guarded transport and full benefit snapshot comparison.');
