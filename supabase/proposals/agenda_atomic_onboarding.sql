@@ -16,7 +16,7 @@ declare
  v_close integer;
  v_slug text:=btrim(p_slug);
 begin
- if v_user is null then
+ if v_user is null or not public.discovery_verified_account() then
   raise exception 'AGENDA_VERIFIED_LOGIN_REQUIRED' using errcode='42501';
  end if;
  -- Existing RLS policies and triggers additionally require verified ownership.
