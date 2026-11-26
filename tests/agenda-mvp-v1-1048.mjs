@@ -601,3 +601,47 @@ assert.match(attendanceRt.notice,/já foi cancelado/);assert.equal(attendanceRt.
 const beforeAttendance=attendanceWrites;prepareAttendance();attendanceRt.bookings[0].ends_at='invalid';
 await attendanceCtx.mark(attendanceId,'completed');assert.equal(attendanceWrites,beforeAttendance);
 console.log('PASS: attendance reconciles exact authorized final state and preserves confirmed result despite list refresh failure.');
+
+
+// Weekly replacement and holidays use authoritative scoped reads, including
+// empty schedules, absent holiday rows and ambiguous write responses.
+const hoursCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.save=agendaSaveHours;this.closed=agendaSetClosedDay;',hoursCtx);
+const hoursRt=hoursCtx.rt,hoursPage='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ hoursOwner='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',holiday=vm.runInContext('agendaToday(1)',hoursCtx);
+const monday={page_id:hoursPage,owner_id:hoursOwner,weekday:1,opens_min:540,closes_min:1080};
+const holidayRow={page_id:hoursPage,owner_id:hoursOwner,day:holiday};
+let hoursRows=[monday],holidayResult=holidayRow,hoursReadError=false,hoursWrites=0,hoursFailure='lost response';
+const hoursClient={rpc:async()=>{hoursWrites++;throw Error(hoursFailure);},
+ from(table){const filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q;},
+ async order(key){assert.equal(table,'agenda_hours');assert.equal(key,'weekday');assert.equal(filters.page_id,hoursPage);assert.equal(filters.owner_id,hoursOwner);
+ return {data:hoursRows,error:hoursReadError?Error('read failed'):null};},
+ async maybeSingle(){assert.equal(table,'agenda_closed_days');assert.equal(filters.page_id,hoursPage);assert.equal(filters.owner_id,hoursOwner);assert.equal(filters.day,holiday);
+ return {data:holidayResult,error:hoursReadError?Error('read failed'):null};}};return q;}};
+hoursCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+const prepareHours=()=>Object.assign(hoursRt,{client:hoursClient,user:{id:hoursOwner},page:{id:hoursPage},
+ busy:false,hours:[],closedDays:[],serviceId:'',notice:'',error:''});
+const saveWeek=(target={open_1:'on',start_1:'09:00',end_1:'18:00'})=>hoursCtx.save({preventDefault(){},target});
+for(const mismatch of [{weekday:2},{opens_min:570},{closes_min:1110},{page_id:hoursOwner},{owner_id:hoursPage}]){
+ prepareHours();hoursRows=[{...monday,...mismatch}];await saveWeek();
+ assert.equal(hoursRt.notice,'');assert.equal(hoursRt.hours.length,0);assert.match(hoursRt.error,/Não foi possível confirmar/);
+}
+prepareHours();hoursRows=[monday];hoursReadError=true;await saveWeek();assert.equal(hoursRt.notice,'');
+hoursReadError=false;prepareHours();await saveWeek();assert.equal(hoursRt.notice,'Horários atualizados.');
+assert.equal(hoursRt.hours[0].opens_min,540);
+prepareHours();hoursRows=[];await saveWeek({});assert.equal(hoursRt.notice,'Horários atualizados.');
+assert.equal(hoursRt.hours.length,0);
+const beforeInvalid=hoursWrites;prepareHours();await saveWeek({open_1:'on',start_1:'08:60',end_1:'18:00'});
+assert.equal(hoursWrites,beforeInvalid);
+prepareHours();holidayResult=holidayRow;await hoursCtx.closed(holiday,true);
+assert.match(hoursRt.notice,/Dia bloqueado/);assert.equal(hoursRt.closedDays[0].day,holiday);
+prepareHours();hoursRt.closedDays=[{day:holiday}];holidayResult=null;await hoursCtx.closed(holiday,false);
+assert.match(hoursRt.notice,/Dia liberado/);assert.equal(hoursRt.closedDays.length,0);
+prepareHours();holidayResult={...holidayRow,owner_id:hoursPage};await hoursCtx.closed(holiday,true);
+assert.equal(hoursRt.notice,'');assert.equal(hoursRt.closedDays.length,0);
+prepareHours();hoursReadError=true;holidayResult=null;await hoursCtx.closed(holiday,false);
+assert.equal(hoursRt.notice,'');assert.match(hoursRt.error,/Não foi possível confirmar/);
+hoursReadError=false;prepareHours();hoursFailure='AGENDA_DAY_HAS_BOOKINGS';await hoursCtx.closed(holiday,true);
+assert.match(hoursRt.error,/já tem reservas confirmadas/);
+console.log('PASS: exact weekly schedule and holiday reconciliation, malformed hours rejected, refresh failures tolerated.');
