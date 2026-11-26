@@ -446,3 +446,45 @@ const callsBefore=cancelWrites;prepareCancel();cancelRt.mine=[];
 await cancelCtx.cancel(cancelId);assert.equal(cancelWrites,callsBefore);
 assert.equal(cancelReads,cancelWrites);
 console.log('PASS: cancellation reconciles exact authorized record, lost write response, stale status, unavailable reads and owner access.');
+
+
+// Rescheduling must preserve the original booking unless the exact new slot
+// is independently read back for the same authorized customer or owner.
+const moveCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/barbearia-sg',hash:'',search:''},
+ route:()=> 'agenda',render(){},BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'})});
+vm.runInContext(source+';this.rt=agendaRuntime;this.move=agendaConfirmReschedule;',moveCtx);
+const moveRt=moveCtx.rt,moveOld='2026-12-01T12:00:00Z',moveNew='2026-12-02T12:00:00Z';
+const moveId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',moveUser='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ moveOwner='cccccccc-cccc-4ccc-8ccc-cccccccccccc',movePage='dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+ moveService='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',moveStaff='ffffffff-ffff-4fff-8fff-ffffffffffff';
+const moveBooking={id:moveId,status:'confirmed',page_id:movePage,service_id:moveService,staff_id:moveStaff,
+ starts_at:moveOld,ends_at:'2026-12-01T12:30:00Z',reschedule_count:0};
+const moveEvidence={...moveBooking,customer_id:moveUser,owner_id:moveOwner,starts_at:moveNew,
+ ends_at:'2026-12-02T12:30:00Z',reschedule_count:1};
+let moveRow=moveEvidence,moveReadError=false,moveWriteError=true,moveWrites=0,moveReads=0;
+const moveClient={rpc:async(name,args)=>{assert.equal(name,'agenda_reschedule_booking');assert.equal(args.p_appointment_id,moveId);
+ assert.equal(args.p_expected_starts_at,moveOld);assert.equal(args.p_new_starts_at,moveNew);moveWrites++;
+ if(moveWriteError)throw Error('network');return {data:{id:moveId,status:'confirmed',starts_at:moveNew}};},
+ from(table){assert.equal(table,'agenda_appointments');const q={select(fields){assert.match(fields,/customer_id,owner_id,page_id,service_id,staff_id/);return q},
+ eq(k,v){assert.equal(k,'id');assert.equal(v,moveId);return q;},async maybeSingle(){moveReads++;return {data:moveRow,error:moveReadError?Error('read failed'):null}}};return q;}};
+moveCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+moveCtx.agendaLoadSlots=async()=>{};
+const prepareMove=()=>Object.assign(moveRt,{client:moveClient,user:{id:moveUser},busy:false,slotBusy:false,slotError:'',
+ mine:[{...moveBooking}],bookings:[],publicProfile:{id:movePage},serviceId:moveService,staffId:moveStaff,
+ rescheduleId:moveId,selectedStart:moveNew,slots:[{starts_at:moveNew}],notice:'',error:''});
+for(const mismatch of [{id:moveOwner},{page_id:moveOwner},{service_id:moveOwner},{staff_id:null},
+ {customer_id:moveOwner},{status:'cancelled'},{starts_at:moveOld},{ends_at:moveNew},{reschedule_count:0}]){
+ prepareMove();moveRow={...moveEvidence,...mismatch};await moveCtx.move();
+ assert.equal(moveRt.notice,'');assert.equal(moveRt.mine[0].starts_at,moveOld);
+ assert.equal(moveRt.rescheduleId,moveId);assert.equal(moveRt.busy,false);
+}
+prepareMove();moveRow=moveEvidence;moveReadError=true;await moveCtx.move();
+assert.equal(moveRt.notice,'');assert.equal(moveRt.mine[0].starts_at,moveOld);
+moveReadError=false;prepareMove();await moveCtx.move();
+assert.match(moveRt.notice,/Horário remarcado/);assert.equal(moveRt.mine[0].starts_at,moveNew);
+assert.equal(moveRt.mine[0].reschedule_count,1);assert.equal(moveRt.rescheduleId,'');
+moveWriteError=false;prepareMove();moveRt.user={id:moveOwner};moveRt.bookings=moveRt.mine;moveRt.mine=[];
+await moveCtx.move();assert.match(moveRt.notice,/Horário remarcado/);assert.equal(moveRt.bookings[0].starts_at,moveNew);
+const priorMoveWrites=moveWrites;prepareMove();moveRt.slotError='Falha na consulta';await moveCtx.move();
+assert.equal(moveWrites,priorMoveWrites);assert.equal(moveReads,moveWrites);
+console.log('PASS: rescheduling reconciles exact authorized persisted booking, preserves original on mismatch, and keeps confirmed calendar metadata.');
