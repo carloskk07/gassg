@@ -1356,16 +1356,41 @@ async function agendaConfirmReschedule(){
 }
 async function agendaCancel(id){
  const s=agendaRuntime;
- if(s.busy||!agendaUuid.test(id)||!confirm('Cancelar este horário?'))return;
- s.busy=true;s.error='';s.notice='';
+ const booking=[...s.mine,...s.bookings].find(x=>x.id===id&&x.status==='confirmed');
+ if(s.busy||!s.user||!s.client||!booking||!agendaUuid.test(id)||!confirm('Cancelar este horário?'))return;
+ const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ let confirmed=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_cancel_booking',{p_appointment_id:id});
-  if(error||data!==true)throw error||Error('cancel failed');
-  await agendaRefreshOwner();
+  // A lost RPC response may still have cancelled the reservation.
+  try{await client.rpc('agenda_cancel_booking',{p_appointment_id:id});}catch(_){}
+  if(!current())return;
+  const result=await client.from('agenda_appointments')
+   .select('id,status,customer_id,owner_id').eq('id',id).maybeSingle();
+  if(!current())return;
+  confirmed=!result.error&&result.data?.id===id&&result.data.status==='cancelled'&&
+    (result.data.customer_id===userId||result.data.owner_id===userId);
+  if(!confirmed){
+   s.error='Não foi possível confirmar o cancelamento. Confira sua agenda antes de tentar novamente.';
+   return;
+  }
+  const removeConfirmed=()=>{
+   s.mine=s.mine.filter(x=>x.id!==id);s.bookings=s.bookings.filter(x=>x.id!==id);
+   if(s.rescheduleId===id)s.rescheduleId='';
+  };
+  removeConfirmed();
   s.notice='Horário cancelado.';
-  if(s.serviceId)await agendaLoadSlots();
- }catch(_){s.error='Não foi possível cancelar. Confira sua agenda antes de tentar novamente.';}
- s.busy=false;render();
+  // A list refresh failure cannot undo an independently verified cancellation.
+  try{await agendaRefreshOwner();}catch(_){}
+  if(!current())return;
+  removeConfirmed();
+  if(agendaSlug()===slug&&s.serviceId)await agendaLoadSlots();
+ }catch(_){
+  if(current()&&!confirmed)s.error='Não foi possível confirmar o cancelamento. Confira sua agenda antes de tentar novamente.';
+ }finally{
+  s.busy=false;if(agendaRoute())render();
+ }
 }
 function agendaQrSvg(slug){
  if(typeof globalThis.qrcode!=='function'||!agendaSlugPattern.test(String(slug||'')))return '';
