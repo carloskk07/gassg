@@ -245,6 +245,7 @@ const liveRuntime={
   orderCheckedAt:null,
   orderCheckedId:null,
   terminalSupportAttemptAt:0,
+  terminalPaymentAttemptAt:0,
   offerRequestSeq:0,
   orderRequestSeq:0,
   financialSyncSeq:0,
@@ -280,6 +281,7 @@ function liveForgetAccount(){
   liveRuntime.customerSummaryState='unverified';
   liveRuntime.lastFinancialSyncAt=liveRuntime.lastFinancialSyncAttemptAt=0;
   liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
+  liveRuntime.terminalSupportAttemptAt=liveRuntime.terminalPaymentAttemptAt=0;
   liveRuntime.offers=[];liveRuntime.lastCityCheck=null;
   liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
   liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
@@ -994,12 +996,13 @@ async function liveCreateOrder(quoteId){
 async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
   const userId=liveRuntime.session?.user?.id;
+  const generation=Number(liveRuntime.authGeneration||0);
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  if(!liveReady()||generation!==Number(liveRuntime.authGeneration||0)||userId!==liveRuntime.session?.user?.id)return null;
   if(!order||String(order.orderId||'')!==String(orderId))
     throw new Error('A consulta retornou outro pedido. Atualize o acompanhamento.');
-  if(userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return null;
-  if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
+  if(seq<liveRuntime.orderRequestSeq&&
       liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
   if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
@@ -1301,24 +1304,31 @@ function prelaunchExamplesEnabled(){
 
 async function livePoll(){
   if(!liveReady()||liveRuntime.actionPending||liveRuntime.pollPending||document.visibilityState==='hidden')return;
+  const actor=liveRuntime.session?.user?.id,generation=Number(liveRuntime.authGeneration||0);
+  const current=()=>liveReady()&&actor===liveRuntime.session?.user?.id&&generation===Number(liveRuntime.authGeneration||0);
   liveRuntime.pollPending=true;
   try{
     let changed=false;
     try{
       const before=JSON.stringify(liveRuntime.marketStatus);
       await liveSyncMarketStatus();
+      if(!current())return;
       changed=before!==JSON.stringify(liveRuntime.marketStatus);
       try{
         const prev=liveRuntime.cityPriceSnapshot;
         const result=await liveRefreshCityPriceBoard();
+        if(!current())return;
         if(result&&result!==prev)changed=true;
       }catch{}
     }catch{}
+    if(!current())return;
     try{
       const summaryState=liveRuntime.customerSummaryState;
       changed=(await liveSyncFinancialProfile())||changed;
+      if(!current())return;
       changed=summaryState!==liveRuntime.customerSummaryState||changed;
     }catch{}
+    if(!current())return;
     if(!liveRuntime.orderId){
       if(changed)render();
       return;
@@ -1347,8 +1357,9 @@ async function livePoll(){
     const requestedOrderId=liveRuntime.orderId;
     try{
       await liveGetOrder(requestedOrderId,{silent:true});
-      render();
+      if(current())render();
     }catch(error){
+      if(!current())return;
       if(requestedOrderId!==liveRuntime.orderId){render();return;}
       if([401,403,404].includes(error?.status)){
         localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);

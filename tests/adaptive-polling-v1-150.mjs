@@ -107,3 +107,56 @@ assert.equal(previousCalls,187200);
 assert.equal(optimizedCalls,72000);
 assert.ok(1-optimizedCalls/previousCalls>0.60,'redução simulada online ociosa deve superar 60%');
 console.log('V1.150 passou: prioridade em aceite, acompanhamento ativo, heartbeat, idle e economia teórica de 61,5%.');
+
+ 
+// A late response from an old account must never clear or restore the new
+// account's tracking reference, including sign-out and sign-in to the same ID.
+const defer=()=>{let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j});return {promise,resolve,reject}};
+const customerHarness=()=>{
+ const rt={session:{user:{id:'owner-a'}},authGeneration:1,orderRequestSeq:0,orderId:'order-a',order:{orderId:'order-a',version:1},pollPending:false};
+ const pending=defer(),events=[];
+ const sandbox={liveRuntime:rt,liveReady:()=>true,document:{visibilityState:'visible'},liveSyncMarketStatus:async()=>{},
+  liveRefreshCityPriceBoard:async()=>null,liveSyncFinancialProfile:async()=>false,
+  liveInvoke:()=>pending.promise,render:()=>events.push('render'),
+  localStorage:{setItem:(k,v)=>events.push(['save',v]),removeItem:k=>events.push(['remove',k])},
+  CHAMA_BACKEND:{orderStorageKey:'order-key'}};
+ const fns=vm.runInNewContext(sliceFunction('liveGetOrder')+'\n'+sliceFunction('livePoll')+'\n;({liveGetOrder,livePoll})',sandbox);
+ return {rt,pending,events,...fns};
+};
+{
+ const h=customerHarness();
+ const p=h.liveGetOrder('order-a');
+ h.rt.authGeneration++; // same user, new session
+ h.rt.orderId='order-b';h.rt.order={orderId:'order-b',version:1};
+ h.pending.resolve({orderId:'order-a',version:2,status:'PREPARING'});
+ assert.equal(await p,null);
+ assert.equal(h.rt.orderId,'order-b');assert.equal(h.events.length,0);
+}
+{
+ const h=customerHarness();
+ const p=h.liveGetOrder('order-a');
+ h.rt.orderRequestSeq++;h.rt.orderId=null;h.rt.order=null;
+ h.pending.resolve({orderId:'order-a',version:2,status:'PREPARING'});
+ await p;assert.equal(h.rt.orderId,null);assert.equal(h.events.length,0);
+}
+{
+ const h=customerHarness();
+ const p=h.livePoll();
+ // Advance market/price/summary awaits until the order read starts.
+ for(let i=0;i<20&&h.rt.orderRequestSeq===0;i++)await Promise.resolve();
+ assert.equal(h.rt.orderRequestSeq,1);
+ h.rt.session={user:{id:'owner-b'}};h.rt.authGeneration++;
+ h.rt.orderId='order-b';h.rt.order={orderId:'order-b',version:1};
+ h.pending.reject(Object.assign(Error('old unauthorized'),{status:401}));
+ await p;
+ assert.equal(h.rt.orderId,'order-b');assert.equal(h.rt.pollPending,false);
+ assert.equal(h.events.length,0,'old rejection cannot erase or render the new account');
+}
+{
+ const h=customerHarness();
+ const p=h.liveGetOrder('order-a');
+ h.pending.resolve({orderId:'order-a',version:2,status:'PREPARING'});
+ await p;assert.equal(h.rt.order.version,2);
+ assert.deepEqual(h.events,[['save','order-a'],'render']);
+}
+console.log('PASS: customer order recovery rejects old auth generation, cleared references and stale authorization errors.');
