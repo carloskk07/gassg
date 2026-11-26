@@ -488,3 +488,45 @@ await moveCtx.move();assert.match(moveRt.notice,/Horário remarcado/);assert.equ
 const priorMoveWrites=moveWrites;prepareMove();moveRt.slotError='Falha na consulta';await moveCtx.move();
 assert.equal(moveWrites,priorMoveWrites);assert.equal(moveReads,moveWrites);
 console.log('PASS: rescheduling reconciles exact authorized persisted booking, preserves original on mismatch, and keeps confirmed calendar metadata.');
+
+
+// Waitlist confirmation is scoped to the exact customer, service, staff and day.
+// Closing an already closed entry must report the actual persisted outcome.
+const waitCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/barbearia-sg',hash:'',search:''},
+ route:()=> 'agenda',render(){},FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.join=agendaJoinWaitlist;this.close=agendaCloseWaitlist;',waitCtx);
+const waitRt=waitCtx.rt,waitId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ waitUser='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',waitOwner='cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+ waitPage='dddddddd-dddd-4ddd-8ddd-dddddddddddd',waitService='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const waitEvidence={id:waitId,page_id:waitPage,service_id:waitService,staff_id:null,
+ customer_id:waitUser,owner_id:waitOwner,day:'2026-12-01',status:'waiting',created_at:'2026-11-25T12:00:00Z'};
+let waitRow=waitEvidence,waitReadError=false,waitCalls=0;
+const waitClient={rpc:async()=>{waitCalls++;throw Error('lost response')},
+ from(table){assert.equal(table,'agenda_waitlist');const q={select(){return q},eq(){return q},is(){return q},
+ async maybeSingle(){return {data:waitRow,error:waitReadError?Error('read failed'):null}}};return q;}};
+waitCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+const prepareWait=()=>Object.assign(waitRt,{client:waitClient,user:{id:waitUser},busy:false,slotBusy:false,slotError:'',
+ dayClosed:false,slots:[],rescheduleId:'',publicProfile:{id:waitPage},serviceId:waitService,staffId:'',
+ day:waitEvidence.day,myWaiting:[],waiting:[],notice:'',error:''});
+const joinWait=()=>waitCtx.join({preventDefault(){},target:{name:'Pessoa Teste',phone:'55999998888',consent:'on'}});
+for(const mismatch of [{customer_id:waitOwner},{page_id:waitOwner},{service_id:waitOwner},{staff_id:waitOwner},
+ {day:'2026-12-02'},{status:'withdrawn'}]){
+ prepareWait();waitRow={...waitEvidence,...mismatch};await joinWait();
+ assert.equal(waitRt.notice,'');assert.equal(waitRt.myWaiting.length,0);assert.equal(waitRt.busy,false);
+}
+prepareWait();waitRow=waitEvidence;waitReadError=true;await joinWait();assert.equal(waitRt.myWaiting.length,0);
+waitReadError=false;prepareWait();await joinWait();assert.match(waitRt.notice,/Pedido de contato registrado/);
+assert.equal(waitRt.myWaiting[0].id,waitId);
+const beforeWait=waitCalls;prepareWait();waitRt.slotError='Falha';await joinWait();assert.equal(waitCalls,beforeWait);
+const closedRow={...waitEvidence,status:'withdrawn',closed_at:'2026-11-25T13:00:00Z'};
+prepareWait();waitRt.myWaiting=[{id:waitId}];waitRow=closedRow;await waitCtx.close(waitId,false);
+assert.match(waitRt.notice,/Participação retirada/);assert.equal(waitRt.myWaiting.length,0);
+prepareWait();waitRt.user={id:waitOwner};waitRt.waiting=[{id:waitId}];await waitCtx.close(waitId,true);
+assert.match(waitRt.notice,/já foi retirada/);assert.equal(waitRt.waiting.length,0);
+prepareWait();waitRt.myWaiting=[{id:waitId}];waitRow={...closedRow,status:'contacted'};await waitCtx.close(waitId,false);
+assert.match(waitRt.notice,/já foi encerrada com contato/);
+prepareWait();waitRt.myWaiting=[{id:waitId}];waitRow={...closedRow,customer_id:waitOwner};await waitCtx.close(waitId,false);
+assert.equal(waitRt.notice,'');assert.equal(waitRt.myWaiting.length,1);
+prepareWait();waitRt.myWaiting=[{id:waitId}];waitRow=closedRow;waitReadError=true;await waitCtx.close(waitId,false);
+assert.equal(waitRt.notice,'');assert.equal(waitRt.myWaiting.length,1);
+console.log('PASS: Agenda waitlist verifies exact persisted participation and actual closing status.');
