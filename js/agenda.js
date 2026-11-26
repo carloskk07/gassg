@@ -2,7 +2,7 @@
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
  slug:'',publicProfile:null,directory:[],directoryQuery:'',directoryTotal:0,directoryMode:'idle',directoryLoading:false,directoryLoadingMore:false,directoryError:'',directoryRequest:0,directoryTimer:null,ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
- notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
+ notice:'',error:'',busy:false,slotBusy:false,slotError:'',slotRequest:0,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -392,7 +392,7 @@ function agendaPublicView(){
   '" aria-pressed="'+(s.selectedStart===x.starts_at)+'" onclick="agendaSelectSlot(\''+esc(x.starts_at)+'\')">'+esc(x.label)+'</button>').join('');
  const waitingAlready=s.myWaiting.some(w=>w.service_id===s.serviceId &&
    (w.staff_id||'')===s.staffId && w.day===date);
- const queueForm=!isReschedule&&!s.slotBusy&&!s.dayClosed&&!s.slots.length&&service ?
+ const queueForm=!isReschedule&&!s.slotBusy&&!s.slotError&&!s.dayClosed&&!s.slots.length&&service ?
    '<div class="agenda-waitlist"><h3>Quer entrar na lista de espera?</h3>'+
     '<p>Deixe um contato e o estabelecimento poderá conversar com você pelo WhatsApp quando surgir uma vaga. A lista não reserva um horário e não envia mensagens automáticas.</p>'+
     (waitingAlready?'<p class="agenda-note">Você já está na fila para esse dia.</p>':
@@ -417,8 +417,10 @@ function agendaPublicView(){
   '<label>Outra data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
-   (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Não há atendimento neste dia.</p>':slots||'<p>Não há horários livres nesta data.</p>')+'</div>'+
-  (!s.slotBusy&&!s.slots.length&&agendaNextDay(date)?
+   (s.slotBusy?'<p role="status">Consultando horários…</p>':
+    s.slotError?'<div role="alert"><p>'+esc(s.slotError)+'</p><button type="button" class="secondary" onclick="agendaLoadSlots()">Tentar novamente</button></div>':
+    s.dayClosed?'<p>Não há atendimento neste dia.</p>':slots||'<p>Não há horários livres nesta data.</p>')+'</div>'+
+  (!s.slotBusy&&!s.slotError&&!s.slots.length&&agendaNextDay(date)?
    '<button type="button" class="secondary agenda-next-day" onclick="agendaChooseDay(\''+agendaNextDay(date)+'\')">Ver horários do dia seguinte</button>':'')+
   (s.selectedStart?(s.user?(isReschedule?
    '<div class="agenda-book-form"><h3>Confirme o novo horário</h3><p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
@@ -802,7 +804,7 @@ function agendaPageIdentity(profile){
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
  agendaPageIdentity(null);
- s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
+ s.slotRequest++;s.slotBusy=false;s.slotError='';s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
  if(!slug||!s.client)return;
  const {data,error}=await s.client.rpc('agenda_public_page',{p_slug:slug});
  if(!agendaRoute()||agendaSlug()!==slug)return;
@@ -828,21 +830,29 @@ async function agendaRefreshPublic(){
 }
 async function agendaLoadSlots(){
  const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
- s.selectedStart='';s.requestKey='';s.slots=[];s.paymentQuote=null;s.dayClosed=false;if(!service||!day)return;
+ const request=++s.slotRequest,client=s.client,slug=agendaSlug(),epoch=s.epoch;
+ const current=()=>request===s.slotRequest&&s.client===client&&s.epoch===epoch&&
+   s.serviceId===service&&s.day===day&&s.staffId===staffId&&agendaSlug()===slug;
+ s.selectedStart='';s.requestKey='';s.slots=[];s.paymentQuote=null;s.dayClosed=false;
+ s.slotError='';s.slotBusy=false;
+ if(!service||!day||!client)return;
  s.slotBusy=true;render();
  try{
   const [slots,closed]=await Promise.all([
-   s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
-   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
+   client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
+   client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
   ]);
-  if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
-  if(slots.error||closed.error)throw slots.error||closed.error;
+  if(!current())return;
+  if(slots.error||closed.error||!Array.isArray(slots.data)||typeof closed.data!=='boolean')
+   throw slots.error||closed.error||Error('invalid availability response');
   s.dayClosed=closed.data===true;
-
-  s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
+  s.slots=(s.dayClosed?[]:slots.data).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
- }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
- finally{if(s.serviceId===service&&s.day===day&&s.staffId===staffId){s.slotBusy=false;if(agendaRoute())render();}}
+ }catch(e){
+  if(current())s.slotError='Não foi possível consultar os horários. Tente novamente.';
+ }finally{
+  if(current()){s.slotBusy=false;if(agendaRoute())render();}
+ }
 }
 function agendaChooseService(id){const s=agendaRuntime;if(s.rescheduleId||!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
  s.serviceId=id;s.error='';agendaClearPendingChoice();agendaLoadSlots();}
