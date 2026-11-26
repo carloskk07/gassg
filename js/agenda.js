@@ -1012,7 +1012,8 @@ async function agendaSaveDepositPolicy(ev){
  }catch(e){s.error='Não foi possível salvar o sinal planejado. Nenhuma cobrança foi iniciada.';}
  s.busy=false;render();return false;
 }
-// Reuse a creation ID for the same unconfirmed submission in this session.
+// Preserve server-generated IDs and existing column grants. An uncertain creation
+// is reconciled before any repeat submission; never blindly insert a second row.
 const agendaCatalogPending=new Map();
 async function agendaWriteCatalog({table,list,id,values,notice,errorText,creating=false}){
  const s=agendaRuntime;
@@ -1020,44 +1021,62 @@ async function agendaWriteCatalog({table,list,id,values,notice,errorText,creatin
  const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch,slug=agendaSlug();
  const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
  const key=JSON.stringify([userId,page,table,values]);
- if(creating){
-  id=agendaCatalogPending.get(key);
-  if(!id){
-   id=globalThis.crypto?.randomUUID?.();
-   if(!agendaUuid.test(id||'')){s.error='Não foi possível iniciar o cadastro. Atualize a página.';render();return false;}
-   agendaCatalogPending.set(key,id);
-  }
- }
- if(!agendaUuid.test(id||''))return false;
+ const matches=row=>agendaUuid.test(row?.id||'')&&row.page_id===page&&
+  Object.entries(values).every(([k,v])=>row[k]===v);
+ const readMatches=async()=>{
+  let q=client.from(table).select('*').eq('page_id',page);
+  for(const [k,v] of Object.entries(values))q=q.eq(k,v);
+  const result=await q;
+  if(result.error||!Array.isArray(result.data))throw result.error||Error('catalog read failed');
+  return result.data.filter(matches);
+ };
+ if(!creating&&!agendaUuid.test(id||''))return false;
  s.busy=true;s.notice='';s.error='';
- let failure=null,verified=false;
+ let failure=null,verified=false,row=null;
  try{
-  try{
-   const result=creating?await client.from(table).insert({...values,id,page_id:page}):
-    await client.from(table).update(values).eq('id',id).eq('page_id',page);
-   if(result.error)throw result.error;
-  }catch(e){failure=e;}
-  if(!current())return false;
-  const check=await client.from(table).select('*').eq('id',id).eq('page_id',page).maybeSingle();
-  if(!current())return false;
-  const row=check.data;
-  verified=!check.error&&row?.id===id&&row.page_id===page&&
-   Object.entries(values).every(([k,v])=>row[k]===v);
+  if(creating){
+   let pending=agendaCatalogPending.get(key);
+   if(!pending){
+    const before=await readMatches();
+    if(!current())return false;
+    pending={before:new Set(before.map(x=>x.id))};
+    agendaCatalogPending.set(key,pending);
+    try{
+     const result=await client.from(table).insert({...values,page_id:page}).select('*').single();
+     if(result.error)throw result.error;
+     if(matches(result.data))pending.id=result.data.id;
+    }catch(e){failure=e;}
+   }
+   if(!current())return false;
+   const after=(await readMatches()).filter(x=>!pending.before.has(x.id));
+   if(!current())return false;
+   row=pending.id?after.find(x=>x.id===pending.id):after.length===1?after[0]:null;
+  }else{
+   try{
+    const result=await client.from(table).update(values).eq('id',id).eq('page_id',page);
+    if(result.error)throw result.error;
+   }catch(e){failure=e;}
+   if(!current())return false;
+   const check=await client.from(table).select('*').eq('id',id).eq('page_id',page).maybeSingle();
+   if(!current())return false;
+   if(!check.error&&check.data?.id===id)row=check.data;
+  }
+  verified=matches(row);
   if(!verified){
    s.error=failure?.message?.includes('AGENDA_STAFF_HAS_BOOKINGS')?
     'Este colaborador tem atendimentos confirmados. Resolva-os antes de pausar a agenda.':
-    errorText+' Confira os dados antes de repetir.';
+    errorText+(creating?' Confira a lista e atualize a página antes de iniciar outro cadastro.':' Confira os dados antes de repetir.');
    return false;
   }
   if(creating)agendaCatalogPending.delete(key);
-  const index=s[list].findIndex(x=>x.id===id);
+  const index=s[list].findIndex(x=>x.id===row.id);
   if(index<0)s[list].push(row);else s[list][index]=row;
   s.notice=notice;
   try{await agendaRefreshOwner();}catch(_){}
   if(current()&&agendaSlug()===slug&&s.serviceId){
    try{await agendaRefreshPublic();}catch(_){}
   }
- }catch(_){if(current()&&!verified)s.error=errorText+' Confira os dados antes de repetir.';}
+ }catch(_){if(current()&&!verified)s.error=errorText+' Confira a lista antes de repetir.';}
  finally{if(current()){s.busy=false;if(agendaRoute())render();}}
  return false;
 }
