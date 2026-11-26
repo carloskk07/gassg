@@ -21,6 +21,11 @@
   Number.isFinite(Date.parse(order.onlinePayment.expiresAt))&&Date.parse(order.onlinePayment.expiresAt)>Date.now()+60000&&
   (typeof globalThis.tamaoPixCodeValid==='function'&&globalThis.tamaoPixCodeValid(order.onlinePayment.pixCode,order.totalCents));
  const reusableCheckout=payment=>['checkout_ready','pending'].includes(payment?.status);
+ // The server may authorize a fresh attempt after a definitive failed/expired attempt.
+ // An inconsistent payable flag, retained code or pending/review status is not authority.
+ const startAllowed=payment=>payment?.canStart===true&&
+   ['not_started','rejected','cancelled','expired'].includes(payment.status)&&
+   payment.pixPayable!==true&&!payment.pixCode&&!payment.checkoutUrl;
  const notExpired=payment=>!payment?.expiresAt||
    Number.isFinite(Date.parse(payment.expiresAt))&&Date.parse(payment.expiresAt)>Date.now()+1000;
  globalThis.customerDirectPaymentStart=async function(orderId,{
@@ -72,7 +77,7 @@
      }
      if(order.paymentMethod==='pix'){
        if(validPix(order)){render();toast('Pix disponível no acompanhamento do pedido.');return true;}
-       if(payment.canStart!==true||['review_required','refunded','cancelled','canceled','approved'].includes(payment.status))throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
+       if(!startAllowed(payment))throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
        mutationStarted=true;
        const key=liveIdempotency('merchant-sale-payment');
        const reply=await checkout(key);
@@ -91,7 +96,7 @@
        if(!reusableCheckout(payment)||!safeUrl(url)||!notExpired(payment))
          throw Error('O link de pagamento não está válido. Atualize o pedido.');
      }else{
-       if(payment.canStart!==true)
+       if(!startAllowed(payment))
          throw Error('O pagamento ainda não pode ser iniciado para este pedido.');
        const idempotencyKey=liveIdempotency('merchant-sale-payment');
        mutationStarted=true;
