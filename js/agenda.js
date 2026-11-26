@@ -661,12 +661,51 @@ function agendaDirectoryView(){
    (s.directoryError?'<button type="button" class="secondary" onclick="agendaRefreshDirectory()">Tentar novamente</button>':'')+
   '</div></section>';
 }
+async function agendaReadCustomerWaitlist(){
+ const s=agendaRuntime,client=s.client,userId=s.user?.id,epoch=s.epoch;
+ if(!client||!userId)return false;
+ const seq=s.waitlistReadSeq=Number(s.waitlistReadSeq||0)+1;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch&&s.waitlistReadSeq===seq;
+ const today=agendaToday();
+ const result=await client.from('agenda_waitlist')
+  .select('id,page_id,service_id,staff_id,day,created_at,customer_id,status')
+  .eq('customer_id',userId).eq('status','waiting').gte('day',today).order('day').limit(12);
+ if(!current())return false;
+ const rows=result.data;
+ if(result.error||!Array.isArray(rows)||rows.length>12||
+  new Set(rows.map(x=>x?.id)).size!==rows.length||rows.some(x=>
+   !agendaUuid.test(x?.id||'')||!agendaUuid.test(x.page_id||'')||!agendaUuid.test(x.service_id||'')||
+   (x.staff_id!=null&&!agendaUuid.test(x.staff_id))||x.customer_id!==userId||
+   x.status!=='waiting'||!/^\d{4}-\d{2}-\d{2}$/.test(x.day||'')||x.day<today||
+   !Number.isFinite(Date.parse(x.created_at))))
+  throw result.error||Error('invalid waiting list');
+ s.myWaiting=rows;
+ s.waitlistVerified=true;
+ return true;
+}
+async function agendaRefreshCustomerWaitlist(){
+ const s=agendaRuntime;if(s.busy||!s.user||!s.client)return;
+ const client=s.client,user=s.user.id,epoch=s.epoch;
+ const token={};s.waitlistRefreshToken=token;
+ const current=()=>s.client===client&&s.user?.id===user&&s.epoch===epoch&&s.waitlistRefreshToken===token;
+ s.busy=true;s.notice='';s.error='';render();
+ try{
+  if(await agendaReadCustomerWaitlist()&&current())
+   s.notice=s.myWaiting.length?'Listas de espera atualizadas.':'Nenhuma participação futura em lista de espera nesta consulta.';
+ }catch(_){if(current()){s.waitlistVerified=false;s.error='Não foi possível atualizar suas listas de espera. Os últimos dados foram mantidos.';}}
+ finally{if(current()){s.waitlistRefreshToken=null;s.busy=false;if(agendaRoute())render();}}
+}
 function agendaMyWaitingView(){
- const s=agendaRuntime;if(!s.user||!s.myWaiting.length)return '';
+ const s=agendaRuntime;if(!s.user)return '';
  return '<section class="agenda-panel"><h2>Minhas listas de espera</h2>'+
   '<p>O estabelecimento poderá chamar pelo WhatsApp. A lista não garante nem confirma horários.</p>'+
+  '<button type="button" class="secondary" onclick="agendaRefreshCustomerWaitlist()"'+(s.busy?' disabled':'')+'>Atualizar listas de espera</button>'+
+  (!s.myWaiting.length?'<p>'+(s.waitlistVerified?'Nenhuma participação futura encontrada nesta consulta.':'Atualize para consultar suas participações.')+'</p>':'')+
+  (s.myWaiting.length>=12?'<p>Exibindo até 12 participações mais próximas.</p>':'')+
+
   s.myWaiting.map(w=>{
-   const member=s.publicProfile?.staff?.find(t=>t.id===w.staff_id);
+   const profile=s.publicProfile?.id===w.page_id?s.publicProfile:null;
+   const member=profile?.staff?.find(t=>t.id===w.staff_id);
    return '<article class="agenda-booking"><strong>'+esc(agendaDateOnly(w.day))+'</strong>'+
     '<span>'+esc([member?.name,'Aguardando contato do profissional'].filter(Boolean).join(' • '))+'</span>'+
     '<button type="button" class="secondary" data-id="'+esc(w.id)+
@@ -785,9 +824,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.waitlistVerified=false;s.waitlistReadSeq=Number(s.waitlistReadSeq||0)+1;s.waitlistRefreshToken=null;s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.waitlistVerified=false;s.waitlistReadSeq=Number(s.waitlistReadSeq||0)+1;s.waitlistRefreshToken=null;s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -842,8 +881,7 @@ async function agendaRefreshOwner(){
  }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
  if(typeof agendaDesignLoadOwner==='function')await agendaDesignLoadOwner();
  try{await agendaReadCustomerReservations();}catch(_){}
- const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
- if(epoch===s.epoch&&s.user?.id===u.id&&!queue.error)s.myWaiting=queue.data||[];
+ if(epoch===s.epoch&&s.user?.id===u.id){try{await agendaReadCustomerWaitlist();}catch(_){if(epoch===s.epoch&&s.user?.id===u.id)s.waitlistVerified=false;}}
 }
 async function agendaRefreshDirectory({append=false}={}){
  const s=agendaRuntime;
@@ -1907,7 +1945,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+  s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.waitlistVerified=false;s.waitlistReadSeq=Number(s.waitlistReadSeq||0)+1;s.waitlistRefreshToken=null;s.blocks=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
