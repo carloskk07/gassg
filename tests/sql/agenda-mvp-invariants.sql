@@ -418,3 +418,6 @@ begin
 end $test$;
 rollback;
 \echo 'PASS: Agenda sem taxa, sinal 25% apenas cotação, checkout bloqueado, ACL, fila, remarcação e auditoria.'
+
+-- Candidate RPC exists only within a rolled-back test transaction.
+\ir agenda-atomic-onboarding-candidate.sql
