@@ -325,13 +325,18 @@ Deno.serve(async(req:Request)=>{
         .maybeSingle();
       if(attemptError)throw attemptError;
       const state=String(attempt?.status??"not_available");
-      const visibleStates=new Set(["approved","refunded","review_required"]);
+      // Keep unresolved attempts observable after closure; never return a payable payload.
+      const visibleStates=new Set(["approved","refunded","review_required","pending","checkout_ready"]);
       const safeState=visibleStates.has(state)?state:"not_available";
       onlinePayment={
         ...onlinePayment,
         available:false,
         canStart:false,
         checkoutUrl:null,
+        pixPayable:false,
+        pixCode:null,
+        expiresAt:null,
+        paymentRouteId:null,
         status:safeState,
         provider:attempt?.provider==="mercadopago"?"mercadopago":null,
         verificationLevel:attempt?.verification_level??null,
