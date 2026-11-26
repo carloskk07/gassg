@@ -339,3 +339,39 @@ assert.match(vm.runInContext('agendaRuntime.error',ctx),/rascunho/);
 console.log('PASS: Agenda V1.1053 rápida, RLS-only signup, draft-first publication, dates, login continuity, minimal calls, partial failure safely unpublished.');
 
 
+
+
+// Latest request wins even if the visitor returns to the same date (A-B-A).
+// Transport failures must not be presented as confirmed lack of availability.
+const slotCtx=vm.createContext({
+ URL,URLSearchParams,location:{origin:'https://tamao.com.br',pathname:'/agenda/barbearia-sg',hash:'',search:''},
+ route:()=> 'agenda',render(){},shell:s=>s,esc:s=>String(s??''),
+ BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'})
+});
+vm.runInContext(source+';this.runtime=agendaRuntime;this.load=agendaLoadSlots;this.publicView=agendaPublicView;',slotCtx);
+const slotRt=slotCtx.runtime,requests=[];
+const day=vm.runInContext('agendaToday()',slotCtx),otherDay=vm.runInContext('agendaToday(1)',slotCtx);
+slotRt.client={rpc:(name,args)=>new Promise(resolve=>requests.push({name,args,resolve}))};
+slotRt.slug='barbearia-sg';slotRt.serviceId='service-1';slotRt.day=day;
+slotRt.publicProfile={title:'Agenda de teste',services:[{id:'service-1',title:'Serviço',duration_min:30,price_cents:1000}],staff:[]};
+const first=slotCtx.load();slotRt.day=otherDay;const second=slotCtx.load();
+slotRt.day=day;const third=slotCtx.load();
+const resolvePair=(offset,data,error=null)=>{
+ requests[offset].resolve({data,error});requests[offset+1].resolve({data:false,error:null});
+};
+resolvePair(0,[{starts_at:day+'T12:00:00Z',label:'09:00'}]);
+await first;assert.equal(slotRt.slotBusy,true);assert.equal(slotRt.slots.length,0);
+resolvePair(2,null,Error('old request failed'));
+await second;assert.equal(slotRt.slotError,'');assert.equal(slotRt.slotBusy,true);
+resolvePair(4,[{starts_at:day+'T13:00:00Z',label:'10:00'}]);
+await third;assert.equal(slotRt.slotBusy,false);assert.equal(slotRt.slots[0].label,'10:00');
+const failure=slotCtx.load();resolvePair(6,null,Error('network'));await failure;
+assert.equal(slotRt.slotBusy,false);assert.match(slotRt.slotError,/Não foi possível consultar/);
+const errorView=slotCtx.publicView();
+assert.match(errorView,/Tentar novamente/);
+assert.doesNotMatch(errorView,/Não há horários livres|Quer entrar na lista de espera/);
+const retry=slotCtx.load();resolvePair(8,[]);await retry;
+assert.equal(slotRt.slotError,'');
+assert.match(slotCtx.publicView(),/Não há horários livres/);
+assert.match(slotCtx.publicView(),/Quer entrar na lista de espera/);
+console.log('PASS: Agenda slot query recovery, A-B-A race protection and accurate no-availability copy.');
