@@ -1053,6 +1053,7 @@ async function liveCopyOrderPix(orderId){
     checkedAt<requestedAt||checkedAt>Date.now()+2000||
     !['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(order?.status)||
     order?.paymentTiming!=='prepaid'||order?.paymentMethod!=='pix'||p?.pixPayable!==true||
+    p.available!==true||p.provider!=='mercadopago'||p.fundsOwner!=='merchant'||p.tamaoReceivesSaleProceeds!==false||
     !['pending','checkout_ready'].includes(p.status)||p.amountCents!==order.totalCents||
     !Number.isFinite(Date.parse(String(p.expiresAt||'')))||Date.parse(String(p.expiresAt||''))<=Date.now()+60000||
     typeof p.pixCode!=='string'||!globalThis.tamaoPixCodeValid?.(p.pixCode,order.totalCents)){
