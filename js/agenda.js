@@ -78,6 +78,81 @@ function agendaReadPendingChoice(slug){
   return saved;
  }catch(_){agendaClearPendingChoice();return null;}
 }
+// Store only opaque IDs and the chosen instant, scoped to the signed-in account.
+const agendaAttemptStorage='tamao-agenda-attempts-v1:';
+function agendaReadAttempts(userId){
+ if(!agendaUuid.test(userId||''))return [];
+ try{
+  const rows=JSON.parse(localStorage.getItem(agendaAttemptStorage+userId)||'[]');
+  if(!Array.isArray(rows))return [];
+  return rows.filter(x=>x&&[x.request,x.page,x.service].every(v=>agendaUuid.test(v||''))&&
+   (!x.staff||agendaUuid.test(x.staff))&&Number.isFinite(Date.parse(x.instant))&&
+   Date.parse(x.instant)>Date.now()&&Date.parse(x.instant)<Date.now()+32*86400000).slice(0,12);
+ }catch(_){return [];}
+}
+function agendaSaveAttempts(userId,rows){
+ try{if(rows.length)localStorage.setItem(agendaAttemptStorage+userId,JSON.stringify(rows));
+  else localStorage.removeItem(agendaAttemptStorage+userId);}catch(_){}
+}
+function agendaSameAttempt(a,b){
+ return a.page===b.page&&a.service===b.service&&(a.staff||null)===(b.staff||null)&&
+  Date.parse(a.instant)===Date.parse(b.instant);
+}
+function agendaKeepAttempt(userId,choice,request){
+ const rows=agendaReadAttempts(userId),old=rows.find(x=>agendaSameAttempt(x,choice));
+ if(old)return old.request;
+ if(rows.length<12)agendaSaveAttempts(userId,[...rows,{...choice,request}]);
+ return request;
+}
+function agendaForgetAttempt(userId,request){
+ agendaSaveAttempts(userId,agendaReadAttempts(userId).filter(x=>x.request!==request));
+}
+async function agendaRecoverAttempt(request){
+ const s=agendaRuntime;if(!s.user||!s.client||s.busy||!agendaUuid.test(request||''))return;
+ const userId=s.user.id,client=s.client,epoch=s.epoch,attempt=agendaReadAttempts(userId).find(x=>x.request===request);
+ if(!attempt)return;
+ const current=()=>s.user?.id===userId&&s.client===client&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ try{
+  const check=await client.from('agenda_appointments')
+   .select('id,status,starts_at,ends_at,request_id,customer_id,service_id,staff_id,page_id,reschedule_count')
+   .eq('request_id',request).eq('customer_id',userId).eq('page_id',attempt.page).maybeSingle();
+  if(!current())return;
+  const row=check.data;
+  if(check.error)throw check.error;
+  if(!row){s.error='Ainda não encontramos essa reserva. Nenhum novo pedido foi enviado. Confira novamente ou escolha o mesmo horário, se disponível.';return;}
+  if(!agendaUuid.test(row.id||'')||row.request_id!==request||row.customer_id!==userId||
+   row.page_id!==attempt.page||row.service_id!==attempt.service||
+   (row.staff_id||null)!==(attempt.staff||null))throw Error('scope mismatch');
+  if(row.status==='cancelled'||row.status==='completed'||row.status==='no_show'){
+   agendaForgetAttempt(userId,request);s.notice='A tentativa corresponde a um atendimento já encerrado. Nenhuma nova reserva foi feita.';
+   return;
+  }
+  if(row.status!=='confirmed'||!Number.isFinite(Date.parse(row.starts_at))||
+   Date.parse(row.ends_at)<=Date.parse(row.starts_at)||!Number.isFinite(Date.parse(row.ends_at))||
+   !Number.isSafeInteger(row.reschedule_count)||row.reschedule_count<0||
+   (Date.parse(row.starts_at)!==Date.parse(attempt.instant)&&row.reschedule_count===0))throw Error('invalid receipt');
+  const profile=s.publicProfile?.id===row.page_id?s.publicProfile:null;
+  const receipt={id:row.id,status:row.status,page_id:row.page_id,service_id:row.service_id,staff_id:row.staff_id,
+   starts_at:row.starts_at,ends_at:row.ends_at,reschedule_count:row.reschedule_count,customer_id:userId,
+   page_title:profile?.title||'Atendimento no TAMÃO',service_title:profile?.services?.find(x=>x.id===row.service_id)?.title,
+   staff_title:profile?.staff?.find(x=>x.id===row.staff_id)?.name,slug:profile?.slug};
+  if(!s.mine.some(x=>x.id===row.id))s.mine=[receipt,...s.mine].sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
+  agendaForgetAttempt(userId,request);
+  s.notice='Reserva localizada para '+agendaDateTime(row.starts_at)+'. Nenhuma nova reserva foi criada.';
+  try{await agendaRefreshOwner();}catch(_){}
+ }catch(_){if(current())s.error='Não foi possível conferir a tentativa. Nenhuma nova reserva foi enviada.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+}
+function agendaAttemptRecoveryView(){
+ const s=agendaRuntime,rows=agendaReadAttempts(s.user?.id);
+ if(!rows.length)return '';
+ return '<section class="agenda-panel"><h2>Confira suas tentativas de reserva</h2>'+
+  '<p>Se a conexão falhou, consulte o resultado antes de tentar reservar novamente. A consulta não cria reservas.</p>'+
+  rows.map(x=>'<article class="agenda-booking"><strong>'+esc(agendaDateTime(x.instant))+'</strong>'+
+   '<button type="button" class="secondary" data-id="'+esc(x.request)+'" onclick="agendaRecoverAttempt(this.dataset.id)"'+
+   (s.busy?' disabled':'')+'>Conferir tentativa</button></article>').join('')+'</section>';
+}
 function agendaSuggestedName(user){
  const name=String(user?.user_metadata?.full_name||user?.user_metadata?.name||'').trim();
  return name.length>=2&&name.length<=90?name:'';
@@ -598,11 +673,38 @@ function agendaMyWaitingView(){
     '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Sair da lista</button></article>';
   }).join('')+'</section>';
 }
+async function agendaReadCustomerReservations(){
+ const s=agendaRuntime,client=s.client,userId=s.user?.id,epoch=s.epoch;
+ if(!client||!userId)return false;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ const result=await client.rpc('agenda_my_bookings');
+ if(!current())return false;
+ if(result.error||!Array.isArray(result.data)||result.data.some(x=>!agendaUuid.test(x?.id||'')||
+  !agendaUuid.test(x.page_id||'')||!agendaUuid.test(x.service_id||'')||
+  x.status!=='confirmed'||!Number.isFinite(Date.parse(x.starts_at))||
+  !Number.isFinite(Date.parse(x.ends_at))||Date.parse(x.ends_at)<=Date.parse(x.starts_at)))
+  throw result.error||Error('invalid reservations');
+ s.mine=result.data;
+ return true;
+}
+async function agendaRefreshCustomerReservations(){
+ const s=agendaRuntime;if(s.busy||!s.user||!s.client)return;
+ const userId=s.user.id,client=s.client,epoch=s.epoch;
+ const current=()=>s.user?.id===userId&&s.client===client&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ try{
+  if(await agendaReadCustomerReservations()&&current())
+   s.notice=s.mine.length?'Reservas atualizadas.':'Nenhuma reserva futura confirmada nesta conta.';
+ }catch(_){if(current())s.error='Não foi possível consultar suas reservas. Os últimos dados disponíveis foram mantidos.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+}
 function agendaMyBookingsView(){
- const s=agendaRuntime;
- if(!s.user||!s.mine.length)return '';
- return '<section class="agenda-panel"><h2>Minhas reservas</h2>'+
-  '<p>Seus próximos horários. Você pode cancelar aqui quando precisar.</p>'+
+ const s=agendaRuntime,recovery=agendaAttemptRecoveryView();
+ if(!s.user)return '';
+ return recovery+'<section class="agenda-panel"><h2>Minhas reservas</h2>'+
+  '<p>Consulte seus próximos horários nesta conta, inclusive os agendados em outro aparelho.</p>'+
+  '<button type="button" class="secondary" onclick="agendaRefreshCustomerReservations()"'+(s.busy?' disabled':'')+'>Atualizar reservas</button>'+
+  (!s.mine.length?'<p>Nenhuma reserva exibida. Atualize para conferir seus horários.</p>':'')+
   s.mine.map(b=>{
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
@@ -620,7 +722,7 @@ function agendaMyBookingsView(){
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
  const customerWithBookings=!slug&&!!s.user&&!s.page&&!s.ownerMode&&
-  (s.mine.length>0||s.myWaiting.length>0);
+  (s.mine.length>0||s.myWaiting.length>0||agendaReadAttempts(s.user.id).length>0);
  const finding=!slug&&!s.page&&!s.ownerMode&&s.directory.length>0;
  const directoryFirst=finding&&!customerWithBookings;
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
@@ -639,7 +741,7 @@ function agendaPage(){
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  // A customized professional page is a standalone storefront, not a subpanel of the TAMÃO landing.
  if(slug&&s.publicProfile?.id&&typeof agendaDesignPublicView==='function')
-  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+'</section>');
+  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView()+'</section>');
  const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
   '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
    '<h2>Atende clientes com hora marcada?</h2>'+
@@ -683,9 +785,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -739,8 +841,7 @@ async function agendaRefreshOwner(){
   s.services=services.data||[];s.staff=staff.data||[];s.depositSettings=depositSettings.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
  }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
  if(typeof agendaDesignLoadOwner==='function')await agendaDesignLoadOwner();
- const mine=await s.client.rpc('agenda_my_bookings');
- if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
+ try{await agendaReadCustomerReservations();}catch(_){}
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
  if(epoch===s.epoch&&s.user?.id===u.id&&!queue.error)s.myWaiting=queue.data||[];
 }
@@ -1502,8 +1603,10 @@ async function agendaBook(ev){
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
  if((profile.staff||[]).length&&(!agendaUuid.test(s.staffId)||!profile.staff.some(x=>x.id===s.staffId)))return false;
  if(!(profile.staff||[]).length&&s.staffId)return false;
- const request=s.requestKey,instant=s.selectedStart,service=s.serviceId,staff=s.staffId||null;
+ const instant=s.selectedStart,service=s.serviceId,staff=s.staffId||null;
  const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
+ const request=agendaKeepAttempt(userId,{page,service,staff,instant},s.requestKey);
+ s.requestKey=request;
  const current=()=>s.client===client&&s.epoch===epoch&&s.user?.id===userId;
  const sameChoice=()=>current()&&agendaSlug()===slug&&s.publicProfile?.id===page&&s.serviceId===service&&
   (s.staffId||null)===staff&&s.requestKey===request&&s.selectedStart===instant;
@@ -1541,14 +1644,16 @@ async function agendaBook(ev){
     customer_id:userId,page_title:profile.title,service_title:selectedService.title,slug,
     staff_title:profile.staff?.find(x=>x.id===staff)?.name||null};
    if(!s.mine.some(x=>x.id===row.id))s.mine=[receipt,...s.mine].sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
+   agendaForgetAttempt(userId,request);
    s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
    // A refresh failure cannot invalidate a booking already proven persisted.
    try{await agendaRefreshOwner();}catch(_){}
    if(current()&&agendaSlug()===slug&&s.serviceId===service&&(s.staffId||null)===staff)
     await agendaLoadSlots();
   }else{
-   s.error=failure?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')&&!readback.error&&!readback.data
-    ?'Este horário acabou de ser escolhido. Atualize os horários.':
+   const taken=failure?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')&&!readback.error&&!readback.data;
+   if(taken)agendaForgetAttempt(userId,request);
+   s.error=taken?'Este horário acabou de ser escolhido. Atualize os horários.':
     'Não foi possível confirmar. Confira sua conta antes de repetir.';
   }
  }catch(_){

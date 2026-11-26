@@ -786,3 +786,65 @@ catPersist=false;const count=catWrites.length;
 await catCtx.staff(catForm({name:'Joana'}));await catCtx.staff(catForm({name:'Joana'}));
 assert.equal(catWrites.length,count+1);assert.equal(catRt.notice,'');
 console.log('PASS: catalog evidence, no duplicate retry, invalid price, scope mismatch and staff booking guard.');
+
+
+// A reload must preserve the idempotency key without storing contacts or
+// resubmitting a booking. Other accounts must never see the pending attempt.
+const recoveryStore=new Map();
+const recoveryCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},esc:x=>String(x??''),
+ localStorage:{getItem:k=>recoveryStore.get(k)||null,setItem:(k,v)=>recoveryStore.set(k,v),removeItem:k=>recoveryStore.delete(k)},
+ BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'})});
+vm.runInContext(source+';this.rt=agendaRuntime;this.keep=agendaKeepAttempt;this.read=agendaReadAttempts;this.recover=agendaRecoverAttempt;this.view=agendaMyBookingsView;',recoveryCtx);
+const recoveryRt=recoveryCtx.rt,recoveryUser=evidence.customer_id,recoveryOther=evidence.page_id;
+const recoveryChoice={page:evidence.page_id,service:evidence.service_id,staff:evidence.staff_id,
+ instant:new Date(Date.now()+86400000).toISOString()};
+assert.equal(recoveryCtx.keep(recoveryUser,recoveryChoice,evidence.request_id),evidence.request_id);
+assert.equal(recoveryCtx.keep(recoveryUser,recoveryChoice,evidence.id),evidence.request_id);
+assert.equal(recoveryCtx.read(recoveryOther).length,0);
+assert.doesNotMatch([...recoveryStore.values()].join(''),/phone|name|email|token/);
+let recoveryRow=null,recoveryReadError=false,recoveryReads=0;
+const recoveryClient={rpc(){throw Error('Recovery must not write or resubmit')},from(table){
+ assert.equal(table,'agenda_appointments');const filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q},
+ async maybeSingle(){recoveryReads++;assert.equal(filters.customer_id,recoveryUser);assert.equal(filters.page_id,recoveryChoice.page);
+ assert.equal(filters.request_id,evidence.request_id);return {data:recoveryRow,error:recoveryReadError?Error('network'):null}}};return q;
+}};
+recoveryCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+Object.assign(recoveryRt,{client:recoveryClient,user:{id:recoveryOther}});
+assert.doesNotMatch(recoveryCtx.view(),/Conferir tentativa/);await recoveryCtx.recover(evidence.request_id);assert.equal(recoveryReads,0);
+recoveryRt.user={id:recoveryUser};
+assert.match(recoveryCtx.view(),/Conferir tentativa/);
+await recoveryCtx.recover(evidence.request_id);
+assert.match(recoveryRt.error,/Ainda não encontramos/);assert.equal(recoveryCtx.read(recoveryUser).length,1);
+recoveryRow={...evidence,starts_at:recoveryChoice.instant,ends_at:new Date(Date.parse(recoveryChoice.instant)+1800000).toISOString()};
+recoveryReadError=true;await recoveryCtx.recover(evidence.request_id);
+assert.equal(recoveryRt.mine.length,0);assert.equal(recoveryCtx.read(recoveryUser).length,1);
+recoveryReadError=false;recoveryRow={...recoveryRow,customer_id:recoveryOther};await recoveryCtx.recover(evidence.request_id);
+assert.equal(recoveryRt.mine.length,0);assert.equal(recoveryCtx.read(recoveryUser).length,1);
+recoveryRow={...recoveryRow,customer_id:recoveryUser};await recoveryCtx.recover(evidence.request_id);
+assert.match(recoveryRt.notice,/Reserva localizada/);assert.equal(recoveryRt.mine.length,1);
+assert.equal(recoveryCtx.read(recoveryUser).length,0);assert.equal(recoveryRt.busy,false);
+assert.match(recoveryCtx.view(),/Minhas reservas/);
+assert.match(source,/agendaNote\(\)\+agendaPublicView\(\)\+agendaMyBookingsView\(\)\+agendaMyWaitingView/);
+console.log('PASS: read-only booking attempt recovery, account isolation, persisted key reuse and private storefront access.');
+
+
+// Server-backed refresh is independent of the establishment editor.
+const refreshCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},esc:x=>String(x??'')});
+vm.runInContext(source+';this.rt=agendaRuntime;this.refresh=agendaRefreshCustomerReservations;this.view=agendaMyBookingsView;',refreshCtx);
+const refreshRt=refreshCtx.rt;
+let response={data:[{...evidence,page_title:'Barbearia',service_title:'Corte'}],error:null};
+let refreshCalls=0;
+const refreshClient={rpc:async(name)=>{assert.equal(name,'agenda_my_bookings');refreshCalls++;return response}};
+Object.assign(refreshRt,{client:refreshClient,user:{id:evidence.customer_id},mine:[]});
+assert.match(refreshCtx.view(),/Atualizar reservas/);
+await refreshCtx.refresh();assert.equal(refreshRt.mine.length,1);assert.match(refreshRt.notice,/Reservas atualizadas/);
+response={data:null,error:Error('network')};await refreshCtx.refresh();
+assert.equal(refreshRt.mine.length,1);assert.match(refreshRt.error,/últimos dados/);
+response={data:[{...evidence,status:'cancelled'}],error:null};await refreshCtx.refresh();
+assert.equal(refreshRt.mine.length,1);assert.equal(refreshRt.notice,'');
+response={data:[],error:null};await refreshCtx.refresh();assert.equal(refreshRt.mine.length,0);
+assert.match(refreshRt.notice,/Nenhuma reserva futura confirmada/);
+assert.equal(refreshCalls,4);assert.equal(refreshRt.busy,false);
+console.log('PASS: independent authenticated customer reservation refresh, error preservation and confirmed empty list.');
