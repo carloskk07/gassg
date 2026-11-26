@@ -389,26 +389,31 @@ const bookRt=bookCtx.rt;
 const evidence={id:'22222222-2222-4222-8222-222222222222',status:'confirmed',
  request_id:'11111111-1111-4111-8111-111111111111',customer_id:'33333333-3333-4333-8333-333333333333',
  service_id:'44444444-4444-4444-8444-444444444444',staff_id:'55555555-5555-4555-8555-555555555555',
- starts_at:'2026-12-01T12:00:00Z'};
+ page_id:'66666666-6666-4666-8666-666666666666',reschedule_count:0,
+ starts_at:'2026-12-01T12:00:00Z',ends_at:'2026-12-01T12:30:00Z'};
 let stored={...evidence},writeError=true,readError=false,writes=0,reads=0;
 const client={rpc:async(name,args)=>{assert.equal(name,'agenda_book_staff_slot');assert.equal(args.p_request_id,evidence.request_id);writes++;return writeError?{error:Error('network')}:{data:{id:evidence.id,status:'confirmed'}};},
  from(table){assert.equal(table,'agenda_appointments');const filters={};
   const q={select(fields){assert.match(fields,/request_id,customer_id,service_id,staff_id/);return q;},
-   eq(k,v){filters[k]=v;return q;},async maybeSingle(){reads++;assert.equal(filters.customer_id,evidence.customer_id);assert.equal(filters.request_id,evidence.request_id);return {data:stored,error:readError?Error('read failed'):null};}};return q;}};
+   eq(k,v){filters[k]=v;return q;},async maybeSingle(){reads++;assert.equal(filters.customer_id,evidence.customer_id);assert.equal(filters.request_id,evidence.request_id);assert.equal(filters.page_id,evidence.page_id);return {data:stored,error:readError?Error('read failed'):null};}};return q;}};
 bookCtx.agendaRefreshOwner=async()=>{throw Error('refresh unavailable')};
 bookCtx.agendaLoadSlots=async()=>{};
 const prepare=()=>Object.assign(bookRt,{client,user:{id:evidence.customer_id},busy:false,slotBusy:false,slotError:'',
  serviceId:evidence.service_id,staffId:evidence.staff_id,selectedStart:evidence.starts_at,requestKey:evidence.request_id,
- slots:[{starts_at:evidence.starts_at}],publicProfile:{staff:[{id:evidence.staff_id}]},notice:'',error:''});
+ slots:[{starts_at:evidence.starts_at}],publicProfile:{id:evidence.page_id,slug:'barbearia-sg',title:'Barbearia SG',services:[{id:evidence.service_id,title:'Corte'}],staff:[{id:evidence.staff_id,name:'Ana'}]},notice:'',error:''});
 const submit=()=>bookCtx.book({preventDefault(){},target:{name:'Pessoa Teste',phone:'55999998888'}});
-for(const mismatch of [{starts_at:'2026-12-01T13:00:00Z'},{service_id:'other'},{staff_id:null},{customer_id:'other'},{request_id:'other'},{status:'cancelled'}]){
+for(const mismatch of [{starts_at:'2026-12-01T13:00:00Z'},{service_id:'other'},{staff_id:null},{customer_id:'other'},{request_id:'other'},{status:'cancelled'},{page_id:'other'},{ends_at:evidence.starts_at},{reschedule_count:-1}]){
  prepare();stored={...evidence,...mismatch};await submit();
  assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);assert.equal(bookRt.busy,false);
 }
 prepare();stored={...evidence};readError=true;await submit();assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);
 readError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);assert.equal(bookRt.requestKey,'');assert.equal(bookRt.error,'');
 writeError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);
-assert.equal(writes,9);assert.equal(reads,9);
+assert.equal(writes,12);assert.equal(reads,12);
+assert.equal(bookRt.mine.length,1);assert.equal(bookRt.mine[0].page_title,'Barbearia SG');
+assert.equal(bookRt.mine[0].ends_at,evidence.ends_at);assert.equal(bookRt.mine[0].staff_title,'Ana');
+prepare();bookRt.publicProfile.slug='outra-agenda';await submit();assert.equal(writes,12);
+prepare();await bookCtx.book({preventDefault(){},target:{name:'Pessoa Teste',phone:'--------'}});assert.equal(writes,12);
 console.log('PASS: exact persisted booking confirmation on normal and ambiguous writes, mismatches rejected, refresh failure preserves proof.');
 
 
