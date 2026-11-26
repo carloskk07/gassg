@@ -1083,42 +1083,77 @@ function agendaLocalHourToInstant(day,hour){
 }
 async function agendaAddBlock(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.user||!s.page)return false;
+ if(s.busy||!s.user||!s.page||!s.client)return false;
  const f=new FormData(ev.target),day=String(f.get('day')||'');
- const start=agendaLocalHourToInstant(day,String(f.get('start')||''));
- const end=agendaLocalHourToInstant(day,String(f.get('end')||''));
- const staffId=String(f.get('staff')||'');
- if(!start||!end||Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>12*3600000 ||
+ const validDay=/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(Date.parse(day+'T12:00:00Z'))&&
+  new Date(day+'T12:00:00Z').toISOString().slice(0,10)===day;
+ const startHour=String(f.get('start')||''),endHour=String(f.get('end')||'');
+ const validHour=value=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+ const start=validDay&&validHour(startHour)?agendaLocalHourToInstant(day,startHour):'';
+ const end=validDay&&validHour(endHour)?agendaLocalHourToInstant(day,endHour):'';
+ const staffId=String(f.get('staff')||'')||null;
+ if(!start||!end||Date.parse(start)<=Date.now()||Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>12*3600000 ||
   day<agendaToday()||day>agendaToday(180)||staffId&&!s.staff.some(t=>t.id===staffId&&t.active)){
   s.error='Confira o dia, o horário e o colaborador.';render();return false;
  }
+ const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
  s.busy=true;s.error='';s.notice='';
+ let failure=null,verified=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_add_staff_block',{
-   p_staff_id:staffId||null,p_start:start,p_end:end
-  });
-  if(error||!agendaUuid.test(String(data)))throw error||Error('block unconfirmed');
-  await agendaRefreshOwner();
-  if(s.serviceId&&day===s.day)await agendaLoadSlots();
+  try{
+   const result=await client.rpc('agenda_add_staff_block',{p_staff_id:staffId,p_start:start,p_end:end});
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return false;
+  let query=client.from('agenda_staff_blocks').select('id,page_id,owner_id,staff_id,starts_at,ends_at')
+   .eq('page_id',page).eq('owner_id',userId).lte('starts_at',start).gte('ends_at',end);
+  query=staffId?query.eq('staff_id',staffId):query.is('staff_id',null);
+  const check=await query.order('starts_at').limit(10);
+  if(!current())return false;
+  const row=!check.error&&Array.isArray(check.data)&&check.data.find(x=>
+   agendaUuid.test(String(x.id||''))&&x.page_id===page&&x.owner_id===userId&&
+   (x.staff_id||null)===staffId&&Date.parse(x.starts_at)<=Date.parse(start)&&Date.parse(x.ends_at)>=Date.parse(end));
+  verified=!!row;
+  if(!verified){
+   s.error=failure?.message?.includes('AGENDA_BLOCK_HAS_BOOKINGS')?
+    'Este intervalo já contém uma reserva confirmada. Resolva o atendimento antes de bloquear.':
+    'Não foi possível confirmar o bloqueio. Confira sua agenda antes de repetir.';
+   return false;
+  }
+  s.blocks=s.blocks.filter(x=>x.id!==row.id);
+  s.blocks.push({id:row.id,staff_id:row.staff_id,starts_at:row.starts_at,ends_at:row.ends_at});
+  s.blocks.sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at));
   s.notice='Intervalo indisponível cadastrado.';
- }catch(e){
-  s.error=e?.message?.includes('AGENDA_BLOCK_HAS_BOOKINGS')?
-   'Este intervalo já contém uma reserva confirmada. Resolva o atendimento antes de bloquear.':
-   'Não foi possível bloquear o intervalo. Confira sua agenda.';
- }
- s.busy=false;render();return false;
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()&&agendaSlug()===slug&&s.serviceId&&day===s.day)await agendaLoadSlots();
+ }catch(_){
+  if(current()&&!verified)s.error='Não foi possível confirmar o bloqueio. Confira sua agenda antes de repetir.';
+ }finally{s.busy=false;if(agendaRoute())render();}
+ return false;
 }
 async function agendaRemoveBlock(id){
- const s=agendaRuntime;if(s.busy||!s.page||!s.blocks.some(x=>x.id===id))return;
- s.busy=true;s.error='';s.notice='';
+ const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user||!s.client||!agendaUuid.test(id)||!s.blocks.some(x=>x.id===id))return;
+ const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ let verified=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_remove_staff_block',{p_id:id});
-  if(error||data!==true)throw error||Error('remove unconfirmed');
-  await agendaRefreshOwner();
-  if(s.serviceId)await agendaLoadSlots();
-  s.notice='Intervalo liberado.';
- }catch(e){s.error='Não foi possível liberar este intervalo.';}
- s.busy=false;render();
+  try{await client.rpc('agenda_remove_staff_block',{p_id:id});}catch(_){}
+  if(!current())return;
+  const check=await client.from('agenda_staff_blocks').select('id')
+   .eq('id',id).eq('page_id',page).eq('owner_id',userId).maybeSingle();
+  if(!current())return;
+  verified=!check.error&&check.data===null;
+  if(!verified){s.error='Não foi possível confirmar a remoção do bloqueio. Confira sua agenda.';return;}
+  s.blocks=s.blocks.filter(x=>x.id!==id);
+  s.notice='Bloqueio removido. Outros bloqueios e reservas permanecem válidos.';
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()&&agendaSlug()===slug&&s.serviceId)await agendaLoadSlots();
+ }catch(_){
+  if(current()&&!verified)s.error='Não foi possível confirmar a remoção do bloqueio. Confira sua agenda.';
+ }finally{s.busy=false;if(agendaRoute())render();}
 }
 async function agendaJoinWaitlist(ev){
  ev.preventDefault();const s=agendaRuntime;

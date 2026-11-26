@@ -645,3 +645,44 @@ assert.equal(hoursRt.notice,'');assert.match(hoursRt.error,/Não foi possível c
 hoursReadError=false;prepareHours();hoursFailure='AGENDA_DAY_HAS_BOOKINGS';await hoursCtx.closed(holiday,true);
 assert.match(hoursRt.error,/já tem reservas confirmadas/);
 console.log('PASS: exact weekly schedule and holiday reconciliation, malformed hours rejected, refresh failures tolerated.');
+
+
+// Staff blocks reconcile the same owner, page and staff plus interval coverage.
+// The server may reuse an existing broader block instead of inserting a new row.
+const blockCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.add=agendaAddBlock;this.removeBlock=agendaRemoveBlock;',blockCtx);
+const blockRt=blockCtx.rt,blockPage='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ blockOwner='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',blockId='cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+ blockStaff='dddddddd-dddd-4ddd-8ddd-dddddddddddd',blockDay=vm.runInContext('agendaToday(2)',blockCtx);
+const blockStart=vm.runInContext('agendaLocalHourToInstant('+JSON.stringify(blockDay)+',"09:00")',blockCtx);
+const blockEnd=vm.runInContext('agendaLocalHourToInstant('+JSON.stringify(blockDay)+',"11:00")',blockCtx);
+const blockEvidence={id:blockId,page_id:blockPage,owner_id:blockOwner,staff_id:blockStaff,starts_at:blockStart,ends_at:blockEnd};
+let blockRows=[blockEvidence],blockReadError=false,blockSingle=null,blockCalls=0,blockFailure='network';
+const blockClient={rpc:async()=>{blockCalls++;throw Error(blockFailure)},
+ from(table){assert.equal(table,'agenda_staff_blocks');const q={select(){return q},eq(){return q},is(){return q},
+ lte(){return q},gte(){return q},order(){return q},async limit(){return {data:blockRows,error:blockReadError?Error('read failed'):null}},
+ async maybeSingle(){return {data:blockSingle,error:blockReadError?Error('read failed'):null}}};return q;}};
+blockCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+const prepareBlock=()=>Object.assign(blockRt,{client:blockClient,user:{id:blockOwner},page:{id:blockPage},
+ busy:false,blocks:[],staff:[{id:blockStaff,active:true}],serviceId:'',notice:'',error:''});
+const submitBlock=(target={day:blockDay,start:'09:00',end:'10:00',staff:blockStaff})=>blockCtx.add({preventDefault(){},target});
+for(const mismatch of [{owner_id:blockPage},{page_id:blockOwner},{staff_id:null},
+ {starts_at:new Date(Date.parse(blockStart)+1800000).toISOString()},{ends_at:blockStart}]){
+ prepareBlock();blockRows=[{...blockEvidence,...mismatch}];await submitBlock();
+ assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,0);assert.equal(blockRt.busy,false);
+}
+prepareBlock();blockRows=[blockEvidence];blockReadError=true;await submitBlock();assert.equal(blockRt.notice,'');
+blockReadError=false;prepareBlock();await submitBlock();assert.match(blockRt.notice,/Intervalo indisponível cadastrado/);
+assert.equal(blockRt.blocks[0].id,blockId);assert.equal(blockRt.blocks[0].ends_at,blockEnd);
+prepareBlock();blockRows=[];blockFailure='AGENDA_BLOCK_HAS_BOOKINGS';await submitBlock();
+assert.match(blockRt.error,/reserva confirmada/);
+const beforeInvalidBlock=blockCalls;prepareBlock();await submitBlock({day:'2026-02-30',start:'09:00',end:'10:00'});
+assert.equal(blockCalls,beforeInvalidBlock);
+prepareBlock();blockRt.blocks=[blockEvidence];blockSingle=null;await blockCtx.removeBlock(blockId);
+assert.match(blockRt.notice,/Bloqueio removido/);assert.equal(blockRt.blocks.length,0);
+prepareBlock();blockRt.blocks=[blockEvidence];blockSingle={id:blockId};await blockCtx.removeBlock(blockId);
+assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
+prepareBlock();blockRt.blocks=[blockEvidence];blockSingle=null;blockReadError=true;await blockCtx.removeBlock(blockId);
+assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
+console.log('PASS: staff block reconciliation covers broader existing block, read failures, owner/staff scope, invalid input and safe removal.');
