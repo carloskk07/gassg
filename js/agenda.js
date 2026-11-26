@@ -948,46 +948,91 @@ async function agendaQuickCreate(ev){
  if(ready)s.ownerMode=true;
  s.busy=false;render();return false;
 }
+// Keep the same object key for a repeated photo attempt in this session.
+const agendaPhotoPending=new Map();
 async function agendaSaveProfile(ev){
- ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user)return false;
+ ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user||!s.client)return false;
  const form=ev.target,f=new FormData(form);
  const slug=String(f.get('slug')||'').trim();
  if(!agendaSlugPattern.test(slug)||slug.length<4||slug.length>60){s.error='Escolha um link com letras minúsculas, números e hífens.';render();return false;}
  const data={slug,title:String(f.get('title')||'').trim(),about:String(f.get('about')||'').trim(),
   city:String(f.get('city')||'').trim(),public_area:String(f.get('public_area')||'').trim(),
   whatsapp_e164:String(f.get('whatsapp')||'').trim()||null,published:f.get('published')==='on'};
- const file=form.elements.photo.files?.[0]||null;
+ if(data.title.length<3||data.title.length>100||data.city.length<2||data.city.length>100||
+  data.about.length>1000||data.public_area.length>120||
+  (data.whatsapp_e164&&!/^\+[1-9][0-9]{7,14}$/.test(data.whatsapp_e164))){
+  s.error='Confira o nome, a cidade, a apresentação e o WhatsApp.';render();return false;
+ }
+ const file=form.elements?.photo?.files?.[0]||null;
  if(file&&(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size<1||file.size>5242880)){
   s.error='Selecione uma imagem JPG, PNG ou WebP de até 5 MB.';render();return false;}
+ const client=s.client,userId=s.user.id,epoch=s.epoch,initial=s.page?.id||null;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch&&
+  (!initial||s.page?.id===initial);
+ const readPage=async()=>{
+  const result=await client.from('agenda_pages').select('*').eq('owner_id',userId).maybeSingle();
+  if(result.error)throw result.error;
+  const row=result.data;
+  if(!row||row.owner_id!==userId||!agendaUuid.test(row.id||'')||
+   (initial&&row.id!==initial)||!Array.isArray(row.photo_paths))return null;
+  return row;
+ };
  s.busy=true;s.error='';s.notice='';
+ let saved=false,photoDone=!file,failure=null;
  try{
-  let page=s.page;
-  if(page){
-   const {data:updated,error}=await s.client.from('agenda_pages').update(data).eq('id',page.id).select('*').single();
-   if(error)throw error;page=updated;
-  }else{
-   const {data:created,error}=await s.client.from('agenda_pages').insert(data).select('*').single();
-   if(error)throw error;page=created;s.page=created;
+  try{
+   const result=initial?await client.from('agenda_pages').update(data).eq('id',initial).eq('owner_id',userId):
+    await client.from('agenda_pages').insert(data);
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return false;
+  let page=await readPage();
+  if(!current())return false;
+  if(!page||!Object.entries(data).every(([k,v])=>page[k]===v)){
+   s.error=failure?.code==='23505'?'Este link já está em uso ou a conta já possui uma agenda. Confira os dados.':
+    'Não foi possível confirmar a página salva. Confira os dados antes de repetir.';
+   return false;
   }
-  if(file&&page.photo_paths.length<6){
-   const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-   const key=s.user.id+'/'+crypto.randomUUID()+'.'+ext;
-   const uploaded=await s.client.storage.from('tamao-discovery-photos')
-    .upload(key,file,{contentType:file.type,cacheControl:'3600',upsert:false});
-   if(uploaded.error)throw uploaded.error;
-   const {data:withPhoto,error}=await s.client.from('agenda_pages')
-    .update({photo_paths:[...page.photo_paths,key]}).eq('id',page.id).select('*').single();
-   if(error)throw error;page=withPhoto;s.page=page;
+  s.page=page;saved=true;
+  if(file){
+   try{
+    const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
+    // Hash bytes, not the file name; different images must never share a retry key.
+    const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
+    const signature=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
+    const pendingKey=JSON.stringify([userId,page.id,file.type,signature]);
+    let key=agendaPhotoPending.get(pendingKey);
+    if(!key){key=userId+'/'+crypto.randomUUID()+'.'+ext;agendaPhotoPending.set(pendingKey,key);}
+    if(!current())return false;
+    if(!page.photo_paths.includes(key)&&page.photo_paths.length<6){
+     // A lost upload response may still mean the object exists. The existing
+     // database trigger verifies storage ownership and MIME before attachment.
+     try{await client.storage.from('tamao-discovery-photos')
+      .upload(key,file,{contentType:file.type,cacheControl:'3600',upsert:false});}catch(_){}
+     if(!current())return false;
+     page=await readPage();
+     if(!current())return false;
+     if(page&&!page.photo_paths.includes(key)&&page.photo_paths.length<6&&page.updated_at){
+      try{await client.from('agenda_pages').update({photo_paths:[...page.photo_paths,key]})
+       .eq('id',page.id).eq('owner_id',userId).eq('updated_at',page.updated_at);}catch(_){}
+     }
+    }
+    if(!current())return false;
+    const after=await readPage();
+    if(!current())return false;
+    if(after){s.page=after;photoDone=after.photo_paths.includes(key);}
+    if(photoDone)agendaPhotoPending.delete(pendingKey);
+   }catch(_){}
   }
-  await agendaRefreshOwner();
-  await agendaRefreshDirectory();
-  s.notice='Página salva. '+(page.published?'Seu link está disponível.':'Publique quando desejar receber agendamentos.');
- }catch(e){
-  s.error=e?.code==='23505'?'Este link já está em uso. Escolha outro.':
-   'Não foi possível concluir tudo. Confira sua página antes de repetir o envio.';
-  try{await agendaRefreshOwner();}catch{}
- }
- s.busy=false;render();return false;
+  if(!current())return false;
+  s.notice='Dados da página salvos. '+(s.page.published?'Seu link está publicado.':'A página permanece privada.');
+  if(!photoDone)s.error='Os dados foram salvos, mas a foto não foi confirmada. Confira a galeria antes de repetir.';
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()){try{await agendaRefreshDirectory();}catch(_){}}
+ }catch(_){if(current())s.error=saved?'Dados salvos, mas não foi possível confirmar todos os ajustes.':
+  'Não foi possível confirmar a página salva. Confira os dados antes de repetir.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+ return false;
 }
 async function agendaSaveDepositPolicy(ev){
  ev.preventDefault();const s=agendaRuntime;
