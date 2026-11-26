@@ -2256,6 +2256,10 @@ function liveTracking(){
         : onlinePayment.status==='review_required'
           ? '<div class="notice danger" style="margin-top:14px"><strong>Pagamento em revisão.</strong><br>O pedido fica protegido até o TAMÃO confirmar o estado diretamente no provedor.</div>'
           : o.paymentMethod==='pix'&&onlinePayment.pixPayable===true&&
+             readEvidence.kind==='recent'&&o.paymentTiming==='prepaid'&&
+             ['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&
+             onlinePayment.available===true&&onlinePayment.provider==='mercadopago'&&
+             onlinePayment.fundsOwner==='merchant'&&onlinePayment.tamaoReceivesSaleProceeds===false&&
              ['pending','checkout_ready'].includes(onlinePayment.status)&&
              Number(onlinePayment.amountCents)===Number(o.totalCents)&&
              Date.parse(String(onlinePayment.expiresAt||''))>Date.now()+60000&&
