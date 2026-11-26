@@ -695,7 +695,7 @@ function agendaMyBookingsView(){
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
  const customerWithBookings=!slug&&!!s.user&&!s.page&&!s.ownerMode&&
-  (s.mine.length>0||s.myWaiting.length>0);
+  (s.mine.length>0||s.myWaiting.length>0||agendaReadAttempts(s.user.id).length>0);
  const finding=!slug&&!s.page&&!s.ownerMode&&s.directory.length>0;
  const directoryFirst=finding&&!customerWithBookings;
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
@@ -714,7 +714,7 @@ function agendaPage(){
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  // A customized professional page is a standalone storefront, not a subpanel of the TAMÃO landing.
  if(slug&&s.publicProfile?.id&&typeof agendaDesignPublicView==='function')
-  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+'</section>');
+  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView()+'</section>');
  const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
   '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
    '<h2>Atende clientes com hora marcada?</h2>'+
@@ -758,9 +758,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.busy=false;s.selectedStart='';s.requestKey='';s.notice='';s.error='';s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
