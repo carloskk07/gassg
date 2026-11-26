@@ -1765,6 +1765,38 @@ function customerPaymentEvidenceDetails(order){
     '<small>Esses dados refletem o último registro consultado pelo TAMÃO. Não são um comprovante bancário, nem demonstram quando os recursos ficam disponíveis.</small></div>';
 }
 
+async function customerRefreshOriginalPayment(orderId){
+  const rt=liveRuntime,actor=rt.session?.user?.id,generation=Number(rt.authGeneration||0);
+  const current=()=>!!actor&&liveReady()&&rt.session?.user?.id===actor&&
+    Number(rt.authGeneration||0)===generation&&rt.orderId===orderId&&rt.order?.orderId===orderId;
+  if(!current())return false;
+  const previous=rt.originalPaymentRefreshToken;
+  if(previous?.actor===actor&&previous?.generation===generation&&previous?.orderId===orderId)return false;
+  const token={actor,generation,orderId};
+  rt.originalPaymentRefreshToken=token;
+  render();
+  try{
+    const requestedAt=Date.now();
+    const order=await liveGetOrder(orderId,{silent:true});
+    if(!current()||rt.originalPaymentRefreshToken!==token)return false;
+    const checkedAt=Date.parse(String(rt.orderCheckedAt||''));
+    if(order?.orderId!==orderId||rt.orderCheckedId!==orderId||!Number.isFinite(checkedAt)||
+      checkedAt<requestedAt||checkedAt>Date.now()+2000)throw Error('Consulta sem confirmação recente');
+    toast('Registro do pagamento atualizado.');
+    return true;
+  }catch{
+    if(current()&&rt.originalPaymentRefreshToken===token){
+      rt.error='Não foi possível conferir o pagamento original agora.';
+      toast('Não foi possível atualizar. O último registro permanece visível; não pague novamente.');
+    }
+    return false;
+  }finally{
+    if(rt.originalPaymentRefreshToken===token){
+      rt.originalPaymentRefreshToken=null;
+      if(current())render();
+    }
+  }
+}
 function customerInterruptedPaymentView(order){
   const status=String(order?.status||'');
   if(!['REASSIGNING','CANCELLED'].includes(status))return '';
@@ -1806,9 +1838,16 @@ function customerInterruptedPaymentView(order){
     detail='Esta consulta não confirma cobrança nem reembolso. Se você já pagou, confira no provedor e registre um atendimento com os dados do pedido.';
   }
   const reversal=customerPaymentEvidenceTime(order?.financialReversedAt);
+  const token=liveRuntime.originalPaymentRefreshToken;
+  const checking=token?.orderId===order.orderId&&token?.actor===liveRuntime.session?.user?.id&&
+    token?.generation===Number(liveRuntime.authGeneration||0);
+  const refresh=onDelivery?'':'<div class="order-actions"><button type="button" class="secondary small" data-order-id="'+
+    esc(order.orderId)+'" onclick="customerRefreshOriginalPayment(this.dataset.orderId)"'+
+    (checking?' disabled aria-busy="true">Conferindo pagamento…':'>Atualizar pagamento original')+
+    '</button><a class="customer-incident-help" href="#customer-care">Preciso de ajuda</a></div>';
   return '<section class="customer-interrupted-payment" aria-label="Situação do pagamento">'+
     '<strong>'+esc(label)+'</strong><p>'+esc(detail)+'</p>'+
-    customerPaymentEvidenceDetails(order)+
+    customerPaymentEvidenceDetails(order)+refresh+
     (reversal?'<p class="customer-payment-ledger">Ajuste interno do pedido registrado em '+esc(reversal)+
       '. Isso não confirma reembolso da transação junto ao provedor.</p>':'')+
     '<small>'+(cancelled?'O pedido está encerrado. ':'Uma nova revenda ainda não foi confirmada. ')+
