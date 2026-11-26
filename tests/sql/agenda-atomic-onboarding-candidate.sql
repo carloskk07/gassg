@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- Disposable test only. Function, fixtures and failure injection all rolled back.
 begin;
-\ir ../../supabase/proposals/agenda_atomic_onboarding.sql
+-- The canonical migration must already be installed by the disposable baseline.
 do $test$
 declare
  v_owner uuid:=gen_random_uuid();
