@@ -18,7 +18,7 @@ function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
 function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:MP_URL},
- error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false,onRead=null}={}){
+ error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false,onRead=null,beforeSend=null}={}){
  const calls=[],toasts=[],renders=[],nav={href:null};
  const rt={requested:true,status:'ready',session:{user:{id:'buyer-one'}},
    orderId:ORDER,order:{orderId:ORDER},actionPending:pending,error:null};
@@ -31,6 +31,8 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
    try{return await fn()}catch{return fn();}
   },
   liveInvoke:async (name,body,options)=>{
+   if(beforeSend)await beforeSend({rt,name,options});
+   if(options?.sessionGuard&&options.sessionGuard()!==true)throw Error('revoked session before send');
    calls.push({name,body,options});
    if(changeAccount)rt.session={user:{id:'buyer-two'}};
    if(changeOrder){rt.orderId=OTHER;rt.order={orderId:OTHER};}
@@ -247,3 +249,23 @@ const nativePix=(canStart=false)=>{
  assert.equal(await x.go(),true);assert.equal(x.nav.href,null);
  assert.equal(x.calls.filter(x=>x.name==='order-payment-checkout').length,1);
 }
+
+// Token lookup may yield while the account/order is changed: no mutation can
+// reach the provider after its lease is revoked, including a retry.
+for(const initial of [proof(),nativePix(true)]){
+ const x=setup({reads:[initial],retryTwice:true,beforeSend:({rt,options})=>{
+  assert.equal(typeof options.sessionGuard,'function');
+  rt.authGeneration=(rt.authGeneration||0)+1;
+ }});
+ assert.equal(await x.go(),false);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+ assert.equal(x.nav.href,null);
+}
+for(const initial of [proof(),nativePix(true)]){
+ const x=setup({reads:[initial],retryTwice:true,changeAccount:true,error:new TypeError('ambiguous response')});
+ assert.equal(await x.go(),false);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,1,
+  'the revoked checkout must not retry against a new account');
+ assert.equal(x.nav.href,null);
+}
+console.log('PASS: payment transport lease protects card and Pix across token lookup and retry.');
