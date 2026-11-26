@@ -1097,6 +1097,23 @@ async function agendaQuickCreate(ev){
 }
 // Keep the same object key for a repeated photo attempt in this session.
 const agendaPhotoPending=new Map();
+// A manual publish must be backed by persisted, owner-scoped service and hours.
+async function agendaPublicationReady(client,page,userId){
+ if(!agendaUuid.test(page||'')||!agendaUuid.test(userId||''))return false;
+ const [services,hours]=await Promise.all([
+  client.from('agenda_services').select('id,page_id,owner_id,active,duration_min').eq('page_id',page).eq('owner_id',userId).eq('active',true),
+  client.from('agenda_hours').select('page_id,owner_id,weekday,opens_min,closes_min').eq('page_id',page).eq('owner_id',userId)
+ ]);
+ if(services.error||hours.error||!Array.isArray(services.data)||!Array.isArray(hours.data))
+  throw services.error||hours.error||Error('readiness not confirmed');
+ const scoped=row=>row.page_id===page&&row.owner_id===userId;
+ if(services.data.some(x=>!scoped(x))||hours.data.some(x=>!scoped(x)))throw Error('readiness scope mismatch');
+ return services.data.some(service=>agendaUuid.test(service.id||'')&&service.active===true&&
+  Number.isInteger(service.duration_min)&&service.duration_min>=15&&service.duration_min<=240&&service.duration_min%15===0&&
+  hours.data.some(hour=>Number.isInteger(hour.weekday)&&hour.weekday>=0&&hour.weekday<=6&&
+   Number.isInteger(hour.opens_min)&&Number.isInteger(hour.closes_min)&&hour.opens_min>=0&&hour.closes_min<=1440&&
+   hour.opens_min%30===0&&hour.closes_min%30===0&&hour.closes_min-hour.opens_min>=service.duration_min));
+}
 async function agendaSaveProfile(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.user||!s.client)return false;
  const form=ev.target,f=new FormData(form);
@@ -1125,8 +1142,18 @@ async function agendaSaveProfile(ev){
   return row;
  };
  s.busy=true;s.error='';s.notice='';
- let saved=false,photoDone=!file,failure=null;
+ let saved=false,photoDone=!file,failure=null,publishDeferred=false;
  try{
+  if(data.published){
+   const before=initial?await readPage():null;
+   if(!current())return false;
+   if(initial&&!before){s.error='Não foi possível conferir sua página antes de publicar.';return false;}
+   if(!before?.published){
+    const ready=initial&&await agendaPublicationReady(client,initial,userId);
+    if(!current())return false;
+    if(!ready){data.published=false;publishDeferred=true;}
+   }
+  }
   try{
    const result=initial?await client.from('agenda_pages').update(data).eq('id',initial).eq('owner_id',userId):
     await client.from('agenda_pages').insert(data);
@@ -1173,7 +1200,8 @@ async function agendaSaveProfile(ev){
   }
   if(!current())return false;
   s.notice='Dados da página salvos. '+(s.page.published?'Seu link está publicado.':'A página permanece privada.');
-  if(!photoDone)s.error='Os dados foram salvos, mas a foto não foi confirmada. Confira a galeria antes de repetir.';
+  if(publishDeferred)s.error='Página salva como rascunho. Adicione um serviço ativo e um expediente que comporte sua duração antes de publicar.';
+  if(!photoDone)s.error=(s.error?s.error+' ':'')+'A foto não foi confirmada. Confira a galeria antes de repetir.';
   try{await agendaRefreshOwner();}catch(_){}
   if(current()){try{await agendaRefreshDirectory();}catch(_){}}
  }catch(_){if(current())s.error=saved?'Dados salvos, mas não foi possível confirmar todos os ajustes.':
