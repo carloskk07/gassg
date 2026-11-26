@@ -410,3 +410,39 @@ readError=false;prepare();await submit();assert.match(bookRt.notice,/Horário co
 writeError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);
 assert.equal(writes,9);assert.equal(reads,9);
 console.log('PASS: exact persisted booking confirmation on normal and ambiguous writes, mismatches rejected, refresh failure preserves proof.');
+
+
+// Recover ambiguous cancellation without claiming success from an RPC ack alone.
+const cancelCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},confirm:()=>true});
+vm.runInContext(source+';this.rt=agendaRuntime;this.cancel=agendaCancel;',cancelCtx);
+const cancelRt=cancelCtx.rt,cancelId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ cancelActor='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',otherActor='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const cancelBooking={id:cancelId,status:'confirmed'};
+let cancelRow={id:cancelId,status:'cancelled',customer_id:cancelActor,owner_id:otherActor};
+let cancelWrites=0,cancelReads=0,cancelReadError=false,cancelWriteError=true;
+const cancelClient={rpc:async(name,args)=>{assert.equal(name,'agenda_cancel_booking');assert.equal(args.p_appointment_id,cancelId);
+ cancelWrites++;if(cancelWriteError)throw Error('network');return {data:true};},
+ from(table){assert.equal(table,'agenda_appointments');const q={select(fields){assert.match(fields,/customer_id,owner_id/);return q},
+ eq(k,v){assert.equal(k,'id');assert.equal(v,cancelId);return q},async maybeSingle(){cancelReads++;return {data:cancelRow,error:cancelReadError?Error('network'):null}}};return q;}};
+cancelCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+const prepareCancel=()=>Object.assign(cancelRt,{client:cancelClient,user:{id:cancelActor},busy:false,mine:[{...cancelBooking}],
+ bookings:[],serviceId:'',notice:'',error:'',rescheduleId:cancelId});
+prepareCancel();await cancelCtx.cancel(cancelId);
+assert.equal(cancelRt.notice,'Horário cancelado.');assert.equal(cancelRt.mine.length,0);assert.equal(cancelRt.rescheduleId,'');
+assert.equal(cancelRt.busy,false);
+cancelWriteError=false;
+for(const row of [{id:cancelId,status:'confirmed',customer_id:cancelActor},
+ {id:cancelId,status:'cancelled',customer_id:otherActor,owner_id:otherActor},
+ {id:otherActor,status:'cancelled',customer_id:cancelActor},null]){
+ prepareCancel();cancelRow=row;await cancelCtx.cancel(cancelId);
+ assert.equal(cancelRt.notice,'');assert.equal(cancelRt.mine.length,1);assert.match(cancelRt.error,/Não foi possível confirmar/);
+}
+prepareCancel();cancelRow={id:cancelId,status:'cancelled',owner_id:cancelActor,customer_id:otherActor};
+cancelReadError=true;await cancelCtx.cancel(cancelId);assert.equal(cancelRt.mine.length,1);assert.equal(cancelRt.notice,'');
+cancelReadError=false;prepareCancel();cancelRt.bookings=cancelRt.mine;cancelRt.mine=[];
+await cancelCtx.cancel(cancelId);assert.equal(cancelRt.notice,'Horário cancelado.');assert.equal(cancelRt.bookings.length,0);
+const callsBefore=cancelWrites;prepareCancel();cancelRt.mine=[];
+await cancelCtx.cancel(cancelId);assert.equal(cancelWrites,callsBefore);
+assert.equal(cancelReads,cancelWrites);
+console.log('PASS: cancellation reconciles exact authorized record, lost write response, stale status, unavailable reads and owner access.');
