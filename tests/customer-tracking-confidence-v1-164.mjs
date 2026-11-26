@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {pixFixture} from './helpers/pix-fixture.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
@@ -134,3 +135,52 @@ assert.ok(css.includes('.customer-progress')&&css.includes('.customer-requote-pr
   &&css.includes('.customer-tracking-overview'),
  'Accessible mobile statuses, progress and revised price comparison missing');
 console.log('V1.164: verified milestone map, no false acceptance, safe quote approval, real PIN boundary, cancellation, offline and mobile UI passed.');
+
+// The tracking panel and clipboard must refuse invalid or stale Pix evidence.
+const pixCode=pixFixture(12000);
+const core=read('js/core.js'),vstart=core.indexOf(' function valid(code,amountCents){'),vend=core.indexOf('\n function load(){',vstart);
+assert.ok(vstart>=0&&vend>vstart);
+const validate=vm.runInNewContext(core.slice(vstart,vend)+'\nvalid',{TextEncoder,TextDecoder});
+globals.tamaoPixCodeValid=validate;
+const pix={available:true,provider:'mercadopago',fundsOwner:'merchant',tamaoReceivesSaleProceeds:false,pixPayable:true,status:'pending',amountCents:12000,pixCode,expiresAt:new Date(Date.now()+3600000).toISOString()};
+const pixOrder={paymentMethod:'pix',paymentTiming:'prepaid',onlinePayment:pix};
+runtime.orderCheckedId='00000000-0000-4000-8000-000000000042';
+runtime.orderCheckedAt=new Date(Date.now()-1000).toISOString();
+assert.match(orderFor('PREPARING',pixOrder),/Pix copia e cola/);
+for(const [status,extra] of [['SETTLED',{}],['DELIVERED',{}],['PREPARING',{paymentTiming:'on_delivery'}],['PREPARING',{onlinePayment:{...pix,fundsOwner:'platform'}}],['PREPARING',{onlinePayment:{...pix,provider:'other'}}]]){
+ const html=orderFor(status,{...pixOrder,...extra});
+ assert.doesNotMatch(html,/Pix copia e cola|Copiar código Pix/);
+ assert.ok(!html.includes(pixCode));
+}
+runtime.orderCheckedAt=new Date(Date.now()-600000).toISOString();
+assert.match(orderFor('PREPARING',pixOrder),/Pix aguardando conferência/);
+assert.ok(!orderFor('PREPARING',pixOrder).includes(pixCode));
+runtime.orderCheckedAt=new Date(Date.now()-1000).toISOString();
+for(const payment of [{...pix,pixCode:pixFixture(12001)},{...pix,pixCode:pixCode.slice(0,-1)+'Z'},{...pix,expiresAt:'invalid'},{...pix,status:'not_started',canStart:true}]){
+ const html=orderFor('PREPARING',{...pixOrder,onlinePayment:payment});
+ assert.match(html,/Pix aguardando conferência/);
+ assert.doesNotMatch(html,/Pix copia e cola|Copiar código Pix|Gerar Pix do pedido/);
+ assert.ok(!html.includes(payment.pixCode));
+}
+delete globals.tamaoPixCodeValid;
+assert.match(orderFor('PREPARING',pixOrder),/Pix aguardando conferência/);
+const backend=read('js/backend.js'),copyStart=backend.indexOf('async function liveCopyOrderPix('),copyEnd=backend.indexOf('\n}',copyStart);
+assert.ok(copyStart>=0&&copyEnd>copyStart);
+async function copyCase({alter={},stale=false,error=false,switchSession=false}={}){
+ const id='order-a',rt={session:{user:{id:'buyer'}},authGeneration:1,orderId:id};
+ const written=[],notices=[];
+ const order={orderId:id,status:'PREPARING',totalCents:12000,...pixOrder,...alter};
+ const ctx=vm.createContext({liveRuntime:rt,liveReady:()=>true,render:()=>{},toast:v=>notices.push(v),
+  tamaoPixCodeValid:validate,navigator:{clipboard:{writeText:async v=>written.push(v)}},
+  liveGetOrder:async()=>{if(switchSession)rt.authGeneration++;if(error)throw Error('offline');
+    rt.orderCheckedId=id;rt.orderCheckedAt=new Date(Date.now()-(stale?60000:0)).toISOString();return order;}});
+ vm.runInContext(backend.slice(copyStart,copyEnd+2),ctx);
+ const result=await ctx.liveCopyOrderPix(id);
+ return {result,written,notices};
+}
+assert.deepEqual((await copyCase()).written,[pixCode]);
+for(const options of [{stale:true},{error:true},{switchSession:true},{alter:{orderId:'other'}},{alter:{status:'CANCELLED'}},{alter:{onlinePayment:{...pix,expiresAt:'invalid'}}},{alter:{onlinePayment:{...pix,fundsOwner:'platform'}}},{alter:{onlinePayment:{...pix,provider:'other'}}}]){
+ const x=await copyCase(options);assert.equal(x.result,false);assert.equal(x.written.length,0);
+}
+assert.equal((await copyCase({switchSession:true})).notices.length,0);
+console.log('PASS: tracking hides unverified Pix and copy requires fresh current-order evidence.');

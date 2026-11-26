@@ -2256,9 +2256,15 @@ function liveTracking(){
         : onlinePayment.status==='review_required'
           ? '<div class="notice danger" style="margin-top:14px"><strong>Pagamento em revisão.</strong><br>O pedido fica protegido até o TAMÃO confirmar o estado diretamente no provedor.</div>'
           : o.paymentMethod==='pix'&&onlinePayment.pixPayable===true&&
+             readEvidence.kind==='recent'&&o.paymentTiming==='prepaid'&&
+             ['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&
+             onlinePayment.available===true&&onlinePayment.provider==='mercadopago'&&
+             onlinePayment.fundsOwner==='merchant'&&onlinePayment.tamaoReceivesSaleProceeds===false&&
              ['pending','checkout_ready'].includes(onlinePayment.status)&&
              Number(onlinePayment.amountCents)===Number(o.totalCents)&&
-             Date.parse(String(onlinePayment.expiresAt||''))>Date.now()+60000
+             Date.parse(String(onlinePayment.expiresAt||''))>Date.now()+60000&&
+             typeof globalThis.tamaoPixCodeValid==='function'&&
+             globalThis.tamaoPixCodeValid(onlinePayment.pixCode,Number(o.totalCents))
             ? '<section class="notice" aria-label="Pix do pedido"><h3>Pix para a revenda</h3>'+
               '<p>'+esc(BRL.format(Number(onlinePayment.amountCents)/100))+'</p>'+
               (globalThis.tamaoPixRecipientHtml?.({scope:'merchant',
@@ -2267,6 +2273,8 @@ function liveTracking(){
               '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(onlinePayment.pixCode)+'</textarea></label>'+
               '<button type="button" class="primary" data-order-id="'+esc(o.orderId)+'" onclick="liveCopyOrderPix(this.dataset.orderId)">Copiar código Pix</button>'+
               '<p role="status">Conferimos o Pix com a revenda, sem gerar outra cobrança. A confirmação aparece aqui.</p></section>'
+          : o.paymentMethod==='pix'&&onlinePayment.pixPayable===true
+            ? '<div class="notice" role="status" style="margin-top:14px"><strong>Pix aguardando conferência.</strong><br>O código não está disponível para pagamento seguro nesta consulta. Atualize o acompanhamento para recuperar a cobrança original. Não gere outro pagamento.</div>'
           : onlinePayment.checkoutUrl
             ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
             : onlinePayment.canStart===true
