@@ -647,6 +647,50 @@ assert.match(hoursRt.error,/já tem reservas confirmadas/);
 console.log('PASS: exact weekly schedule and holiday reconciliation, malformed hours rejected, refresh failures tolerated.');
 
 
+// Profile fields and gallery must each be confirmed from the owner row.
+const profileOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ profilePage='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ profilePhoto='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const profileCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},crypto:{randomUUID:()=>profilePhoto,subtle:{digest:async()=>new Uint8Array([1,2]).buffer}},
+ FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.save=agendaSaveProfile;',profileCtx);
+const profileRt=profileCtx.rt;
+const profileData={slug:'barbearia-centro',title:'Barbearia Centro',about:'Apresentação',city:'São Gabriel',
+ public_area:'Centro',whatsapp_e164:null,published:true};
+let profileRow={...profileData,id:profilePage,owner_id:profileOwner,photo_paths:[],updated_at:'2026-11-25T22:00:00Z'},
+ profileWrite=true,profilePhotoWrite=true,profileUploads=[],profileWrites=0,profileReadError=false;
+const profileClient={from(table){assert.equal(table,'agenda_pages');let values,filters={};const q={
+ update(v){values=v;return q},insert(v){values=v;return q},select(){return q},eq(k,v){filters[k]=v;return q},
+ async maybeSingle(){assert.equal(filters.owner_id,profileOwner);return {data:profileRow,error:profileReadError?Error('read unavailable'):null}},
+ then(resolve,reject){
+  profileWrites++;
+  if(profileWrite&&(!values.photo_paths||profilePhotoWrite)&&Object.entries(filters).every(([k,v])=>profileRow[k]===v))
+   profileRow={...profileRow,...values};
+  return Promise.resolve({error:Error('lost response')}).then(resolve,reject);
+ }};return q;},
+ storage:{from(bucket){assert.equal(bucket,'tamao-discovery-photos');return {async upload(key){profileUploads.push(key);throw Error('lost upload response')}}}}};
+profileCtx.agendaRefreshOwner=async()=>{throw Error('refresh unavailable')};
+profileCtx.agendaRefreshDirectory=async()=>{throw Error('directory unavailable')};
+Object.assign(profileRt,{client:profileClient,user:{id:profileOwner},page:{...profileRow}});
+const profileForm=(file=null,overrides={})=>({preventDefault(){},target:{...profileData,whatsapp:'',published:'on',
+ ...overrides,elements:{photo:{files:file?[file]:[]}}}});
+await profileCtx.save(profileForm());assert.match(profileRt.notice,/Dados da página salvos/);assert.equal(profileRt.busy,false);
+profileWrite=false;await profileCtx.save(profileForm(null,{title:'Novo nome'}));assert.equal(profileRt.notice,'');
+profileWrite=true;const oldProfileWrites=profileWrites;
+await profileCtx.save(profileForm(null,{whatsapp:'123'}));assert.equal(profileWrites,oldProfileWrites);
+const samplePhoto={type:'image/png',size:10,arrayBuffer:async()=>new Uint8Array([1]).buffer};
+profilePhotoWrite=false;await profileCtx.save(profileForm(samplePhoto));
+assert.match(profileRt.notice,/Dados da página salvos/);assert.match(profileRt.error,/foto não foi confirmada/);
+assert.equal(profileRt.page.photo_paths.length,0);
+profilePhotoWrite=true;await profileCtx.save(profileForm(samplePhoto));
+assert.equal(profileUploads[0],profileUploads[1]);assert.equal(profileRt.error,'');
+assert.equal(profileRt.page.photo_paths[0],profileOwner+'/'+profilePhoto+'.png');
+profileReadError=true;await profileCtx.save(profileForm());assert.equal(profileRt.notice,'');
+profileReadError=false;profileRow={...profileRow,owner_id:profilePage};await profileCtx.save(profileForm());
+assert.equal(profileRt.notice,'');assert.equal(profileRt.busy,false);
+console.log('PASS: owner-scoped page readback, independent photo confirmation, stable retry key and invalid input.');
+
 // Staff blocks reconcile the same owner, page and staff plus interval coverage.
 // The server may reuse an existing broader block instead of inserting a new row.
 const blockCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
