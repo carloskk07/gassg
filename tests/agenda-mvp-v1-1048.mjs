@@ -679,7 +679,7 @@ profileWrite=true;const oldProfileWrites=profileWrites;
 await profileCtx.save(profileForm(null,{whatsapp:'123'}));assert.equal(profileWrites,oldProfileWrites);
 const samplePhoto={type:'image/png',size:10,arrayBuffer:async()=>new Uint8Array([1]).buffer};
 profilePhotoWrite=false;await profileCtx.save(profileForm(samplePhoto));
-assert.match(profileRt.notice,/Dados da página salvos/);assert.match(profileRt.error,/foto não foi confirmada/);
+assert.match(profileRt.notice,/Dados da página salvos/);assert.match(profileRt.error,/foto não foi confirmada/i);
 assert.equal(profileRt.page.photo_paths.length,0);
 profilePhotoWrite=true;await profileCtx.save(profileForm(samplePhoto));
 assert.equal(profileUploads[0],profileUploads[1]);assert.equal(profileRt.error,'');
@@ -786,3 +786,29 @@ catPersist=false;const count=catWrites.length;
 await catCtx.staff(catForm({name:'Joana'}));await catCtx.staff(catForm({name:'Joana'}));
 assert.equal(catWrites.length,count+1);assert.equal(catRt.notice,'');
 console.log('PASS: catalog evidence, no duplicate retry, invalid price, scope mismatch and staff booking guard.');
+
+
+// A manual publication requires a real active service and compatible owner hours.
+const readinessCtx=vm.createContext({});
+vm.runInContext(source+';this.ready=agendaPublicationReady;',readinessCtx);
+const readyOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',readyPage='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ readyService={id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',owner_id:readyOwner,page_id:readyPage,active:true,duration_min:60},
+ readyHour={owner_id:readyOwner,page_id:readyPage,weekday:1,opens_min:540,closes_min:600};
+let readyServices=[readyService],readyHours=[readyHour],readyError=false;
+const readinessClient={from(table){const filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q},
+ then(resolve,reject){assert.equal(filters.owner_id,readyOwner);assert.equal(filters.page_id,readyPage);
+ if(table==='agenda_services')assert.equal(filters.active,true);
+ return Promise.resolve({data:table==='agenda_services'?readyServices:readyHours,error:readyError?Error('unavailable'):null}).then(resolve,reject)}};
+ return q;}};
+const checkReady=()=>readinessCtx.ready(readinessClient,readyPage,readyOwner);
+assert.equal(await checkReady(),true);
+readyHours=[];assert.equal(await checkReady(),false);
+readyHours=[{...readyHour,closes_min:570}];assert.equal(await checkReady(),false);
+readyHours=[{...readyHour,closes_min:601}];assert.equal(await checkReady(),false);
+readyHours=[readyHour];readyServices=[{...readyService,active:false}];assert.equal(await checkReady(),false);
+readyServices=[];assert.equal(await checkReady(),false);
+readyServices=[{...readyService,page_id:readyOwner}];await assert.rejects(checkReady,/scope mismatch/);
+readyServices=[readyService];readyError=true;await assert.rejects(checkReady,/unavailable/);
+assert.equal(await readinessCtx.ready(readinessClient,'bad-id',readyOwner),false);
+assert.match(source,/if\(!ready\)\{data\.published=false;publishDeferred=true;\}/);
+console.log('PASS: manual publication readiness, active service, compatible hours, owner scope and read failure.');
