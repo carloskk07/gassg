@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - 'scripts/release-db-encrypt-checkpoint.sh'
+      - 'scripts/release-db-recover-encrypted-checkpoint.py'
       - 'tests/offline-encrypted-backup-package.sh'
       - '.github/workflows/recovery-tooling-check.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'scripts/release-db-backup-checkpoint.sh'
       - 'scripts/release-db-restore-isolated.sh'
       - 'scripts/release-db-encrypt-checkpoint.sh'
+      - 'scripts/release-db-recover-encrypted-checkpoint.py'
       - 'tests/offline-encrypted-backup-package.sh'
       - 'tools/tamao-backup-windows/**'
       - '.github/workflows/recovery-tooling-check.yml'
