@@ -375,3 +375,38 @@ assert.equal(slotRt.slotError,'');
 assert.match(slotCtx.publicView(),/Não há horários livres/);
 assert.match(slotCtx.publicView(),/Quer entrar na lista de espera/);
 console.log('PASS: Agenda slot query recovery, A-B-A race protection and accurate no-availability copy.');
+
+
+// An ambiguous booking write is confirmed only by the exact persisted evidence.
+const bookCtx=vm.createContext({
+ URL,URLSearchParams,location:{pathname:'/agenda/barbearia-sg',hash:'',search:''},
+ route:()=> 'agenda',render(){},FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}},
+ BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
+ crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
+});
+vm.runInContext(source+';this.rt=agendaRuntime;this.book=agendaBook;',bookCtx);
+const bookRt=bookCtx.rt;
+const evidence={id:'22222222-2222-4222-8222-222222222222',status:'confirmed',
+ request_id:'11111111-1111-4111-8111-111111111111',customer_id:'33333333-3333-4333-8333-333333333333',
+ service_id:'44444444-4444-4444-8444-444444444444',staff_id:'55555555-5555-4555-8555-555555555555',
+ starts_at:'2026-12-01T12:00:00Z'};
+let stored={...evidence},writeError=true,readError=false,writes=0,reads=0;
+const client={rpc:async(name,args)=>{assert.equal(name,'agenda_book_staff_slot');assert.equal(args.p_request_id,evidence.request_id);writes++;return writeError?{error:Error('network')}:{data:{id:evidence.id,status:'confirmed'}};},
+ from(table){assert.equal(table,'agenda_appointments');const filters={};
+  const q={select(fields){assert.match(fields,/request_id,customer_id,service_id,staff_id/);return q;},
+   eq(k,v){filters[k]=v;return q;},async maybeSingle(){reads++;assert.equal(filters.customer_id,evidence.customer_id);assert.equal(filters.request_id,evidence.request_id);return {data:stored,error:readError?Error('read failed'):null};}};return q;}};
+bookCtx.agendaRefreshOwner=async()=>{throw Error('refresh unavailable')};
+bookCtx.agendaLoadSlots=async()=>{};
+const prepare=()=>Object.assign(bookRt,{client,user:{id:evidence.customer_id},busy:false,slotBusy:false,slotError:'',
+ serviceId:evidence.service_id,staffId:evidence.staff_id,selectedStart:evidence.starts_at,requestKey:evidence.request_id,
+ slots:[{starts_at:evidence.starts_at}],publicProfile:{staff:[{id:evidence.staff_id}]},notice:'',error:''});
+const submit=()=>bookCtx.book({preventDefault(){},target:{name:'Pessoa Teste',phone:'55999998888'}});
+for(const mismatch of [{starts_at:'2026-12-01T13:00:00Z'},{service_id:'other'},{staff_id:null},{customer_id:'other'},{request_id:'other'},{status:'cancelled'}]){
+ prepare();stored={...evidence,...mismatch};await submit();
+ assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);assert.equal(bookRt.busy,false);
+}
+prepare();stored={...evidence};readError=true;await submit();assert.equal(bookRt.notice,'');assert.equal(bookRt.requestKey,evidence.request_id);
+readError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);assert.equal(bookRt.requestKey,'');assert.equal(bookRt.error,'');
+writeError=false;prepare();await submit();assert.match(bookRt.notice,/Horário confirmado/);
+assert.equal(writes,9);assert.equal(reads,9);
+console.log('PASS: exact persisted booking confirmation on normal and ambiguous writes, mismatches rejected, refresh failure preserves proof.');

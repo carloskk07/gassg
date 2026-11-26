@@ -1232,45 +1232,59 @@ async function agendaSetClosedDay(day,closed){
 }
 async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||s.rescheduleId||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
+ if(s.busy||s.rescheduleId||!s.user||!s.client||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
+ if(s.slotBusy||s.slotError||!s.slots.some(x=>x.starts_at===s.selectedStart))return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
  if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
- if((s.publicProfile?.staff||[]).length&& !agendaUuid.test(s.staffId))return false;
- const request=s.requestKey,instant=s.selectedStart,service=s.serviceId;
+ if((s.publicProfile?.staff||[]).length&&!agendaUuid.test(s.staffId))return false;
+ const request=s.requestKey,instant=s.selectedStart,service=s.serviceId,staff=s.staffId||null;
+ const client=s.client,userId=s.user.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.epoch===epoch&&s.user?.id===userId;
+ const sameChoice=()=>current()&&agendaSlug()===slug&&s.serviceId===service&&
+  (s.staffId||null)===staff&&s.requestKey===request&&s.selectedStart===instant;
+ const matches=row=>agendaUuid.test(String(row?.id||''))&&row.status==='confirmed'&&
+  row.request_id===request&&row.customer_id===userId&&row.service_id===service&&
+  (row.staff_id||null)===staff&&Date.parse(row.starts_at)===Date.parse(instant);
  s.busy=true;s.error='';s.notice='';
+ let failure=null,confirmed=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_book_staff_slot',{
+  const {data,error}=await client.rpc('agenda_book_staff_slot',{
    p_service_id:service,p_starts_at:instant,p_name:name,p_phone:phone,
-   p_request_id:request,p_staff_id:s.staffId||null
+   p_request_id:request,p_staff_id:staff
   });
   if(error)throw error;
   if(!agendaUuid.test(data?.id)||data.status!=='confirmed')throw Error('booking readback failed');
-  const verify=await s.client.from('agenda_appointments').select('id,status,starts_at')
-   .eq('id',data.id).eq('customer_id',s.user.id).maybeSingle();
-  if(verify.error||verify.data?.status!=='confirmed'||Date.parse(verify.data.starts_at)!==Date.parse(instant))
-   throw Error('booking readback unavailable');
-  s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
-  s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
-  await agendaRefreshOwner();
-  await agendaLoadSlots();
- }catch(e){
-  // An ambiguous network failure may have committed. Verify the same
-  // request ID; never allocate a new one automatically on retry.
-  try{
-   const readback=await s.client.from('agenda_appointments').select('id,status,starts_at')
-    .eq('request_id',request).eq('customer_id',s.user.id).maybeSingle();
-   if(readback.data?.status==='confirmed'){
-    s.notice='Reserva confirmada para '+agendaDateTime(readback.data.starts_at)+'.';
-    s.selectedStart='';s.requestKey='';agendaClearPendingChoice();await agendaRefreshOwner();await agendaLoadSlots();
-   }else{
-    s.error=e?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')?'Este horário acabou de ser escolhido. Atualize os horários.':
-     'Não foi possível confirmar. Confira sua conta antes de repetir.';
-   }
-  }catch(_){s.error='O resultado não pôde ser confirmado. Confira suas reservas antes de tentar novamente.';}
+ }catch(e){failure=e;}
+ try{
+  if(!current())return false;
+  // Both successful and ambiguous writes require the same exact, customer-bound
+  // persisted evidence. A mismatched idempotency key cannot certify a new slot.
+  const readback=await client.from('agenda_appointments')
+   .select('id,status,starts_at,request_id,customer_id,service_id,staff_id')
+   .eq('request_id',request).eq('customer_id',userId).maybeSingle();
+  if(!current())return false;
+  confirmed=!readback.error&&matches(readback.data);
+  if(!sameChoice())return false;
+  if(confirmed){
+   s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
+   s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
+   // A refresh failure cannot invalidate a booking already proven persisted.
+   try{await agendaRefreshOwner();}catch(_){}
+   if(current()&&agendaSlug()===slug&&s.serviceId===service&&(s.staffId||null)===staff)
+    await agendaLoadSlots();
+  }else{
+   s.error=failure?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')&&!readback.error&&!readback.data
+    ?'Este horário acabou de ser escolhido. Atualize os horários.':
+    'Não foi possível confirmar. Confira sua conta antes de repetir.';
+  }
+ }catch(_){
+  if(!confirmed&&sameChoice())s.error='O resultado não pôde ser confirmado. Confira suas reservas antes de tentar novamente.';
+ }finally{
+  s.busy=false;if(agendaRoute())render();
  }
- s.busy=false;render();return false;
+ return false;
 }
 function agendaBeginReschedule(id){
  const s=agendaRuntime;
