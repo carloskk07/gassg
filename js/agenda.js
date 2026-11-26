@@ -1236,22 +1236,43 @@ async function agendaMarkAttendance(id,result){
  }finally{s.busy=false;if(agendaRoute())render();}
 }
 async function agendaSaveHours(ev){
- ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page)return false;
+ ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page||!s.user||!s.client)return false;
  const f=new FormData(ev.target),hours=[];
  for(let i=0;i<7;i++){
   if(f.get('open_'+i)!=='on')continue;
-  const mins=value=>{const match=/^(\d{2}):(\d{2})$/.exec(String(value||''));return match?Number(match[1])*60+Number(match[2]):NaN;};
+  const mins=value=>{
+   const match=/^(\d{2}):(\d{2})$/.exec(String(value||''));
+   if(!match||Number(match[2])>=60||Number(match[1])>24||
+    (Number(match[1])===24&&Number(match[2])!==0))return NaN;
+   return Number(match[1])*60+Number(match[2]);
+  };
   const opens=mins(f.get('start_'+i)),closes=mins(f.get('end_'+i));
   if(!Number.isInteger(opens)||!Number.isInteger(closes)||opens>=closes||opens%30||closes%30||
-    opens<0||closes>1440){s.error='Confira o início e o fim do expediente.';render();return false;}
+    opens<0||opens>1380||closes>1440){s.error='Confira o início e o fim do expediente.';render();return false;}
   hours.push({weekday:i,opens_min:opens,closes_min:closes});
  }
+ const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
  s.busy=true;s.error='';s.notice='';
  try{
-  const {error}=await s.client.rpc('agenda_replace_hours',{p_page_id:s.page.id,p_hours:hours});
-  if(error)throw error;await agendaRefreshOwner();s.notice='Horários atualizados.';
- }catch(e){s.error='Não foi possível salvar os horários.';}
- s.busy=false;render();return false;
+  // A lost write response is not evidence of failure. Read the whole week.
+  try{await client.rpc('agenda_replace_hours',{p_page_id:page,p_hours:hours});}catch(_){}
+  if(!current())return false;
+  const check=await client.from('agenda_hours')
+   .select('page_id,owner_id,weekday,opens_min,closes_min')
+   .eq('page_id',page).eq('owner_id',userId).order('weekday');
+  if(!current())return false;
+  const rows=check.data;
+  const exact=!check.error&&Array.isArray(rows)&&rows.length===hours.length&&
+   rows.every((row,i)=>row.page_id===page&&row.owner_id===userId&&
+    row.weekday===hours[i].weekday&&row.opens_min===hours[i].opens_min&&row.closes_min===hours[i].closes_min);
+  if(!exact){s.error='Não foi possível confirmar os horários. Confira o expediente antes de tentar novamente.';return false;}
+  s.hours=rows;s.notice='Horários atualizados.';
+  try{await agendaRefreshOwner();}catch(_){}
+ }catch(_){
+  if(current())s.error='Não foi possível confirmar os horários. Confira o expediente antes de tentar novamente.';
+ }finally{s.busy=false;if(agendaRoute())render();}
+ return false;
 }
 async function agendaAddClosedDay(ev){
  ev.preventDefault();
@@ -1260,21 +1281,40 @@ async function agendaAddClosedDay(ev){
 }
 async function agendaSetClosedDay(day,closed){
  const s=agendaRuntime;
- if(s.busy||!s.page||!s.user||!/^\d{4}-\d{2}-\d{2}$/.test(day)||
+ if(s.busy||!s.page||!s.user||!s.client||typeof closed!=='boolean'||!/^\d{4}-\d{2}-\d{2}$/.test(day)||
   day<agendaToday()||day>agendaToday(180))return;
- s.busy=true;s.error='';s.notice='';
+ const date=new Date(day+'T12:00:00Z');
+ if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==day)return;
+ const client=s.client,userId=s.user.id,page=s.page.id,epoch=s.epoch,slug=agendaSlug();
+ const current=()=>s.client===client&&s.user?.id===userId&&s.page?.id===page&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ let failure=null,verified=false;
  try{
-  const {data,error}=await s.client.rpc('agenda_set_closed_day',{p_day:day,p_closed:closed});
-  if(error||data!==true)throw error||Error('day update unconfirmed');
-  await agendaRefreshOwner();
-  if(s.serviceId&&s.day===day)await agendaLoadSlots();
+  try{
+   const result=await client.rpc('agenda_set_closed_day',{p_day:day,p_closed:closed});
+   if(result.error)throw result.error;
+  }catch(e){failure=e;}
+  if(!current())return;
+  const check=await client.from('agenda_closed_days').select('page_id,owner_id,day')
+   .eq('page_id',page).eq('owner_id',userId).eq('day',day).maybeSingle();
+  if(!current())return;
+  const row=check.data;
+  verified=!check.error&&(closed?row?.page_id===page&&row.owner_id===userId&&row.day===day:row===null);
+  if(!verified){
+   s.error=failure?.message?.includes('AGENDA_DAY_HAS_BOOKINGS')?
+    'Este dia já tem reservas confirmadas. Resolva esses atendimentos antes de bloquear.':
+    'Não foi possível confirmar a folga. Confira sua agenda antes de repetir.';
+   return;
+  }
+  s.closedDays=s.closedDays.filter(x=>x.day!==day);
+  if(closed)s.closedDays.push({day});
+  s.closedDays.sort((a,b)=>a.day.localeCompare(b.day));
   s.notice=closed?'Dia bloqueado para novos agendamentos.':'Dia liberado para agendamentos.';
- }catch(e){
-  s.error=e?.message?.includes('AGENDA_DAY_HAS_BOOKINGS')?
-   'Este dia já tem reservas confirmadas. Resolva esses atendimentos antes de bloquear.':
-   'Não foi possível alterar a folga. Confira sua agenda antes de repetir.';
- }
- s.busy=false;render();
+  try{await agendaRefreshOwner();}catch(_){}
+  if(current()&&agendaSlug()===slug&&s.serviceId&&s.day===day)await agendaLoadSlots();
+ }catch(_){
+  if(current()&&!verified)s.error='Não foi possível confirmar a folga. Confira sua agenda antes de repetir.';
+ }finally{s.busy=false;if(agendaRoute())render();}
 }
 async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
