@@ -1,6 +1,6 @@
 -- CANDIDATE ONLY. Not a migration; do not run in production.
 -- Validate in disposable PostgreSQL before generating the canonical migration.
-begin;
+-- Caller must wrap in a disposable transaction and roll it back.
 create function public.agenda_create_atomic(
  p_slug text,p_title text,p_city text,p_service text,
  p_duration integer,p_price_cents integer,p_schedule text
@@ -58,4 +58,3 @@ end
 $$;
 revoke all on function public.agenda_create_atomic(text,text,text,text,integer,integer,text) from public,anon,authenticated;
 grant execute on function public.agenda_create_atomic(text,text,text,text,integer,integer,text) to authenticated;
-commit;
