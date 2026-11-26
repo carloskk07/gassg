@@ -1040,18 +1040,26 @@ async function liveStartMerchantPayment(orderId){
 
 async function liveCopyOrderPix(orderId){
  const actor=String(liveRuntime.session?.user?.id||''),generation=Number(liveRuntime.authGeneration||0);
- if(!actor||!liveReady()||liveRuntime.orderId!==orderId)return false;
- const order=await liveGetOrder(orderId,{silent:true});
- const p=order?.onlinePayment;
- if(!liveReady()||String(liveRuntime.session?.user?.id||'')!==actor||
-    Number(liveRuntime.authGeneration||0)!==generation||liveRuntime.orderId!==orderId||
-    order?.paymentMethod!=='pix'||p?.pixPayable!==true||!['pending','checkout_ready'].includes(p.status)||
-    p.amountCents!==order.totalCents||Date.parse(String(p.expiresAt||''))<=Date.now()+60000||
+ const current=()=>!!actor&&liveReady()&&String(liveRuntime.session?.user?.id||'')===actor&&
+    Number(liveRuntime.authGeneration||0)===generation&&liveRuntime.orderId===orderId;
+ if(!current())return false;
+ const requestedAt=Date.now();
+ let order;
+ try{order=await liveGetOrder(orderId,{silent:true})}
+ catch{if(current()){render();toast('Não foi possível conferir o Pix original. Atualize o pedido antes de pagar.')}return false}
+ if(!current())return false;
+ const p=order?.onlinePayment,checkedAt=Date.parse(String(liveRuntime.orderCheckedAt||''));
+ if(order?.orderId!==orderId||liveRuntime.orderCheckedId!==orderId||!Number.isFinite(checkedAt)||
+    checkedAt<requestedAt||checkedAt>Date.now()+2000||
+    !['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(order?.status)||
+    order?.paymentTiming!=='prepaid'||order?.paymentMethod!=='pix'||p?.pixPayable!==true||
+    !['pending','checkout_ready'].includes(p.status)||p.amountCents!==order.totalCents||
+    !Number.isFinite(Date.parse(String(p.expiresAt||'')))||Date.parse(String(p.expiresAt||''))<=Date.now()+60000||
     typeof p.pixCode!=='string'||!globalThis.tamaoPixCodeValid?.(p.pixCode,order.totalCents)){
   render();toast('Consulte o pagamento atualizado deste pedido.');return false;
  }
- try{await navigator.clipboard.writeText(p.pixCode);toast('Código Pix copiado.');return true}
- catch{toast('Selecione o código Pix acima e copie.');return false}
+ try{await navigator.clipboard.writeText(p.pixCode);if(!current())return false;toast('Código Pix copiado.');return true}
+ catch{if(current())toast('Selecione o código Pix acima e copie.');return false}
 }
 
 const liveCustomerScripts={};
