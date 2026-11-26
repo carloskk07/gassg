@@ -87,7 +87,7 @@ html=render('REASSIGNING',{
     checkoutUrl:'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=123'}
 });
 assert.ok(!html.includes('Continuar pagamento'),'No inactive merchant payment CTA during reassigning');
-assert.ok(html.includes('Situação do pagamento ainda não confirmada'));
+assert.ok(html.includes('Pagamento original aguardando confirmação'));
 
 html=render('REASSIGNING',{onlinePayment:{status:'approved'}});
 assert.ok(html.includes('Transação aprovada anteriormente'));
@@ -113,3 +113,16 @@ assert.ok(css.includes('.customer-closed-next-actions'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/customer-closed-payment-v1-180.mjs'));
 console.log('V1.180: cancelled/reassigning payment truth, recorded refunds, safe future purchase and mobile support passed.');
+
+// Interrupted payments remain observable, never payable, even if a former
+// merchant's stale payload was present in the response.
+for(const status of ['CANCELLED','REASSIGNING']){
+ for(const paymentStatus of ['pending','checkout_ready']){
+  const html=render(status,{onlinePayment:{available:true,canStart:true,status:paymentStatus,
+   checkoutUrl:'https://example.invalid/old-checkout',pixCode:'OLD-PIX-CODE',pixPayable:true}});
+  assert.match(html,/Pagamento original aguardando confirmação/);
+  assert.doesNotMatch(html,/OLD-PIX-CODE|example\.invalid|Copiar código Pix|Gerar Pix do pedido|Continuar pagamento/);
+  assert.doesNotMatch(html,/Reembolso confirmado pelo provedor/);
+ }
+}
+console.log('PASS: interrupted payment remains visible without payment action or false refund.');
