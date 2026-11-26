@@ -2,7 +2,7 @@
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
  slug:'',publicProfile:null,directory:[],directoryQuery:'',directoryTotal:0,directoryMode:'idle',directoryLoading:false,directoryLoadingMore:false,directoryError:'',directoryRequest:0,directoryTimer:null,ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
- notice:'',error:'',busy:false,slotBusy:false,slotError:'',slotRequest:0,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
+ notice:'',error:'',busy:false,slotBusy:false,slotError:'',slotRequest:0,requestKey:'',epoch:0,authReady:false,qrOpen:false,qrBusy:false,advancedOpen:false,hoursOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -266,7 +266,8 @@ function agendaOwnerEditor(){
   '</form>'+(link?'<p class="agenda-link">Seu link: <a href="'+esc(link)+'">'+esc(link)+'</a></p>'+
    '<button type="button" class="secondary" onclick="agendaCopyLink()">Copiar link</button> '+
     '<button type="button" class="secondary" onclick="agendaSharePublicLink()">Compartilhar</button> '+
-    '<button type="button" class="secondary" onclick="agendaToggleQr()">Mostrar QR Code</button>'+ 
+    '<button type="button" class="secondary" onclick="agendaToggleQr()"'+(s.qrBusy?' disabled':'')+'>'+
+     (s.qrBusy?'Preparando QR Code…':s.qrOpen?'Ocultar QR Code':'Mostrar QR Code')+'</button>'+ 
     (s.qrOpen?'<div class="agenda-qr-card"><p>Escaneie para abrir minha agenda</p>'+agendaQrMarkup(p.slug)+
      '<button type="button" class="secondary" onclick="agendaDownloadQr()">Salvar QR Code</button></div>':''):'')+
   '<p class="tiny muted">A página é gratuita. Por enquanto, reservas não recebem sinal antecipado.</p></section>'+
@@ -682,9 +683,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.user=session.user;s.ownerMode=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -1454,22 +1455,45 @@ function agendaQrMarkup(slug){
  return svg?'<div class="agenda-qr-image" role="img" aria-label="QR Code da página do profissional">'+svg+'</div>':
   '<p class="tiny muted">Não foi possível criar o QR Code. Copie o link acima.</p>';
 }
-async function agendaLoadQr(){
- if(typeof globalThis.qrcode==='function')return true;
- return await new Promise(resolve=>{
-  const script=document.createElement('script');
-  script.src='/js/qr-generator.js';script.async=true;
-  script.onload=()=>resolve(typeof globalThis.qrcode==='function');
-  script.onerror=()=>resolve(false);
-  document.head.appendChild(script);
+let agendaQrLoading=null;
+function agendaLoadQr(){
+ if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
+ if(agendaQrLoading)return agendaQrLoading;
+ const attempt=new Promise(resolve=>{
+  let script,timer,settled=false;
+  const finish=ok=>{
+   if(settled)return;
+   settled=true;clearTimeout(timer);
+   if(!ok)script?.remove?.();
+   resolve(ok);
+  };
+  try{
+   script=document.createElement('script');
+   const version=document.querySelector?.('script[src*="/js/agenda.js"],script[src*="js/agenda.js"]')?.src.match(/[?&]v=([a-zA-Z0-9._-]+)/)?.[1];
+   script.src='/js/qr-generator.js'+(version?'?v='+version:'');script.async=true;
+   script.onload=()=>finish(typeof globalThis.qrcode==='function');
+   script.onerror=()=>finish(false);
+   timer=setTimeout(()=>finish(false),15000);
+   document.head.appendChild(script);
+  }catch(_){finish(false);}
  });
+ agendaQrLoading=attempt;
+ attempt.then(()=>{if(agendaQrLoading===attempt)agendaQrLoading=null;});
+ return attempt;
 }
 async function agendaToggleQr(){
- const s=agendaRuntime;if(!s.page?.slug||!s.page.published)return;
+ const s=agendaRuntime;if(!s.user||!s.page?.slug||!s.page.published||s.qrBusy)return;
  if(s.qrOpen){s.qrOpen=false;render();return;}
- const loaded=await agendaLoadQr();
- if(!loaded){s.error='Não foi possível preparar o QR Code. Use o link de compartilhamento.';render();return;}
- s.qrOpen=true;s.error='';render();
+ const user=s.user.id,page=s.page.id,slug=s.page.slug,epoch=s.epoch;
+ s.qrBusy=true;s.error='';render();
+ try{
+  const loaded=await agendaLoadQr();
+  if(s.user?.id!==user||s.page?.id!==page||s.page?.slug!==slug||!s.page?.published||s.epoch!==epoch||!agendaRoute())return;
+  if(!loaded||!agendaQrSvg(slug)){
+   s.error='Não foi possível preparar o QR Code. Tente novamente ou use o link de compartilhamento.';return;
+  }
+  s.qrOpen=true;
+ }finally{s.qrBusy=false;if(agendaRoute())render();}
 }
 function agendaDownloadQr(){
  const s=agendaRuntime;
@@ -1517,7 +1541,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+  s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.qrOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();

@@ -530,3 +530,37 @@ assert.equal(waitRt.notice,'');assert.equal(waitRt.myWaiting.length,1);
 prepareWait();waitRt.myWaiting=[{id:waitId}];waitRow=closedRow;waitReadError=true;await waitCtx.close(waitId,false);
 assert.equal(waitRt.notice,'');assert.equal(waitRt.myWaiting.length,1);
 console.log('PASS: Agenda waitlist verifies exact persisted participation and actual closing status.');
+
+
+// QR generation is optional: a failed script must not block sharing forever.
+const qrTimers=new Map(),qrScripts=[];
+let qrTimer=0,qrAppendFail=false;
+const qrCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},
+ setTimeout(fn,ms){assert.equal(ms,15000);qrTimers.set(++qrTimer,fn);return qrTimer;},
+ clearTimeout(id){qrTimers.delete(id)},
+ document:{createElement(){return {remove(){this.removed=true}}},
+ querySelector(){return {src:'https://tamao.com.br/js/agenda.js?v=1244'}},
+ head:{appendChild(script){if(qrAppendFail)throw Error('append failed');qrScripts.push(script);}}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.load=agendaLoadQr;this.toggle=agendaToggleQr;',qrCtx);
+const qrRt=qrCtx.rt;
+qrRt.user={id:'owner'};qrRt.page={id:'page',slug:'barbearia-centro',published:true};
+const pendingQr=qrCtx.toggle();
+assert.equal(qrRt.qrBusy,true);
+await qrCtx.toggle();assert.equal(qrScripts.length,1);
+assert.equal(qrScripts[0].src,'/js/qr-generator.js?v=1244');
+assert.equal(qrTimers.size,1);
+const timeoutFn=[...qrTimers.values()][0];timeoutFn();await pendingQr;
+assert.equal(qrRt.qrBusy,false);assert.equal(qrRt.qrOpen,false);
+assert.equal(qrScripts[0].removed,true);assert.equal(qrTimers.size,0);
+assert.match(qrRt.error,/Tente novamente/);
+qrAppendFail=true;await qrCtx.toggle();assert.equal(qrRt.qrBusy,false);assert.equal(qrTimers.size,0);
+qrAppendFail=false;
+const retryQr=qrCtx.toggle();assert.equal(qrScripts.length,2);
+qrScripts[0].onload();assert.equal(qrRt.qrBusy,true);
+vm.runInContext(qrLibrary,qrCtx);
+qrScripts[1].onload();await retryQr;
+assert.equal(qrRt.qrOpen,true);assert.equal(qrRt.qrBusy,false);assert.equal(qrTimers.size,0);
+await qrCtx.toggle();assert.equal(qrRt.qrOpen,false);
+await qrCtx.toggle();assert.equal(qrRt.qrOpen,true);assert.equal(qrScripts.length,2);
+console.log('PASS: Agenda QR bounded download, duplicate guard, retry, late callback and real SVG generation.');
