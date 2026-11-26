@@ -686,3 +686,45 @@ assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
 prepareBlock();blockRt.blocks=[blockEvidence];blockSingle=null;blockReadError=true;await blockCtx.removeBlock(blockId);
 assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
 console.log('PASS: staff block reconciliation covers broader existing block, read failures, owner/staff scope, invalid input and safe removal.');
+
+ 
+// Catalog writes need persisted evidence, not only a successful transport response.
+const catPage='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',catOwner='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ catId='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const catCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},crypto:{randomUUID:()=>catId},
+ FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.save=agendaSaveService;this.staff=agendaSaveStaff;this.toggle=agendaToggleStaff;this.toggleService=agendaToggleService;',catCtx);
+const catRt=catCtx.rt;
+let catRecord=null,catReadError=false,catWriteError='network',catPersist=true,catWrites=[];
+const catClient={from(table){let mode='',filters={};const q={
+ insert(values){catWrites.push({table,values});if(catPersist)catRecord=values;return Promise.resolve({error:catWriteError?Error(catWriteError):null})},
+ update(values){mode='update';q.values=values;return q},
+ select(){mode='select';return q},
+ eq(k,v){filters[k]=v;if(mode==='update'&&k==='page_id'){
+ catWrites.push({table,values:q.values,filters});if(catPersist)catRecord={...catRecord,...q.values};
+ return Promise.resolve({error:catWriteError?Error(catWriteError):null});}return q},
+ async maybeSingle(){return {data:catRecord,error:catReadError?Error('read failed'):null}}
+ };return q;}};
+catCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+Object.assign(catRt,{client:catClient,user:{id:catOwner},page:{id:catPage}});
+const catForm=(fields,id)=>({preventDefault(){},target:{...fields,dataset:id?{id}:{}}});
+const catService=catForm({title:'Corte',price:'50.00',duration:'30'});
+catReadError=true;await catCtx.save(catService);
+assert.equal(catRt.notice,'');assert.equal(catRt.services.length,0);assert.equal(catRt.busy,false);
+catReadError=false;catPersist=false;await catCtx.save(catService);
+assert.equal(catWrites[0].values.id,catWrites[1].values.id);
+assert.match(catRt.notice,/Serviço adicionado/);assert.equal(catRt.services[0].price_cents,5000);
+catRecord={...catRecord,page_id:catOwner};await catCtx.toggleService(catId);
+assert.equal(catRt.notice,'');assert.equal(catRt.services[0].active,true);
+const beforeBadPrice=catWrites.length;
+await catCtx.save(catForm({title:'Corte',price:'',duration:'30'}));
+assert.equal(catWrites.length,beforeBadPrice);
+catRecord={id:catId,page_id:catPage,name:'Maria',active:true};catPersist=true;
+await catCtx.staff(catForm({name:'Maria'}));
+assert.match(catRt.notice,/Colaborador adicionado/);
+catPersist=false;catWriteError='AGENDA_STAFF_HAS_BOOKINGS';await catCtx.toggle(catId);
+assert.match(catRt.error,/atendimentos confirmados/);assert.equal(catRt.staff[0].active,true);
+catPersist=true;catWriteError='network';await catCtx.toggle(catId);
+assert.match(catRt.notice,/pausada/);assert.equal(catRt.staff[0].active,false);
+console.log('PASS: catalog evidence, retry ID, invalid price, scope mismatch and staff booking guard.');
