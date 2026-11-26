@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import {execFileSync,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {randomUUID} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {randomUUID,createHash} from 'node:crypto';
+import {readFileSync,mkdtempSync,readdirSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 // Dedicated last step of disposable integration only. No provider calls or hosted DB.
 assert.equal(process.env.CI,'true');
 assert.equal(process.env.TAMAO_DISPOSABLE_CONCURRENCY,'1');
@@ -80,3 +82,20 @@ try{
 }finally{
  sql(`drop function ${signature};`);
 }
+
+ 
+// Generate a canonical filename using the pinned CI Supabase CLI. Keep
+// generated files outside the checkout and never connect to a hosted project.
+const migrationDir=mkdtempSync(join(tmpdir(),'tamao-agenda-migration-'));
+try{
+ const version=execFileSync('supabase',['--version'],{encoding:'utf8',timeout:15000}).trim();
+ execFileSync('supabase',['migration','new','--help'],{cwd:migrationDir,encoding:'utf8',timeout:15000});
+ execFileSync('supabase',['migration','new','agenda_atomic_onboarding'],{cwd:migrationDir,encoding:'utf8',timeout:15000});
+ const folder=join(migrationDir,'supabase','migrations');
+ const names=readdirSync(folder).filter(x=>/^\d{14}_agenda_atomic_onboarding\.sql$/.test(x));
+ assert.equal(names.length,1,'one CLI-generated migration');
+ const migration='-- Agenda atomic onboarding; verified by disposable SQL and concurrency gates.\nbegin;\n'+candidate.replace(/^--[^\n]*\n/gm,'').trim()+'\ncommit;\n';
+ writeFileSync(join(folder,names[0]),migration,'utf8');
+ const digest=createHash('sha256').update(readFileSync(join(folder,names[0]))).digest('hex');
+ console.log('ATOMIC_MIGRATION_GENERATED '+names[0]+' SHA256='+digest+' CLI='+version);
+}finally{rmSync(migrationDir,{recursive:true,force:true});}
