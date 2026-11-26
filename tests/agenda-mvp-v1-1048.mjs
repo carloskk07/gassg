@@ -811,7 +811,7 @@ const recoveryClient={rpc(){throw Error('Recovery must not write or resubmit')},
 }};
 recoveryCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
 Object.assign(recoveryRt,{client:recoveryClient,user:{id:recoveryOther}});
-assert.equal(recoveryCtx.view(),'');await recoveryCtx.recover(evidence.request_id);assert.equal(recoveryReads,0);
+assert.doesNotMatch(recoveryCtx.view(),/Conferir tentativa/);await recoveryCtx.recover(evidence.request_id);assert.equal(recoveryReads,0);
 recoveryRt.user={id:recoveryUser};
 assert.match(recoveryCtx.view(),/Conferir tentativa/);
 await recoveryCtx.recover(evidence.request_id);
@@ -827,3 +827,24 @@ assert.equal(recoveryCtx.read(recoveryUser).length,0);assert.equal(recoveryRt.bu
 assert.match(recoveryCtx.view(),/Minhas reservas/);
 assert.match(source,/agendaNote\(\)\+agendaPublicView\(\)\+agendaMyBookingsView\(\)\+agendaMyWaitingView/);
 console.log('PASS: read-only booking attempt recovery, account isolation, persisted key reuse and private storefront access.');
+
+
+// Server-backed refresh is independent of the establishment editor.
+const refreshCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},esc:x=>String(x??'')});
+vm.runInContext(source+';this.rt=agendaRuntime;this.refresh=agendaRefreshCustomerReservations;this.view=agendaMyBookingsView;',refreshCtx);
+const refreshRt=refreshCtx.rt;
+let response={data:[{...evidence,page_title:'Barbearia',service_title:'Corte'}],error:null};
+let refreshCalls=0;
+const refreshClient={rpc:async(name)=>{assert.equal(name,'agenda_my_bookings');refreshCalls++;return response}};
+Object.assign(refreshRt,{client:refreshClient,user:{id:evidence.customer_id},mine:[]});
+assert.match(refreshCtx.view(),/Atualizar reservas/);
+await refreshCtx.refresh();assert.equal(refreshRt.mine.length,1);assert.match(refreshRt.notice,/Reservas atualizadas/);
+response={data:null,error:Error('network')};await refreshCtx.refresh();
+assert.equal(refreshRt.mine.length,1);assert.match(refreshRt.error,/últimos dados/);
+response={data:[{...evidence,status:'cancelled'}],error:null};await refreshCtx.refresh();
+assert.equal(refreshRt.mine.length,1);assert.equal(refreshRt.notice,'');
+response={data:[],error:null};await refreshCtx.refresh();assert.equal(refreshRt.mine.length,0);
+assert.match(refreshRt.notice,/Nenhuma reserva futura confirmada/);
+assert.equal(refreshCalls,4);assert.equal(refreshRt.busy,false);
+console.log('PASS: independent authenticated customer reservation refresh, error preservation and confirmed empty list.');
