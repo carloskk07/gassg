@@ -686,3 +686,61 @@ assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
 prepareBlock();blockRt.blocks=[blockEvidence];blockSingle=null;blockReadError=true;await blockCtx.removeBlock(blockId);
 assert.equal(blockRt.notice,'');assert.equal(blockRt.blocks.length,1);
 console.log('PASS: staff block reconciliation covers broader existing block, read failures, owner/staff scope, invalid input and safe removal.');
+
+ 
+// Catalog writes need persisted evidence, not only a successful transport response.
+const catPage='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',catOwner='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ catId='cccccccc-cccc-4ccc-8ccc-cccccccccccc',catStaffId='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const catCtx=vm.createContext({URL,URLSearchParams,location:{pathname:'/agenda/',hash:'',search:''},
+ route:()=> 'agenda',render(){},FormData:class{constructor(t){this.t=t}get(k){return this.t[k]}}});
+vm.runInContext(source+';this.rt=agendaRuntime;this.save=agendaSaveService;this.staff=agendaSaveStaff;this.toggle=agendaToggleStaff;this.toggleService=agendaToggleService;',catCtx);
+const catRt=catCtx.rt;
+const catRows={agenda_services:[],agenda_staff:[]};
+let catReadError=false,catFailAfterInsert=true,catWriteError='network',catPersist=true,catWrites=[];
+const catClient={from(table){let mode='',filters={},values;const q={
+ insert(v){mode='insert';values=v;return q},
+ update(v){mode='update';values=v;return q},
+ select(){return q},
+ eq(k,v){filters[k]=v;return q},
+ async single(){
+  catWrites.push({table,values});assert.equal('id' in values,false);
+  const row={...values,id:table==='agenda_services'?catId:catStaffId};
+  if(catPersist)catRows[table].push(row);
+  if(catFailAfterInsert)catReadError=true;
+  return {data:catWriteError?null:row,error:catWriteError?Error(catWriteError):null};
+ },
+ async maybeSingle(){return {data:catRows[table].find(r=>r.id===filters.id)||null,error:catReadError?Error('read failed'):null}},
+ then(resolve,reject){
+  if(mode==='update'){
+   catWrites.push({table,values,filters});
+   if(catPersist)catRows[table]=catRows[table].map(r=>r.id===filters.id&&r.page_id===filters.page_id?{...r,...values}:r);
+   return Promise.resolve({error:catWriteError?Error(catWriteError):null}).then(resolve,reject);
+  }
+  return Promise.resolve({data:catRows[table].filter(r=>Object.entries(filters).every(([k,v])=>r[k]===v)),
+   error:catReadError?Error('read failed'):null}).then(resolve,reject);
+ }
+ };return q;}};
+catCtx.agendaRefreshOwner=async()=>{throw Error('list unavailable')};
+Object.assign(catRt,{client:catClient,user:{id:catOwner},page:{id:catPage}});
+const catForm=(fields,id)=>({preventDefault(){},target:{...fields,dataset:id?{id}:{}}});
+const catService=catForm({title:'Corte',price:'50.00',duration:'30'});
+await catCtx.save(catService);
+assert.equal(catRt.notice,'');assert.equal(catRt.services.length,0);assert.equal(catRt.busy,false);
+catReadError=false;await catCtx.save(catService);
+assert.equal(catWrites.length,1);
+assert.match(catRt.notice,/Serviço adicionado/);assert.equal(catRt.services[0].price_cents,5000);
+catRows.agenda_services[0].page_id=catOwner;await catCtx.toggleService(catId);
+assert.equal(catRt.notice,'');assert.equal(catRt.services[0].active,true);
+const beforeBadPrice=catWrites.length;
+await catCtx.save(catForm({title:'Corte',price:'',duration:'30'}));
+assert.equal(catWrites.length,beforeBadPrice);
+catFailAfterInsert=false;await catCtx.staff(catForm({name:'Maria'}));
+assert.match(catRt.notice,/Colaborador adicionado/);
+catPersist=false;catWriteError='AGENDA_STAFF_HAS_BOOKINGS';await catCtx.toggle(catStaffId);
+assert.match(catRt.error,/atendimentos confirmados/);assert.equal(catRt.staff[0].active,true);
+catPersist=true;catWriteError='network';await catCtx.toggle(catStaffId);
+assert.match(catRt.notice,/pausada/);assert.equal(catRt.staff[0].active,false);
+catPersist=false;const count=catWrites.length;
+await catCtx.staff(catForm({name:'Joana'}));await catCtx.staff(catForm({name:'Joana'}));
+assert.equal(catWrites.length,count+1);assert.equal(catRt.notice,'');
+console.log('PASS: catalog evidence, no duplicate retry, invalid price, scope mismatch and staff booking guard.');
