@@ -306,3 +306,35 @@ for(const code of [pixFixture(12501),pixFixture(12500).slice(0,-1)+'Z']){
  assert.equal(await x.go(),true,'valid server-confirmed Pix remains payable');
 }
 console.log('PASS: payable Pix status, real code validator, amount and CRC verification, unavailable validator fails closed.');
+
+// Definitively ended attempts may be restarted only when the server explicitly
+// authorizes them and no active payment payload remains. A contradictory flag
+// must never cause a new charge.
+for(const status of ['rejected','cancelled','expired']){
+ for(const method of ['pix','card']){
+  const initial=method==='pix'?nativePix(true):proof();
+  initial.onlinePayment.status=status;
+  const confirmed=method==='pix'?nativePix():proof({url:MP_URL,paymentStatus:'checkout_ready'});
+  const reply=method==='pix'?{ok:true,orderId:ORDER,pixCode:pixFixture(12500)}:{ok:true,orderId:ORDER,checkoutUrl:MP_URL};
+  const x=setup({reads:[initial,confirmed],reply});
+  assert.equal(await x.go(),true,status+' '+method);
+  assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,1);
+ }
+}
+for(const status of ['pending','checkout_ready','review_required','refunded','unknown']){
+ for(const method of ['pix','card']){
+  const initial=method==='pix'?nativePix(true):proof();
+  initial.onlinePayment.status=status;
+  const x=setup({reads:[initial]});
+  assert.equal(await x.go(),false,status+' '+method);
+  assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+ }
+}
+for(const status of ['rejected','cancelled','expired']){
+ const initial=nativePix(true);initial.onlinePayment.status=status;
+ initial.onlinePayment.pixCode=pixFixture(12500);
+ const x=setup({reads:[initial]});
+ assert.equal(await x.go(),false);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+console.log('PASS: only server-authorized definitive retry states can start Pix/card without active payload.');
