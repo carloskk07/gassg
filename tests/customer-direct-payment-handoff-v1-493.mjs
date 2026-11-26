@@ -5,6 +5,11 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const script=read('js/customer-direct-payment.js');
 const backend=read('js/backend.js'),ui=read('js/customer.js');
+const core=read('js/core.js');
+const validatorStart=core.indexOf(' function valid(code,amountCents){');
+const validatorEnd=core.indexOf('\n function load(){',validatorStart);
+assert.ok(validatorStart>=0&&validatorEnd>validatorStart,'production Pix validator source');
+const validatePix=vm.runInNewContext(core.slice(validatorStart,validatorEnd)+'\nvalid',{TextEncoder,TextDecoder});
 new vm.Script(script);new vm.Script(backend);new vm.Script(ui);
 const ORDER='11111111-1111-4111-8111-111111111111';
 const OTHER='22222222-2222-4222-8222-222222222222';
@@ -18,7 +23,7 @@ function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
 function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:MP_URL},
- error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false,onRead=null,beforeSend=null}={}){
+ error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false,onRead=null,beforeSend=null,validatorUnavailable=false}={}){
  const calls=[],toasts=[],renders=[],nav={href:null};
  const rt={requested:true,status:'ready',session:{user:{id:'buyer-one'}},
    orderId:ORDER,order:{orderId:ORDER},actionPending:pending,error:null};
@@ -57,7 +62,7 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
   render:()=>renders.push(rt.actionPending),
   location:nav
  };
- const ctx={};ctx.globalThis=ctx;
+ const ctx={tamaoPixCodeValid:validatorUnavailable?undefined:validatePix};ctx.globalThis=ctx;
  vm.runInNewContext(script,ctx,{filename:'customer-direct-payment.js'});
  return {rt,calls,toasts,renders,nav,go:(id=ORDER)=>ctx.customerDirectPaymentStart(id,deps)};
 }
@@ -269,3 +274,35 @@ for(const initial of [proof(),nativePix(true)]){
  assert.equal(x.nav.href,null);
 }
 console.log('PASS: payment transport lease protects card and Pix across token lookup and retry.');
+
+// The payable flag is not sufficient on its own. Neither malformed Pix
+// nor an inconsistent terminal/review status can authorize a payment.
+for(const status of ['review_required','refunded','cancelled','canceled','not_started']){
+ const invalid=nativePix();invalid.onlinePayment.status=status;
+ const x=setup({reads:[invalid]});
+ assert.equal(await x.go(),false,status);
+ assert.equal(x.nav.href,null);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+for(const status of ['review_required','refunded','cancelled','canceled']){
+ const invalid=nativePix();invalid.onlinePayment.status=status;invalid.onlinePayment.canStart=true;
+ const x=setup({reads:[invalid]});
+ assert.equal(await x.go(),false,status);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+for(const code of [pixFixture(12501),pixFixture(12500).slice(0,-1)+'Z']){
+ const invalid=nativePix();invalid.onlinePayment.pixCode=code;
+ const x=setup({reads:[invalid]});
+ assert.equal(await x.go(),false);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+{
+ const x=setup({reads:[nativePix()],validatorUnavailable:true});
+ assert.equal(await x.go(),false);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+{
+ const x=setup({reads:[nativePix(true),nativePix()],reply:{ok:true,orderId:ORDER,pixCode:pixFixture(12500)}});
+ assert.equal(await x.go(),true,'valid server-confirmed Pix remains payable');
+}
+console.log('PASS: payable Pix status, real code validator, amount and CRC verification, unavailable validator fails closed.');
