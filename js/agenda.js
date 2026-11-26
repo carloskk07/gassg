@@ -673,11 +673,38 @@ function agendaMyWaitingView(){
     '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Sair da lista</button></article>';
   }).join('')+'</section>';
 }
+async function agendaReadCustomerReservations(){
+ const s=agendaRuntime,client=s.client,userId=s.user?.id,epoch=s.epoch;
+ if(!client||!userId)return false;
+ const current=()=>s.client===client&&s.user?.id===userId&&s.epoch===epoch;
+ const result=await client.rpc('agenda_my_bookings');
+ if(!current())return false;
+ if(result.error||!Array.isArray(result.data)||result.data.some(x=>!agendaUuid.test(x?.id||'')||
+  !agendaUuid.test(x.page_id||'')||!agendaUuid.test(x.service_id||'')||
+  x.status!=='confirmed'||!Number.isFinite(Date.parse(x.starts_at))||
+  !Number.isFinite(Date.parse(x.ends_at))||Date.parse(x.ends_at)<=Date.parse(x.starts_at)))
+  throw result.error||Error('invalid reservations');
+ s.mine=result.data;
+ return true;
+}
+async function agendaRefreshCustomerReservations(){
+ const s=agendaRuntime;if(s.busy||!s.user||!s.client)return;
+ const userId=s.user.id,client=s.client,epoch=s.epoch;
+ const current=()=>s.user?.id===userId&&s.client===client&&s.epoch===epoch;
+ s.busy=true;s.error='';s.notice='';render();
+ try{
+  if(await agendaReadCustomerReservations()&&current())
+   s.notice=s.mine.length?'Reservas atualizadas.':'Nenhuma reserva futura confirmada nesta conta.';
+ }catch(_){if(current())s.error='Não foi possível consultar suas reservas. Os últimos dados disponíveis foram mantidos.';}
+ finally{if(current()){s.busy=false;if(agendaRoute())render();}}
+}
 function agendaMyBookingsView(){
  const s=agendaRuntime,recovery=agendaAttemptRecoveryView();
- if(!s.user||!s.mine.length)return recovery;
+ if(!s.user)return '';
  return recovery+'<section class="agenda-panel"><h2>Minhas reservas</h2>'+
-  '<p>Seus próximos horários. Você pode cancelar aqui quando precisar.</p>'+
+  '<p>Consulte seus próximos horários nesta conta, inclusive os agendados em outro aparelho.</p>'+
+  '<button type="button" class="secondary" onclick="agendaRefreshCustomerReservations()"'+(s.busy?' disabled':'')+'>Atualizar reservas</button>'+
+  (!s.mine.length?'<p>Nenhuma reserva exibida. Atualize para conferir seus horários.</p>':'')+
   s.mine.map(b=>{
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
@@ -814,8 +841,7 @@ async function agendaRefreshOwner(){
   s.services=services.data||[];s.staff=staff.data||[];s.depositSettings=depositSettings.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
  }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
  if(typeof agendaDesignLoadOwner==='function')await agendaDesignLoadOwner();
- const mine=await s.client.rpc('agenda_my_bookings');
- if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
+ try{await agendaReadCustomerReservations();}catch(_){}
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
  if(epoch===s.epoch&&s.user?.id===u.id&&!queue.error)s.myWaiting=queue.data||[];
 }
