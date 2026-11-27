@@ -1,0 +1,37 @@
+name: TAMÃO portal readiness fallback
+# Supplemental opportunity only; GitHub scheduler may delay both workflows.
+on:
+  workflow_run:
+    workflows:
+      - TAMÃO city expansion sync
+      - TAMÃO isolated Supabase integration
+    types: [completed]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: tamao-portal-readiness-fallback
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: >-
+      github.repository == 'carloskk07/gassg' &&
+      github.event.workflow_run.head_repository.full_name == 'carloskk07/gassg' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fallback decision offline
+        run: node tests/refresh-stale-portal-readiness.mjs
+      - name: Request official readiness only if overdue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/refresh-stale-portal-readiness.mjs
