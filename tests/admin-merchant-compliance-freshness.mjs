@@ -28,9 +28,11 @@ assert.match(read('.github/workflows/audit.yml'),/node tests\/admin-merchant-com
 // revoke logistics simply because a checkbox/select disappeared.
 const merchantId='11111111-1111-4111-8111-111111111111';
 const actor='22222222-2222-4222-8222-222222222222';
-const runtime={status:'ready',section:'partners',actionPending:false,
+const runtime={status:'ready',section:'partners',actionPending:false,lastSyncAt:new Date().toISOString(),
  session:{user:{id:actor}},data:{merchants:[{
-  id:merchantId,status:'pending',compliance:{cnpj_status:'verified',
+  id:merchantId,status:'pending',cnpj:'12345678000199',activeOwnerUserId:actor,
+  representationReview:{owner_user_id:actor,merchant_cnpj:'12345678000199',revoked_at:null,expires_at:new Date(Date.now()+86400000).toISOString()},
+  readiness:{merchantId,merchantStatus:'pending',cnpjVerificationCurrent:true},compliance:{cnpj_status:'verified',
    anp_status:'verified'},deliveryCapabilities:[{
     capability_code:'regulated_glp_mixed_load_verified',active:true}]
  }]}};
@@ -54,7 +56,7 @@ const ctx=vm.createContext({
  adminPerform:async(action,payload)=>{requests.push({action,payload});return response;},
  String,Object,Array,Date,RegExp
 });
-const begin=admin.indexOf('function adminPartnerVerificationMutationTarget(');
+const begin=admin.indexOf('function adminMerchantActivationGate(');
 const end=admin.indexOf('async function adminSetMerchantPaymentCapability(',begin);
 const beginStatus=admin.indexOf('async function adminSetMerchantStatus(');
 const endStatus=admin.indexOf('const ADMIN_REFERRAL_REJECTION_REASONS',beginStatus);
@@ -62,7 +64,7 @@ assert.ok(begin>=0&&end>begin&&beginStatus>0&&endStatus>beginStatus);
 vm.runInContext(admin.slice(begin,end)+admin.slice(beginStatus,endStatus)+
  '\nthis.saveCompliance=adminSaveCompliance;'+
  'this.saveCapability=adminSaveDeliveryCapability;'+
- 'this.setStatus=adminSetMerchantStatus;',ctx);
+ 'this.setStatus=adminSetMerchantStatus;this.activationGate=adminMerchantActivationGate;',ctx);
 await ctx.saveCompliance(merchantId);
 await ctx.saveCapability(merchantId);
 assert.equal(requests.length,0,'a missing form must neither downgrade CNPJ/ANP nor revoke logistics');
@@ -121,6 +123,25 @@ assert.equal(requests[1].payload.active,true);
 assert(messages.includes('Validação salva'));
 assert(messages.includes('Capacidade logística verificada'));
 requests=[];
+const merchant=runtime.data.merchants[0];
+assert.equal(ctx.activationGate(merchant).allowed,true);
+for(const invalid of [
+ {...merchant,status:'rejected'},
+ {...merchant,representationReview:null},
+ {...merchant,representationReview:{...merchant.representationReview,revoked_at:new Date().toISOString()}},
+ {...merchant,representationReview:{...merchant.representationReview,expires_at:new Date(Date.now()-1000).toISOString()}},
+ {...merchant,readiness:{...merchant.readiness,cnpjVerificationCurrent:false}},
+ {...merchant,readiness:{...merchant.readiness,merchantId:'other'}},
+ {...merchant,readiness:null}
+])assert.equal(ctx.activationGate(invalid).allowed,false);
+merchant.readiness.cnpjVerificationCurrent=false;
+await ctx.setStatus(merchantId,'activate-merchant');
+assert.equal(requests.length,0,'expired CNPJ must stop activation before submitting');
+merchant.readiness.cnpjVerificationCurrent=true;
+runtime.lastSyncAt=new Date(Date.now()-6*60000).toISOString();
+await ctx.setStatus(merchantId,'activate-merchant');
+assert.equal(requests.length,0,'stale snapshot must stop activation');
+runtime.lastSyncAt=new Date().toISOString();
 allowConfirmation=false;
 await ctx.setStatus(merchantId,'activate-merchant');
 assert.equal(requests.length,0,'activation requires explicit confirmation');
@@ -131,7 +152,11 @@ response=null;
 await ctx.setStatus(merchantId,'activate-merchant');
 assert.equal(requests.length,1);
 assert(!messages.includes('Status atualizado'),'no-result backend must not claim activation');
-response={ok:true};requests=[];
+for(const invalid of [{ok:true},{ok:true,merchantId:'other',status:'active'},{ok:true,merchantId,status:'suspended'}]){
+ response=invalid;await ctx.setStatus(merchantId,'activate-merchant');
+ assert(!messages.includes('Status atualizado'),'ambiguous or mismatched status may not report success');
+}
+response={ok:true,merchantId,status:'active'};requests=[];
 await ctx.setStatus(merchantId,'activate-merchant');
 assert.equal(requests.length,1);
 assert.equal(requests[0].action,'activate-merchant');
