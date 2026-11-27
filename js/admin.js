@@ -12333,6 +12333,24 @@ function adminLaunchWorklistModel(readiness,merchants=[]){
   // that asking the owner to register ANOTHER merchant may duplicate work.
   const pendingMerchantExists=Array.isArray(merchants)&&
     merchants.some(m=>m?.status==='pending');
+  // Show the existing single pending merchant's evidence separately from
+  // the global launch gate. No inference across multiple merchants, stale
+  // IDs or missing/malformed boolean evidence. This is informational only.
+  const sole=Array.isArray(merchants)&&merchants.length===1?merchants[0]:null;
+  const snapshot=sole?.readiness;
+  const bound=sole?.status==='pending'&&typeof sole.id==='string'&&sole.id.length>0&&
+    snapshot?.merchantId===sole.id&&snapshot.merchantStatus==='pending';
+  const pendingEvidence=bound?[
+    ['ownerReady','Responsável vinculado'],
+    ['paymentReady','Forma de pagamento cadastrada'],
+    ['catalogConfigured','Catálogo com preço cadastrado'],
+    ['complianceReady','Regularidade vigente'],
+    ['inventoryPriceReady','Preço e estoque atualizados'],
+    ['deliveryReady','Entrega confirmada'],
+    ['merchantActive','Cadastro operacional ativo'],
+    ['online','Revenda online'],
+    ['heartbeatFresh','Disponibilidade recente']
+  ].map(([key,label])=>({label,state:snapshot[key]===true?'confirmed':snapshot[key]===false?'pending':'unknown'})):null;
   const checks=[
     {key:'real_supply_required',title:'Primeira revenda com oferta real',
       detail:pendingMerchantExists
@@ -12362,7 +12380,7 @@ function adminLaunchWorklistModel(readiness,merchants=[]){
   const authorized=r.canActivateOperation===true&&r.readyToEnable===true;
   const canConsiderActivation=completed===checks.length&&portalsVerified&&
     Array.isArray(r.securityBlockers)&&blockers.length===0&&authorized&&typeof r.commerceEnabled==='boolean'&&typeof r.operationMode==='string';
-  return {checks,completed,next,portalsVerified,blockerCount:Array.isArray(r.securityBlockers)?blockers.length:'não informado',
+  return {checks,completed,next,portalsVerified,pendingEvidence,blockerCount:Array.isArray(r.securityBlockers)?blockers.length:'não informado',
     readyForAdminReview:canConsiderActivation,
     mode:String(r.operationMode||'UNKNOWN').toUpperCase(),
     serverVerified:readiness!=null&&typeof readiness==='object'&&
@@ -12397,6 +12415,14 @@ function adminLaunchWorklist(d){
   }else{
     summary='Resolva os itens pendentes antes de considerar a abertura comercial. Revenda cadastrada não é revenda habilitada; publicação não libera pedidos.';
   }
+  const evidence=model.serverVerified&&model.pendingEvidence&&!model.readyForAdminReview
+    ?'<details open class="admin-launch-evidence"><summary>Revenda em análise: o que já está cadastrado?</summary>'+
+      '<p>Última consulta do servidor. Estes registros não representam uma oferta habilitada nem substituem os quatro requisitos globais abaixo.</p>'+
+      [['confirmed','Comprovado nesta consulta'],['pending','Ainda pendente'],['unknown','Sem confirmação do servidor']]
+        .map(([state,label])=>{
+          const items=model.pendingEvidence.filter(item=>item.state===state);
+          return items.length?'<p><strong>'+esc(label)+':</strong> '+esc(items.map(item=>item.label).join(' • '))+'</p>':'';
+        }).join('')+'</details>':'';
   const nextAction=next&&canAccess(next.section)?
     '<button type="button" class="primary" onclick="'+navigate(next)+'">Resolver próxima etapa →</button>':
     '<button type="button" class="secondary" onclick="adminSetSection(\'system\')">Verificar sistema →</button>';
@@ -12407,7 +12433,7 @@ function adminLaunchWorklist(d){
     esc(mode)+'</span></div>'+
     '<div class="admin-launch-meter" role="meter" aria-label="Requisitos técnicos comprovados" aria-valuemin="0" aria-valuemax="4" aria-valuenow="'+model.completed+'">'+
     '<div style="width:'+(model.completed*25)+'%"></div></div>'+
-    '<ol class="admin-launch-worklist-steps">'+steps+'</ol>'+
+    evidence+'<ol class="admin-launch-worklist-steps">'+steps+'</ol>'+
     '<div class="admin-launch-worklist-footer">'+
     (model.readyForAdminReview?
       '<p class="tiny">Conferência concluída. A autorização de operação continua exclusiva do fluxo administrativo protegido.</p>':
