@@ -5258,6 +5258,7 @@ function adminMerchantCard(m){
   const readiness=m.readiness||null;
   const active=m.status==='active';
   const representation=m.representationReview||null;
+  const activationGate=adminMerchantActivationGate(m);
   const ownerUserId=String(m.activeOwnerUserId||'');
   const representationCurrent=Boolean(
     representation&&representation.revoked_at==null
@@ -5326,8 +5327,9 @@ function adminMerchantCard(m){
     <section class="section" aria-label="Ativação operacional">
       <h4>4. Ativação operacional</h4>
       <div class="notice ${active?'success':''}"><strong>${active?'Cadastro ativo':'Cadastro ainda não ativo'}</strong><p class="tiny muted">Ativar o cadastro não abre vendas automaticamente. A oferta depende das verificações do servidor, disponibilidade, catálogo, preços, logística e liberação comercial da cidade.</p></div>
-      ${canVerifyRepresentation&&!active&&!representationCurrent?'<p class="tiny muted" role="status">Valide primeiro a representação legal vigente na etapa 2.</p>':''}
-      <div class="order-actions"><button type="button" class="secondary small" onclick="adminOpenEntity('merchant','${m.id}')">Ver preços e simular cesta</button>${canVerifyRepresentation?(active?`<button type="button" class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')"${actionDisabled}>Suspender cadastro</button>`:`<button type="button" class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')" ${representationCurrent&&!actionPending?'':'disabled title="Confirme a representação legal ou aguarde a ação atual"'}>Ativar cadastro</button>`):''}</div>
+      ${canVerifyRepresentation&&!active&&!activationGate.allowed?
+        '<div class="notice" role="status"><strong>Antes de ativar</strong><ul>'+activationGate.reasons.map(reason=>'<li>'+esc(reason)+'</li>').join('')+'</ul></div>':''}
+      <div class="order-actions"><button type="button" class="secondary small" onclick="adminOpenEntity('merchant','${m.id}')">Ver preços e simular cesta</button>${canVerifyRepresentation?(active?`<button type="button" class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')"${actionDisabled}>Suspender cadastro</button>`:`<button type="button" class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')" ${activationGate.allowed&&!actionPending?'':'disabled title="Conclua as verificações indicadas ou aguarde a ação atual"'}>Ativar cadastro</button>`):''}</div>
     </section>
   </article>`;
 }
@@ -13489,6 +13491,26 @@ async function adminReviewMerchantRepresentation(id,decision,ownerUserId){
 // V1.967 — Never turn a missing/stale verification form into an implicit
 // pending CNPJ/ANP decision or a logistics capability revocation.
 // These UI guards supplement, never replace, the server authority/RPC checks.
+function adminMerchantActivationGate(merchant,now=Date.now()){
+  const reasons=[];
+  const checkedAt=Date.parse(String(adminRuntime.lastSyncAt||''));
+  if(!Number.isFinite(checkedAt)||!Number.isFinite(now)||checkedAt>now+60000||now-checkedAt>5*60000)
+    reasons.push('Atualize a consulta antes de ativar.');
+  if(!merchant||!['pending','suspended'].includes(merchant.status))
+    reasons.push('O estado atual do cadastro não permite ativação.');
+  const owner=String(merchant?.activeOwnerUserId||'');
+  const rep=merchant?.representationReview;
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(owner)||
+     !rep||rep.revoked_at!=null||rep.owner_user_id!==owner||
+     typeof merchant?.cnpj!=='string'||!merchant.cnpj||rep.merchant_cnpj!==merchant.cnpj||
+     !Number.isFinite(Date.parse(rep.expires_at))||Date.parse(rep.expires_at)<=now)
+    reasons.push('Confirme a representação legal vigente na etapa 2.');
+  const readiness=merchant?.readiness;
+  if(readiness?.merchantId!==merchant?.id||readiness?.merchantStatus!==merchant?.status||
+     readiness?.cnpjVerificationCurrent!==true||merchant?.compliance?.cnpj_status!=='verified')
+    reasons.push('Confirme a regularidade vigente do CNPJ na etapa 1.');
+  return {allowed:reasons.length===0,reasons};
+}
 function adminPartnerVerificationMutationTarget(id){
   const key=String(id||'');
   if(!adminReady()||adminRuntime.section!=='partners'||
@@ -13632,13 +13654,19 @@ async function adminSetMerchantStatus(id,action){
     return toast('Esta revenda já está ativa.');
   if(action==='suspend-merchant'&&merchant.status!=='active')
     return toast('Esta revenda já está fora de operação.');
+  if(action==='activate-merchant'){
+    const gate=adminMerchantActivationGate(merchant);
+    if(!gate.allowed)return toast(gate.reasons.join(' '));
+  }
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;
   const actor=String(adminRuntime.session?.user?.id||'');
   try{
     const result=await adminPerform(action,{merchantId:id});
     if(actor!==String(adminRuntime.session?.user?.id||''))return;
-    if(!result||result.ok===false)return toast('Status não confirmado. Consulte a revenda antes de repetir.');
+    const expectedStatus=action==='activate-merchant'?'active':'suspended';
+    if(result?.ok!==true||result.merchantId!==id||result.status!==expectedStatus)
+      return toast('Status não confirmado para esta revenda. Consulte o cadastro antes de repetir.');
     toast('Status atualizado');
   }catch(e){if(actor===String(adminRuntime.session?.user?.id||''))toast(String(e?.message||e))}
 }
