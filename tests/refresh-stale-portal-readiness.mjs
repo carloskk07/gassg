@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {refreshReadiness} from '../scripts/refresh-stale-portal-readiness.mjs';
+const sha='a'.repeat(40),now=Date.parse('2026-11-26T23:00:00Z'),repo='carloskk07/gassg';
+const event={action:'completed',workflow_run:{name:'TAMÃO city expansion sync',event:'schedule',head_repository:{full_name:repo},head_branch:'main',status:'completed',head_sha:sha}};
+const env={GITHUB_EVENT_NAME:'workflow_run',GITHUB_REPOSITORY:repo,GITHUB_SHA:sha,GH_TOKEN:'fixture-only'};
+const stamp=m=>new Date(now-m*60000).toISOString();
+const run=(age,overrides={})=>({id:1,path:'.github/workflows/launch-readiness.yml',head_repository:{full_name:repo},head_sha:sha,head_branch:'main',event:'schedule',status:'completed',conclusion:'success',created_at:stamp(age),run_started_at:stamp(age),...overrides});
+const fixture=async(runs,options={})=>{
+ const calls=[];let reads=0;
+ const request=async(url,opts)=>{
+  calls.push({url,method:opts.method,body:opts.body});
+  if(url.endsWith('/branches/main'))return {ok:true,json:async()=>({commit:{sha:options.changed&&++reads>1?'b'.repeat(40):sha}})};
+  if(url.endsWith('/runs?branch=main&per_page=50'))return {ok:true,json:async()=>({workflow_runs:runs})};
+  assert.equal(url,'https://api.github.com/repos/'+repo+'/actions/workflows/launch-readiness.yml/dispatches');
+  assert.equal(opts.method,'POST');assert.deepEqual(JSON.parse(opts.body),{ref:'main'});
+  return {ok:true,status:204};
+ };
+ const result=await refreshReadiness({event:options.event||event,env:options.env||env,now,request});
+ return {result,posts:calls.filter(x=>x.method==='POST').length};
+};
+assert.deepEqual(await fixture([run(41)]),{result:'dispatch_requested',posts:1});
+assert.deepEqual(await fixture([run(10)]),{result:'skipped_recent_success',posts:0});
+assert.deepEqual(await fixture([run(42),run(9,{id:2,conclusion:'failure'})]),{result:'skipped_cooldown',posts:0});
+assert.deepEqual(await fixture([run(8,{status:'in_progress',conclusion:null})]),{result:'skipped_in_progress',posts:0});
+assert.deepEqual(await fixture([run(41)],{changed:true}),{result:'skipped_superseded',posts:0});
+assert.deepEqual(await fixture([],{event:{...event,workflow_run:{...event.workflow_run,event:'pull_request'}}}),{result:'skipped_untrusted',posts:0});
+assert.deepEqual(await fixture([],{event:{...event,workflow_run:{...event.workflow_run,head_repository:{full_name:'other/repo'}}}}),{result:'skipped_untrusted',posts:0});
+await assert.rejects(fixture([run(61,{status:'queued',conclusion:null})]),/WATCHDOG_ACTIVE_RUN_STALE/);
+await assert.rejects(fixture([run(41,{path:'.github/workflows/other.yml'})]),/WATCHDOG_RUN_IDENTITY_UNVERIFIED/);
+await assert.rejects(fixture([run(41),run(42)]),/WATCHDOG_DUPLICATE_RUN/);
+assert.deepEqual(await fixture([]),{result:'dispatch_requested',posts:1});
+console.log('PASS: stale readiness watchdog is exact-main, scheduled-upstream-only, rate-limited and never fabricates attestation.');
