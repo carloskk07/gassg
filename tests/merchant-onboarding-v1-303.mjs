@@ -325,14 +325,17 @@ const cardStart=adminSource.indexOf('function adminMerchantCard(m){');
 const cardEnd=adminSource.indexOf('\nfunction adminReferralReasonLabel(',cardStart);
 assert.ok(cardStart>=0&&cardEnd>cardStart);
 let cardRole='operations';
-const cardRuntime={actionPending:false};
+const cardRuntime={actionPending:false,lastSyncAt:new Date().toISOString()};
 const cardCtx=vm.createContext({
  adminRuntime:cardRuntime,adminCurrentRole:()=>cardRole,
  adminStatusPill:()=>'',adminMerchantProgressView:()=>'',adminMerchantMissingProfileNotice:()=>'',adminPilotNextActionCopy:()=>'',
  esc:s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
  formatDateTime:s=>String(s)
 });
-vm.runInContext(adminSource.slice(cardStart,cardEnd)+';this.card=adminMerchantCard;',cardCtx);
+const gateStart=adminSource.indexOf('function adminMerchantActivationGate(');
+const gateEnd=adminSource.indexOf('\nfunction adminPartnerVerificationMutationTarget(',gateStart);
+assert.ok(gateStart>=0&&gateEnd>gateStart);
+vm.runInContext(adminSource.slice(gateStart,gateEnd)+'\n'+adminSource.slice(cardStart,cardEnd)+';this.card=adminMerchantCard;',cardCtx);
 const ownerId='11111111-1111-4111-8111-111111111111';
 const cardMerchant={id:'m',name:'Revenda de teste',cnpj:'12345678000190',status:'pending',
  activeOwnerUserId:ownerId,compliance:{cnpj_status:'pending',anp_status:'pending'}};
@@ -340,10 +343,16 @@ let cardHtml=cardCtx.card(cardMerchant);
 for(const heading of ['1. Documentação empresarial','2. Representação legal','3. Capacidade de entrega','4. Ativação operacional'])
  assert.ok(cardHtml.includes(heading));
 assert.match(cardHtml,/Ativar o cadastro não abre vendas automaticamente/);
-assert.match(cardHtml,/Valide primeiro a representação legal vigente/);
+assert.match(cardHtml,/Confirme a representação legal vigente/);
+assert.match(cardHtml,/Confirme a regularidade vigente do CNPJ/);
 assert.match(cardHtml,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
 assert.match(cardHtml,/Salvar validação documental/);
-const readyMerchant={...cardMerchant,representationReview:{owner_user_id:ownerId,merchant_cnpj:cardMerchant.cnpj,expires_at:new Date(Date.now()+3600000).toISOString()}};
+const readyMerchant={...cardMerchant,compliance:{cnpj_status:'verified',anp_status:'pending'},
+ readiness:{merchantId:'m',merchantStatus:'pending',cnpjVerificationCurrent:true},
+ representationReview:{owner_user_id:ownerId,merchant_cnpj:cardMerchant.cnpj,expires_at:new Date(Date.now()+3600000).toISOString()}};
+const expiredCnpjCard=cardCtx.card({...readyMerchant,readiness:{...readyMerchant.readiness,cnpjVerificationCurrent:false}});
+assert.match(expiredCnpjCard,/Confirme a regularidade vigente do CNPJ/);
+assert.match(expiredCnpjCard,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
 cardHtml=cardCtx.card(readyMerchant);
 assert.doesNotMatch(cardHtml,/onclick="adminSetMerchantStatus\('m','activate-merchant'\)" disabled/);
 assert.match(cardHtml,/Ativar cadastro/);
