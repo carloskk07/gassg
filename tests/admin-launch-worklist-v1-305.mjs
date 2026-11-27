@@ -59,6 +59,30 @@ assert.doesNotMatch(pendingMerchantView,/Cadastre uma revenda, valide seus produ
 assert.doesNotMatch(pendingMerchantView,/onclick="adminSetOperationMode/);
 assert.equal(ctx.model(waiting,[{status:'pending'}]).completed,0,
   'pending merchant must not mark any commercial requirement as approved');
+// Keep configured records separate from global launch authorization.
+const onePending={id:'merchant-one',status:'pending',readiness:{
+ merchantId:'merchant-one',merchantStatus:'pending',ownerReady:true,paymentReady:true,
+ catalogConfigured:true,complianceReady:false,inventoryPriceReady:false,deliveryReady:false,
+ merchantActive:false,online:false,heartbeatFresh:false
+}};
+const withEvidence=ctx.view({launchReadiness:waiting,merchants:[onePending]});
+assert.match(withEvidence,/Revenda em análise: o que já está cadastrado/);
+assert.match(withEvidence,/Comprovado nesta consulta.*Responsável vinculado.*Forma de pagamento cadastrada.*Catálogo com preço cadastrado/);
+assert.match(withEvidence,/Ainda pendente.*Regularidade vigente.*Preço e estoque atualizados.*Entrega confirmada/);
+assert.match(withEvidence,/0 de 4 requisitos comprovados/);
+assert.match(withEvidence,/não representam uma oferta habilitada/);
+assert.equal(ctx.model(waiting,[onePending]).completed,0);
+assert.equal(ctx.model(waiting,[onePending]).readyForAdminReview,false);
+const unknown={...onePending,readiness:{...onePending.readiness,ownerReady:undefined,paymentReady:'true'}};
+assert.match(ctx.view({launchReadiness:waiting,merchants:[unknown]}),/Sem confirmação do servidor.*Responsável vinculado.*Forma de pagamento cadastrada/);
+for(const merchants of [[onePending,{...onePending,id:'second'}],
+ [{...onePending,readiness:{...onePending.readiness,merchantId:'other'}}],
+ [{...onePending,readiness:{...onePending.readiness,merchantStatus:'active'}}],
+ [{...onePending,readiness:null}]]){
+ assert.equal(ctx.model(waiting,merchants).pendingEvidence,null);
+ assert.doesNotMatch(ctx.view({launchReadiness:waiting,merchants}),/Revenda em análise: o que já está cadastrado/);
+}
+assert.doesNotMatch(ctx.view({launchReadiness:null,merchants:[onePending]}),/Revenda em análise: o que já está cadastrado/);
 const activeButNotEligible=ctx.view({launchReadiness:waiting,merchants:[{status:'active'}]});
 assert.match(activeButNotEligible,/Cadastre uma revenda, valide seus produtos/,
   'never infer eligibility from a merchant list alone');
