@@ -7,6 +7,12 @@ const js=read('js/admin.js');
 const css=read('css/components.css');
 const audit=read('.github/workflows/audit.yml');
 new vm.Script(js,{filename:'admin.js'});
+const core=read('js/core.js');
+assert.match(core,/<main id="tamao-main" class="shell" tabindex="-1">\$\{content\}<\/main>/,'shell owns the main landmark');
+assert.doesNotMatch(js,/<main\b[^>]*class="admin-main"/,'admin must not nest a second main landmark');
+assert.match(js,/<section class="admin-main" aria-labelledby="admin-current-section-title">[\s\S]*?<\/section>\s*<\/div>\s*\$\{adminDetailView\(\)\}/,'admin workspace is a labelled content region');
+assert.match(js,/<h1 tabindex="-1" id="admin-current-section-title">/,'workspace label resolves to the current title');
+
 
 const begin=js.indexOf('function adminLaunchWorklistModel(');
 const end=js.indexOf('\nfunction adminReleaseHub(',begin);
