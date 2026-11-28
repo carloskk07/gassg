@@ -5689,12 +5689,30 @@ function adminPlatformReceiptsView(data){
   if(!adminPlatformReceiptsValid(data))return `<div class='notice'>Conciliação dos recebimentos indisponível. Atualize o histórico.</div>`;
   const labels={billing:'Planos e taxas de revendas',coupon:'Pacotes de cupons',mobility:'Planos e taxas de motoristas',advertising:'Publicidade'};
   const statuses={net_verified:'Líquido conferido',awaiting_report:'Aguardando relatório',coverage_incomplete:'Relatório incompleto',provider_unavailable:'Conferência indisponível',requires_review:'Conferir divergência',reversed:'Estornado ou em revisão após pagamento'};
+  // Aggregate the authoritative, mutually classified receipt kinds, not the 30-row sample.
+  const aggregateKeys=['count','grossCents','verifiedCount','verifiedNetCents','reversedCount','pendingCount'];
+  const aggregate=Object.fromEntries(aggregateKeys.map(k=>[k,0]));
+  for(const kind of Object.keys(labels)){
+    for(const key of aggregateKeys){
+      aggregate[key]+=data.kindTotals[kind][key];
+      if(!Number.isSafeInteger(aggregate[key]))
+        return `<div class='notice danger'>Totais consolidados indisponíveis: limite de cálculo seguro excedido.</div>`;
+    }
+  }
+  const coverage=aggregate.count?Math.floor(1000*(aggregate.verifiedCount/aggregate.count))/10:null;
+  const summary=`<div class='admin-managerial-grid' aria-label='Posição consolidada dos recebimentos da plataforma'>
+    <div class='admin-managerial-stat'><small>Bruto histórico registrado</small><strong>${adminMoney(aggregate.grossCents)}</strong><span>${aggregate.count} recebimento(s), inclusive estornos e revisões. Não é faturamento contábil.</span></div>
+    <div class='admin-managerial-stat'><small>Líquido liberado e conferido</small><strong>${adminMoney(aggregate.verifiedNetCents)}</strong><span>${aggregate.verifiedCount} recebimento(s) com evidência de liberação no PSP. Não é saldo bancário.</span></div>
+    <div class='admin-managerial-stat'><small>Aguardando comprovação</small><strong>${aggregate.pendingCount}</strong><span>Recebimentos ainda sem evidência de líquido suficiente.</span></div>
+    <div class='admin-managerial-stat'><small>Estornados ou em revisão</small><strong>${aggregate.reversedCount}</strong><span>Não compõem o líquido conferido atual.</span></div>
+  </div>
+  <p class='tiny muted'>Cobertura de comprovação por quantidade: ${coverage===null?'Sem recebimentos para medir':coverage.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'} • fonte gerada em ${esc(formatDateTime(data.generatedAt))}. Totais de todo o histórico por modalidade, não apenas dos 30 registros exibidos. Não some com o histórico de taxas e pacotes abaixo, que pode incluir as mesmas operações.</p>`;
   const totals=Object.entries(labels).map(([kind,label])=>{
     const r=data.kindTotals[kind];
     return `<div class='admin-managerial-row'><div><strong>${esc(label)}</strong><small>${r.count} recebimento(s) • ${r.pendingCount} aguardando conferência • ${r.reversedCount} estornado(s) ou em revisão</small></div><div class='admin-finance-history-amount'><strong>${adminMoney(r.verifiedNetCents)} liberados e conferidos</strong><small>Bruto histórico: ${adminMoney(r.grossCents)}</small></div></div>`;
   }).join('');
   const rows=data.rows.map(r=>`<div class='admin-managerial-row'><div><strong>${esc(labels[r.kind])} • ${esc(statuses[r.netStatus])}</strong><small>${esc(formatDateTime(r.paidAt))} • ${esc(r.resourceId.slice(0,8))}</small>${r.evidenceReference?`<small>Comprovante: ${esc(r.evidenceReference)}</small>`:''}</div><div class='admin-finance-history-amount'><strong>Bruto: ${adminMoney(r.grossCents)}</strong><small>${r.netStatus==='net_verified'?'Líquido conferido':r.netStatus==='reversed'?'Líquido anterior à revisão/estorno':'Último líquido registrado'}: ${r.netCents===null?'aguardando comprovação':adminMoney(r.netCents)}</small>${r.lastCheckedAt?`<small>Conferido em ${esc(formatDateTime(r.lastCheckedAt))}</small>`:''}</div></div>`).join('');
-  return `<div class='card flat'><h3>Conciliação automática dos recebimentos</h3><p class='tiny muted'>O relatório do Mercado Pago confere o líquido liberado de planos, cupons, motoristas e publicidade. Vendas recebidas diretamente pelas revendas ficam fora destes totais.</p>${totals}<details><summary>Ver recebimentos e comprovantes (${data.returnedCount}${data.truncated?' mais recentes de '+data.totalCount:''})</summary>${rows||`<p class='tiny muted'>Nenhum recebimento confirmado no histórico.</p>`}</details><p class='tiny muted'>São liberações conferidas no provedor. Os valores não representam saldo atual da conta, lucro ou repasse bancário. Liberações anteriores de pagamentos estornados ficam apenas no histórico.</p></div>`;
+  return `<div class='card flat'><h3>Conciliação automática dos recebimentos</h3><p class='tiny muted'>O relatório do Mercado Pago confere o líquido liberado de planos, cupons, motoristas e publicidade. Vendas recebidas diretamente pelas revendas ficam fora destes totais.</p>${summary}${totals}<details><summary>Ver recebimentos e comprovantes (${data.returnedCount}${data.truncated?' mais recentes de '+data.totalCount:''})</summary>${rows||`<p class='tiny muted'>Nenhum recebimento confirmado no histórico.</p>`}</details><p class='tiny muted'>São liberações conferidas no provedor. Os valores não representam saldo atual da conta, lucro ou repasse bancário. Liberações anteriores de pagamentos estornados ficam apenas no histórico.</p></div>`;
 }
 
 function adminFinanceHistoryIsFresh(state,now=Date.now()){
