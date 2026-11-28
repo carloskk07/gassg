@@ -5955,6 +5955,37 @@ function adminFinanceHistoryView(){
 
 /* V1.187 — management reading, not an accounting cash statement.
    Exact server aggregates and bounded receipt samples must never be summed together. */
+// ERP directory: route to existing authorities, never create a parallel ledger.
+function adminFinanceWorkflowDirectory(){
+  if(!adminRoleCanSection('finance'))return '';
+  const tasks=new Set(adminTaskNavChoices().map(t=>t.id));
+  const isOwner=adminCurrentRole()==='superadmin';
+  const entries=[
+    {task:'finance-billing',title:'Recebíveis, taxas e planos',detail:'Faturas das revendas, créditos e cobranças D+1.'},
+    {task:'finance-reconciliation',title:'Conciliação e obrigações',detail:'Taxas, reembolsos, reversões e filas de processamento.'},
+    {task:'growth-benefits',title:'Benefícios, fundo e indicações',detail:'Acompanhe as regras, benefícios e controles da Rede.'},
+    {task:'growth-budget',title:'Investimentos e despesas de divulgação',detail:'Aportes, orçamentos e despesas declaradas por campanha.'},
+    {task:'ads-finance',title:'Publicidade por créditos',detail:'Configuração comercial da carteira e vendas publicitárias.'},
+    {task:'ads-refunds',title:'Reembolsos de publicidade',detail:'Consulte o fluxo de revisão e devolução de créditos.'},
+    {workspace:'policy',title:'Política econômica e Clube',detail:'Regras de pedidos futuros, cobertura e liberação de cupons.'},
+    {workspace:'operator',ownerOnly:true,title:'Identidade empresarial',detail:'Preparação para CNPJ e transição formal, sem migrar automaticamente.'},
+    {task:'finance-homologation',title:'Comprovação de pagamentos',detail:'Consulte recibos e confirme pagamentos existentes, sem emitir novo Pix.'}
+  ];
+  const visible=entries.filter(e=>e.task?tasks.has(e.task):(!e.ownerOnly||isOwner)&&ADMIN_FINANCE_WORKSPACES.some(w=>w.id===e.workspace));
+  const cards=visible.map(e=>{
+    const action=e.task?"adminOpenTask('"+e.task+"')":"adminSetFinanceWorkspace('"+e.workspace+"')";
+    return '<button type="button" class="admin-finance-area" onclick="'+action+'"><strong>'+esc(e.title)+'</strong><small>'+esc(e.detail)+'</small></button>';
+  }).join('');
+  return '<section class="section" aria-label="Mapa da controladoria"><div class="section-head"><div>'+
+    '<span class="section-kicker">ERP • CONTROLADORIA INTEGRADA</span><h2>Todos os caminhos do financeiro</h2>'+
+    '<p>Acesse os controles oficiais existentes, sem cadastrar valores novamente nem misturar fontes financeiras.</p></div></div>'+
+    '<div class="admin-finance-areas" role="group" aria-label="Áreas financeiras integradas">'+cards+'</div>'+
+    '<details><summary>O que ainda não é um demonstrativo contábil completo?</summary>'+
+    '<p>Os controles atuais distinguem taxas geradas, cobranças, créditos, benefícios, aportes e despesas de divulgação declaradas. Uma despesa declarada não comprova liquidação bancária.</p>'+
+    '<p>Saldo bancário livre, despesas gerais, impostos e lucro líquido exigem fontes completas e conciliação próprias. Nenhum desses totais deve ser inferido somando os indicadores parciais deste painel.</p>'+
+    '</details></section>';
+}
+
 function adminFinanceManagementSnapshot(d){
   const billing=d?.merchantBilling||{};
   const requests=Array.isArray(billing.paymentRequests)?billing.paymentRequests:[];
@@ -12768,6 +12799,7 @@ function adminPage(){
   const financeSummaryContent=(sectionActive('finance')&&financeSelection==='summary')?(`
     ${adminFinanceRenderPart('Resumo financeiro',()=>adminFinanceOverview(d))}
     ${adminFinanceRenderPart('Controle gerencial',()=>adminFinanceManagementView(d))}
+    ${adminFinanceRenderPart('Mapa da controladoria',()=>adminFinanceWorkflowDirectory())}
     ${adminFinanceRenderPart('Histórico financeiro',()=>adminFinanceHistoryView())}
     ${adminFinanceRenderPart('Financeiro por revenda',()=>adminMerchantFinanceView())}
 `):'';
