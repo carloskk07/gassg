@@ -12,7 +12,7 @@ function cut(name){
   assert.ok(end>start,'Missing end '+name);
   return admin.slice(start,end+2);
 }
-const money=c=>'R$ '+(c/100).toFixed(2).replace('.',',');
+const money=c=>'R$ '+(Math.max(0,c)/100).toFixed(2).replace('.',',');
 const esc=s=>String(s??'').replaceAll('<','&lt;').replaceAll('&','&amp;');
 let role='finance',renders=0,remoteCalls=0,resolveRemote;
 let remote=()=>Promise.resolve(valid);
@@ -69,6 +69,12 @@ for(const text of ['HISTÓRICO CONSOLIDADO','Taxas diárias D+1','últimos seis 
   assert.ok(html.toLowerCase().includes(text.toLowerCase()),'Missing readable financial truth: '+text);
 }
 assert.equal((html.match(/<tr>/g)||[]).length,7,'six months + table header');
+const originalHistory=rt.financeHistory.data;
+rt.financeHistory.data={...originalHistory,kindTotals:{...originalHistory.kindTotals,package_purchase:{...validKind,approvedCents:500,linkedRefundCents:800,netAfterLinkedRefundsCents:-300}},monthly:originalHistory.monthly.map((row,i)=>i===0?{...row,approvedCents:500,linkedRefundCents:800,netAfterLinkedRefundsCents:-300}:row)};
+const signedHistory=ctx.view();
+assert.ok(signedHistory.includes('Após reembolsos: −R$ 3,00'),'negative net per receipt type must remain visible');
+assert.ok(signedHistory.includes('<td>−R$ 3,00</td>'),'negative monthly net must remain visible');
+rt.financeHistory.data=originalHistory;
 assert.ok(!html.includes('Executar estorno'));
 assert.ok(admin.includes("statement_payment:{count:0,cents:0}"),'Sample request kind must use authoritative enum');
 assert.ok(!admin.includes("daily_statement:{count:0,cents:0}"));
