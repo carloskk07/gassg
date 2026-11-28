@@ -171,4 +171,31 @@ assert.match(exec({merchantBilling:{...zeroBilling,reconciliation:{healthy:true}
 executiveAllowed=false;
 assert.equal(exec({merchantBilling:zeroBilling}),'');
 
+
+// ERP directory must reuse the same authorized task list and never initiate transactions.
+let directoryRole='superadmin';
+let directoryTasks=['finance-billing','finance-reconciliation','growth-benefits','growth-budget','ads-finance','ads-refunds','finance-homologation'];
+const directoryCtx=vm.createContext({
+ adminRoleCanSection:section=>section==='finance'&&['superadmin','finance'].includes(directoryRole),
+ adminCurrentRole:()=>directoryRole,
+ adminTaskNavChoices:()=>directoryTasks.map(id=>({id})),
+ ADMIN_FINANCE_WORKSPACES:[{id:'policy'},{id:'operator'}],
+ esc:escape
+});
+vm.runInContext(cut('adminFinanceWorkflowDirectory')+'\nthis.directory=adminFinanceWorkflowDirectory;',directoryCtx);
+const fullDirectory=directoryCtx.directory();
+for(const id of directoryTasks)assert.ok(fullDirectory.includes("adminOpenTask('"+id+"')"));
+for(const id of ['policy','operator'])assert.ok(fullDirectory.includes("adminSetFinanceWorkspace('"+id+"')"));
+assert.match(fullDirectory,/Saldo bancário livre, despesas gerais, impostos e lucro líquido exigem fontes completas/);
+assert.match(fullDirectory,/sem emitir novo Pix/);
+assert.doesNotMatch(fullDirectory,/adminPerform\(|adminInvoke\(|fetch\(/);
+directoryRole='finance';
+directoryTasks=['finance-billing','finance-reconciliation','growth-benefits'];
+const scoped=directoryCtx.directory();
+assert.match(scoped,/adminOpenTask\('finance-billing'\)/);
+assert.doesNotMatch(scoped,/adminOpenTask\('growth-budget'\)|adminOpenTask\('ads-finance'\)|adminOpenTask\('finance-homologation'\)|adminSetFinanceWorkspace\('operator'\)/);
+directoryRole='operations';
+assert.equal(directoryCtx.directory(),'');
+assert.ok(source.includes("adminFinanceRenderPart('Mapa da controladoria',()=>adminFinanceWorkflowDirectory())"));
+
 console.log('V1.187: financial sources, dedup, null safety, sampled receipts, role isolation, and mobile CSS passed.');
