@@ -133,4 +133,47 @@ assert.ok(page.includes("refunds||[]).filter(x=>x.status==='review_required')"),
 assert.ok(page.includes("statements||[]).filter(x=>x.status==='overdue')"),
   'badge Financeiro precisa contabilizar D+1 vencido');
 
+// ERP: protect edits when server policy is incomplete; an empty form is not zero.
+const {default:vm}=await import('node:vm');
+function policyCut(name){
+ const start=admin.indexOf('function '+name+'(');
+ assert.ok(start>=0);
+ const end=admin.indexOf('\n}',start);
+ return admin.slice(start,end+2);
+}
+const fields={};
+const context=vm.createContext({
+ document:{getElementById:id=>fields[id]},
+ adminMoney:cents=>'R$ '+(cents/100).toFixed(2).replace('.',','),
+ adminBpsPct:bps=>String(bps/100),
+ esc:v=>String(v??''),
+ formatDateTime:v=>String(v??'')
+});
+vm.runInContext(['adminCommercialPolicySection','adminPolicyFieldBps','adminPreviewCommercialPolicy'].map(policyCut).join('\n')+'\nthis.view=adminCommercialPolicySection;this.parse=adminPolicyFieldBps;this.preview=adminPreviewCommercialPolicy;',context);
+const policy={active:true,policy_version:1,platform_fee_bps:900,variable_cost_bps:100,minimum_contribution_bps:100,cashback_bps:100,direct_referral_bps:200,commission_hold_hours:24};
+assert.match(context.view({commercialPolicy:policy}),/Salvar política para pedidos futuros/);
+for(const invalid of [{...policy,active:'true'},{...policy,policy_version:null},{...policy,cashback_bps:null},{...policy,commission_hold_hours:undefined},{...policy,platform_fee_bps:5001}]){
+ const html=context.view({commercialPolicy:invalid});
+ assert.match(html,/Política comercial indisponível/);
+ assert.doesNotMatch(html,/Salvar política para pedidos futuros/);
+}
+const deficit=context.view({commercialPolicy:{...policy,platform_fee_bps:100}});
+assert.match(deficit,/Déficit econômico \(fallback\)/);
+assert.match(deficit,/POLÍTICA NÃO FINANCIADA/);
+assert.match(deficit,/déficit R\$ 4,00/);
+for(const raw of ['', ' ', 'NaN','1e1','1.001','-1','51']){
+ fields.test={value:raw};assert.equal(context.parse('test'),null);
+}
+for(const [raw,expected] of [['0',0],['2',200],['6.50',650],['50',5000]]){
+ fields.test={value:raw};assert.equal(context.parse('test'),expected);
+}
+for(const [id,value] of Object.entries({'policy-fee':'1','policy-variable':'1','policy-contribution':'1','policy-cashback':'1','policy-referral':'2'}))fields[id]={value};
+fields['policy-preview']={};
+context.preview();
+assert.match(fields['policy-preview'].innerHTML,/déficit R\$ 4,00/);
+fields['policy-cashback'].value='';
+context.preview();
+assert.match(fields['policy-preview'].innerHTML,/Prévia indisponível/);
+assert.ok(admin.includes("typeof holdRaw==='string'")&&admin.includes("Number(holdRaw):NaN"),'empty hold must not silently become zero');
+
 console.log('Admin control plane V1.133 passou: polling, PSP, financeiro, catálogo, compliance, incidentes e auditoria governados.');
