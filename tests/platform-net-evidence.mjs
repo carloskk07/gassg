@@ -103,4 +103,29 @@ for(const mutate of [x=>x.merchantFundsIncluded=true,x=>x.accountBalanceVerified
 const reversed=copy(summary);reversed.rows[0].netStatus='reversed';reversed.kindTotals.billing.verifiedCount=0;
 reversed.kindTotals.billing.reversedCount=1;reversed.kindTotals.billing.verifiedNetCents=0;
 assert(ctx.view(reversed).includes('Líquido anterior à revisão/estorno'));assert(ctx.valid(reversed));
+
+// Consolidate all classified receipts, never just the visible sample or gross minus net.
+const allKinds=copy(summary);
+allKinds.totalCount=35;allKinds.returnedCount=30;allKinds.truncated=true;
+allKinds.kindTotals.billing={count:10,grossCents:10000,verifiedCount:8,verifiedNetCents:7800,reversedCount:1,pendingCount:1};
+allKinds.kindTotals.coupon={count:10,grossCents:20000,verifiedCount:7,verifiedNetCents:13000,reversedCount:1,pendingCount:2};
+allKinds.kindTotals.mobility={count:5,grossCents:10000,verifiedCount:3,verifiedNetCents:5800,reversedCount:0,pendingCount:2};
+allKinds.kindTotals.advertising={count:10,grossCents:30000,verifiedCount:7,verifiedNetCents:20000,reversedCount:2,pendingCount:1};
+allKinds.rows=Array.from({length:30},(_,i)=>({...summary.rows[0],resourceId:'11111111-1111-4111-8111-'+String(i).padStart(12,'0')}));
+assert.equal(ctx.valid(allKinds),true);
+const consolidated=ctx.view(allKinds);
+assert.match(consolidated,/Bruto histórico registrado<\/small><strong>R\$ 700\.00/);
+assert.match(consolidated,/Líquido liberado e conferido<\/small><strong>R\$ 466\.00/);
+assert.match(consolidated,/Aguardando comprovação<\/small><strong>6<\/strong>/);
+assert.match(consolidated,/Estornados ou em revisão<\/small><strong>4<\/strong>/);
+assert.match(consolidated,/71,4%/);
+assert.match(consolidated,/Não some com o histórico de taxas e pacotes/);
+const empty=copy(summary);empty.totalCount=0;empty.returnedCount=0;empty.rows=[];
+for(const k of Object.keys(empty.kindTotals))empty.kindTotals[k]={count:0,grossCents:0,verifiedCount:0,verifiedNetCents:0,reversedCount:0,pendingCount:0};
+assert.match(ctx.view(empty),/Sem recebimentos para medir/);
+const overflow=copy(summary);
+overflow.kindTotals.billing.grossCents=Number.MAX_SAFE_INTEGER;
+overflow.kindTotals.coupon.grossCents=Number.MAX_SAFE_INTEGER;
+assert.match(ctx.view(overflow),/limite de cálculo seguro excedido/);
+
 console.log('PASS: platform NET binds receiver, Orders, Pix, numeric Payments, report and real gross/net; reversals/conflicts fail closed; inspection writes nothing; scoped Admin readback.');
