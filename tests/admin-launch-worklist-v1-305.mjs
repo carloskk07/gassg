@@ -94,6 +94,11 @@ assert.match(view,/adminSetSection\('partners'\)/);
 assert.match(view,/adminSetSection\('enablement'\)/);
 assert.match(view,/role="meter"/);
 assert.match(view,/aria-valuenow="0"/);
+for(const title of ['Primeira revenda com oferta real','Responsável operacional','Recebimento da revenda','Preço, estoque e entrega confirmados']){
+ assert.ok(view.includes('aria-label="Resolver: '+title+'"'),'each step has a distinct accessible name: '+title);
+}
+assert.match(view,/aria-label="Resolver próxima etapa: Primeira revenda com oferta real"/);
+
 assert.match(view,/Ativação automática: não/);
 assert.doesNotMatch(view,/onclick="adminSetOperationMode/);
 assert.doesNotMatch(view,/Ativar todas as cidades/);
@@ -127,6 +132,7 @@ for(const incomplete of [{...eligible,securityBlockers:undefined},{...eligible,s
 }
 assert.match(ctx.view({launchReadiness:{...eligible,securityBlockers:undefined}}),/Bloqueios de segurança: não informado/);
 assert.match(ctx.view({launchReadiness:eligible}),/Requisitos comerciais comprovados/);
+assert.match(ctx.view({launchReadiness:eligible}),/aria-label="Revisar: Recebimento da revenda"/);
 assert.match(ctx.view({launchReadiness:eligible}),/Isso ainda não ativa vendas/);
 assert.doesNotMatch(ctx.view({launchReadiness:eligible}),/onclick="adminSetOperationMode/);
 
