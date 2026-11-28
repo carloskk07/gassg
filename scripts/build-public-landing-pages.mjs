@@ -87,7 +87,7 @@ const PAGES=[
   trustNotes:["Créditos por visualização","Publicidade identificada","Controle do saldo"],
   stepsHeading:"Da ideia à ação comercial.",
   proofTitle:"Sua marca em conversas que fazem sentido",
-  highlights:[["📣","Publicidade por créditos","Consulte o preço vigente e escolha a recarga no TAMÃO Ads. O débito depende de visualizações elegíveis."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
+  highlights:[["📣","Divulgação regional","Publicidade por créditos: consulte o preço vigente e escolha a recarga no TAMÃO Ads. O débito depende de visualizações elegíveis."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
   scenario:["Uma boa campanha conversa com a rotina de quem vive na cidade.","SEM CONTEXTO","Divulgar a mesma mensagem, sem relação com o comércio local.","COM O TAMÃO","Planejar uma ação identificada por cidade, público e objetivo comercial.","Uma boa divulgação começa por conectar sua marca às pessoas certas, em sua região."],
   savingsPitch:['SUA MARCA NA CIDADE','Uma proposta regional com identidade e propósito.','Escolha a região, personalize a peça e consulte os valores vigentes no estúdio de anúncios. Para ações especiais, converse com o TAMÃO.','Conhecer TAMÃO Ads','/#sponsors'],
   visualTitle:'Sua marca com propósito e presença local.',
