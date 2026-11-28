@@ -256,7 +256,7 @@ function renderLanding(page,origin,indexing){
  const headerAction={
   'como-funciona':['Ver produtos','/'],
   'para-revendas':['Sou revenda','/?entrada=cadastro-revenda'],
-  'para-marcas':['Criar anúncio','/#sponsors'],
+  'para-marcas':['Tenho uma marca','/?entrada=marca'],
   'indicacoes':['Quero indicar','/?entrada=indicar']
  }[page.slug];
  const navigation=PAGES.map(x=>`<a data-tamao-handoff href="/${x.slug}/" ${x.slug===page.slug?'aria-current="page"':''}>${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>`).join('');
