@@ -12883,7 +12883,7 @@ function adminPage(){
     ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     <div class="admin-workspace">
       ${menu}
-      <main class="admin-main">
+      <section class="admin-main" aria-labelledby="admin-current-section-title">
         ${adminPanel('overview',overviewContent)}
         ${adminPanel('testcenter',sectionActive('testcenter')?adminOfficialAreasView():'')}
         ${adminPanel('orders',ordersContent)}
@@ -12901,7 +12901,7 @@ function adminPage(){
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}
         ${adminPanel('system',systemContent)}
-      </main>
+      </section>
     </div>
     ${adminDetailView()}
   </section>`);
