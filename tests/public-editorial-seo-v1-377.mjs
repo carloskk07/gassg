@@ -45,6 +45,14 @@ try{
  const sponsor=fs.readFileSync(path.join(root,'para-marcas','index.html'),'utf8');
  assert.match(sponsor,/Nenhuma campanha é ativada automaticamente/);
  assert.match(sponsor,/href="\/\?entrada=marca"/);
+ assert.match(sponsor,/href="\/#sponsors"/);
+ assert.match(sponsor,/Criar meu anúncio/);
+ assert.match(sponsor,/visualizações elegíveis/);
+ assert.match(sponsor,/não por pacotes de dias/);
+ assert.match(sponsor,/recarga mínima vigentes no estúdio de anúncios/);
+ assert.match(sponsor,/Conversar sobre parceria/);
+ assert.doesNotMatch(sponsor,/Há campanhas prontas para compra automática/);
+
  const network=fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8');
  assert.match(network,/seguem as regras e a elegibilidade/);
  assert.match(network,/href="\/\?entrada=indicar"/);
