@@ -12,7 +12,7 @@ const cut=name=>{
   assert.ok(end>start,'Function closure missing: '+name);
   return source.slice(start,end+2);
 };
-const fmt=c=> 'R$ '+(c/100).toFixed(2).replace('.',',');
+const fmt=c=> 'R$ '+(Math.max(0,c)/100).toFixed(2).replace('.',',');
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 let role='finance';
 const c=vm.createContext({
@@ -73,6 +73,7 @@ const refundsMoreThanApproved={...base,monthly:base.monthly.map((x,i)=>
   i===4?row('2026-09',500,800,1):x)};
 assert.equal(c.compare(refundsMoreThanApproved).latest.netAfterLinkedRefundsCents,-300);
 assert.ok(c.view(refundsMoreThanApproved).includes('Pode ser negativo'));
+assert.match(c.view(refundsMoreThanApproved),/Após reembolsos vinculados<\/small><strong>−R\$ 3,00<\/strong>/,'negative net must survive nonnegative shared money formatter');
 const invalid=[
   null,
   {...base,source:'recent_list'},

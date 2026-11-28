@@ -5780,6 +5780,7 @@ function adminFinanceMonthlyComparisonView(data){
   const m=adminFinanceMonthlyComparison(data);
   if(!m.ok)return `<div class='notice danger admin-finance-monthly'><strong>Comparação indisponível.</strong><br>${esc(m.reason)} Não foram calculadas variações a partir de períodos incompletos.</div>`;
   const signedMoney=c=>(c>0?'+':c<0?'−':'')+adminMoney(Math.abs(c));
+  const netMoney=c=>Number.isSafeInteger(c)?(c<0?'−':'')+adminMoney(Math.abs(c)):'—';
   const percentage=m.noActivity?'Sem movimentação nos meses comparados'
     :m.firstActivity?'Início de atividade no último mês fechado'
     :m.percentage===null?'Sem base percentual comparável'
@@ -5794,7 +5795,7 @@ function adminFinanceMonthlyComparisonView(data){
     <div class='section-head'><div><span class='section-kicker'>DESEMPENHO ENTRE MESES</span><h3>${esc(m.latest.month)} comparado com ${esc(m.previous.month)}</h3><p>Apenas meses encerrados são comparados. ${esc(m.referenceMonth)} está em andamento e aparece apenas na evolução, sem projeção.</p></div></div>
     <div class='admin-finance-trend-grid'>
       <div class='admin-managerial-stat'><small>Aprovações registradas • ${esc(m.latest.month)}</small><strong>${adminMoney(m.latest.approvedCents)}</strong><span>${esc(percentage)} • diferença ${signedMoney(m.approvedDelta)}</span></div>
-      <div class='admin-managerial-stat'><small>Após reembolsos vinculados</small><strong>${adminMoney(m.latest.netAfterLinkedRefundsCents)}</strong><span>Diferença ante ${esc(m.previous.month)}: ${signedMoney(m.netDelta)}. Pode ser negativo.</span></div>
+      <div class='admin-managerial-stat'><small>Após reembolsos vinculados</small><strong>${netMoney(m.latest.netAfterLinkedRefundsCents)}</strong><span>Diferença ante ${esc(m.previous.month)}: ${signedMoney(m.netDelta)}. Pode ser negativo.</span></div>
       <div class='admin-managerial-stat'><small>Reembolsos vinculados</small><strong>${adminMoney(m.latest.linkedRefundCents)}</strong><span>Variação: ${signedMoney(m.refundDelta)}. Podem se referir a aprovações antigas.</span></div>
       <div class='admin-managerial-stat'><small>Quantidade de aprovações</small><strong>${Number(m.latest.approvedCount)}</strong><span>Variação: ${m.countDelta>0?'+':''}${m.countDelta} evento(s)</span></div>
     </div>
@@ -5924,6 +5925,7 @@ function adminFinanceHistoryView(){
   const state=adminRuntime.financeHistory||{};
   const data=state.data;
   const fresh=adminFinanceHistoryIsFresh(state);
+  const netMoney=c=>Number.isSafeInteger(c)?(c<0?'−':'')+adminMoney(Math.abs(c)):'—';
   const types=[
     ['package_purchase','Pacotes de crédito','Pré-pagamento para taxas futuras; não equivale a receita ganha'],
     ['statement_payment','Taxas diárias D+1','Cobranças de taxas já apuradas'],
@@ -5932,10 +5934,10 @@ function adminFinanceHistoryView(){
   const rows=data?types.map(([kind,label,detail])=>{
     const x=data.kindTotals[kind];
     if(!x)return '';
-    return `<div class='admin-managerial-row'><div><strong>${esc(label)}</strong><small>${esc(detail)} • ${Number(x.approvedCount)} aprovação(ões) no histórico</small></div><div class='admin-finance-history-amount'><strong>${adminMoney(x.approvedCents)}</strong><small>Reembolsos vinculados: ${adminMoney(x.linkedRefundCents)}</small><small>Após reembolsos: ${adminMoney(x.netAfterLinkedRefundsCents)}</small><small>Últimos 30 dias: ${adminMoney(x.approved30dCents)}</small></div></div>`;
+    return `<div class='admin-managerial-row'><div><strong>${esc(label)}</strong><small>${esc(detail)} • ${Number(x.approvedCount)} aprovação(ões) no histórico</small></div><div class='admin-finance-history-amount'><strong>${adminMoney(x.approvedCents)}</strong><small>Reembolsos vinculados: ${adminMoney(x.linkedRefundCents)}</small><small>Após reembolsos: ${netMoney(x.netAfterLinkedRefundsCents)}</small><small>Últimos 30 dias: ${adminMoney(x.approved30dCents)}</small></div></div>`;
   }).join(''):'';
   const months=data?data.monthly.map(row=>
-    `<tr><th scope='row'>${esc(row.month)}</th><td>${adminMoney(row.approvedCents)}</td><td>${adminMoney(row.linkedRefundCents)}</td><td>${adminMoney(row.netAfterLinkedRefundsCents)}</td></tr>`
+    `<tr><th scope='row'>${esc(row.month)}</th><td>${adminMoney(row.approvedCents)}</td><td>${adminMoney(row.linkedRefundCents)}</td><td>${netMoney(row.netAfterLinkedRefundsCents)}</td></tr>`
   ).join(''):'';
   const warnings=data&&(Number(data.unlinkedRefundCount)>0||Number(data.unverifiableApprovedCount)>0)
     ?`<div class='notice danger'><strong>Dados para conferir.</strong><br>${Number(data.unlinkedRefundCount)} reembolso(s) não vinculado(s) a aprovações • ${adminMoney(data.unlinkedRefundCents)} • ${Number(data.unverifiableApprovedCount)} aprovação(ões) sem classificação ou comprovação completa. O líquido exibido considera apenas reembolsos vinculados.</div>`:'';
