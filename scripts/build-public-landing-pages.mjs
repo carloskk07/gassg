@@ -77,35 +77,35 @@ const PAGES=[
  {
   slug:'para-marcas',
   title:'Divulgação e Parcerias no TAMÃO | Marcas e Comércio Local',
-  description:'Conheça possibilidades de divulgação regional, campanhas de benefícios e parcerias com revendas no TAMÃO. Planos de divulgação para negócios locais.',
+  description:'Conheça TAMÃO Ads: publicidade local por créditos e visualizações elegíveis, com controle de saldo, revisão de campanhas e propostas de parceria.',
   kicker:'PARA MARCAS E PATROCINADORES',
   heading:'Sua marca mais perto da vida da cidade.',
-  lead:'Converse com o comércio local por meio de propostas de divulgação regional, campanhas identificadas e ações de benefício. Apresente sua marca e conheça as possibilidades.',
-  primary:['Apresentar minha marca','/?entrada=marca'],
-  secondary:['Conhecer os formatos','/#sponsors'],
+  lead:'Crie sua campanha local com TAMÃO Ads: carregue créditos, acompanhe o consumo por visualização elegível e divulgue sua empresa na região escolhida. Prepare sua proposta gratuitamente.',
+  primary:['Criar meu anúncio','/#sponsors'],
+  secondary:['Conversar sobre parceria','/?entrada=marca'],
   mark:'DIVULGAÇÃO COM CONTEXTO LOCAL',
-  trustNotes:["Ações por região","Publicidade identificada","Propostas personalizadas"],
+  trustNotes:["Créditos por visualização","Publicidade identificada","Controle do saldo"],
   stepsHeading:"Da ideia à ação comercial.",
   proofTitle:"Sua marca em conversas que fazem sentido",
-  highlights:[["📣","Divulgação regional","Possibilidades de presença publicitária identificada por região."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
+  highlights:[["📣","Divulgação regional","Publicidade por créditos: consulte o preço vigente e escolha a recarga no TAMÃO Ads. O débito depende de visualizações elegíveis."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
   scenario:["Uma boa campanha conversa com a rotina de quem vive na cidade.","SEM CONTEXTO","Divulgar a mesma mensagem, sem relação com o comércio local.","COM O TAMÃO","Planejar uma ação identificada por cidade, público e objetivo comercial.","Uma boa divulgação começa por conectar sua marca às pessoas certas, em sua região."],
-  savingsPitch:['SUA MARCA NA CIDADE','Uma proposta regional com identidade e propósito.','Apresente seu objetivo e conheça possibilidades de divulgação identificada, benefícios e conexão com revendas.','Apresentar minha marca','/?entrada=marca'],
+  savingsPitch:['SUA MARCA NA CIDADE','Uma proposta regional com identidade e propósito.','Escolha a região, personalize a peça e consulte os valores vigentes no estúdio de anúncios. Para ações especiais, converse com o TAMÃO.','Conhecer TAMÃO Ads','/#sponsors'],
   visualTitle:'Sua marca com propósito e presença local.',
-  visualText:'Conheça formatos de divulgação, relacionamento e benefícios para avaliação. A proposta passa por definição e aprovação antes de ser veiculada.',
+  visualText:'Prepare uma campanha regional, consulte a recarga mínima e o preço vigente por visualização elegível. A peça passa por revisão antes da veiculação.',
   steps:[
-   ['01','Conte seu objetivo','Apresente a cidade, a categoria e o público que deseja alcançar.'],
-   ['02','Escolha uma possibilidade','Explore presença identificada, benefícios para clientes ou ações regionais.'],
-   ['03','Defina as condições','Orçamento, formato, responsabilidades e aprovação vêm antes de qualquer campanha.']
+   ['01','Prepare sua campanha','Escolha a cidade, a mensagem e o orçamento no estúdio de anúncios. Enviar a proposta é gratuito.'],
+   ['02','Aguarde a revisão','Após a análise, escolha a recarga de créditos e acompanhe a confirmação do Pix.'],
+   ['03','Acompanhe o consumo','Com campanha ativa e saldo disponível, acompanhe visualizações elegíveis, débitos e situação da campanha.']
   ],
   storyTitle:'Publicidade que conversa com a vida real.',
   storyText:'Pense além de um banner: uma marca pode participar de ações regionais com comerciantes e consumidores, sempre com identificação publicitária e objetivos definidos.',
-  storyPoints:['Publicidade patrocinada deve ser claramente identificada.','Formatos, públicos e investimentos são avaliados individualmente.','Nenhuma campanha é ativada automaticamente pelo envio de interesse.'],
+  storyPoints:['Publicidade patrocinada deve ser claramente identificada.','O saldo é consumido por visualizações elegíveis, não por pacotes de dias. A audiência disponível determina a entrega.','Nenhuma campanha é ativada automaticamente pelo envio de interesse.'],
   questions:[
    ['Quais tipos de marcas podem conversar com o TAMÃO?','Empresas interessadas em ações relevantes para os consumidores e revendas da região podem apresentar uma proposta.'],
-   ['Há campanhas prontas para compra automática?','Não. As possibilidades apresentadas dependem de avaliação e aprovação comercial.'],
+   ['Como funciona o investimento em TAMÃO Ads?','A recarga antecipada é consumida por visualizações elegíveis, após revisão e ativação da campanha. Consulte o preço e a recarga mínima vigentes no estúdio de anúncios. Ações especiais podem exigir proposta própria.'],
    ['O TAMÃO garante alcance ou vendas?','Não há garantia de alcance, pedidos ou retorno. Cada ação precisa de objetivos e condições definidos.']
   ],
-  closing:'Sua próxima campanha local pode começar com uma conversa.'
+  closing:'Prepare sua próxima campanha local com controle do investimento.'
  },
  {
   slug:'indicacoes',
@@ -186,9 +186,9 @@ const EDITORIAL_SCENES=Object.freeze({
  },
  'para-marcas':{
   top:'PRESENÇA REGIONAL',title:'Sua marca com contexto',
-  detail:'Ideias de divulgação para o comércio local',
-  side:'Sua proposta',sideDetail:'Região, objetivo e público',
-  tags:['Publicidade identificada','Proposta comercial']
+  detail:'Créditos por visualizações elegíveis',
+  side:'Seu saldo',sideDetail:'Consumo e acompanhamento',
+  tags:['Publicidade identificada','Créditos pré-pagos']
  },
  'indicacoes':{
   top:'CONEXÕES REAIS',title:'Sua rede começa com um convite',
@@ -228,7 +228,7 @@ function renderLanding(page,origin,indexing){
  const audienceLinks=[
   ['como-funciona','QUERO COMPRAR','Escolha o que precisa','Gás, água e essenciais: produtos e consulta por CEP.'],
   ['para-revendas','TENHO UMA EMPRESA','Mais uma vitrine para vender','Mostre seus produtos e mantenha o controle da operação.'],
-  ['para-marcas','QUERO DIVULGAR','Sua marca na conversa local','Explore propostas de divulgação e ações regionais.'],
+  ['para-marcas','QUERO DIVULGAR','Sua marca na conversa local','Conheça publicidade por créditos e parcerias regionais.'],
   ['indicacoes','QUERO INDICAR','Sua rede, seus convites','Apresente pessoas e revendas com um caminho próprio.']
  ];
  const related=audienceLinks.filter(([slug])=>slug!==page.slug).map(([slug,kicker,heading,description])=>
