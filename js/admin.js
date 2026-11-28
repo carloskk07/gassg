@@ -12399,7 +12399,7 @@ function adminLaunchWorklist(d){
   const steps=model.checks.map((step,i)=>{
     const done=step.ready===true;
     const action=canAccess(step.section)?
-      '<button type="button" class="secondary small" onclick="'+navigate(step)+'">'+
+      '<button type="button" class="secondary small" aria-label="'+esc((done?'Revisar':'Resolver')+': '+step.title)+'" onclick="'+navigate(step)+'">'+
       (done?'Revisar':'Resolver')+' →</button>':'';
     return '<li class="'+(done?'is-ready':'is-blocked')+'">'+
       '<span class="admin-launch-step-mark" aria-hidden="true">'+(done?'✓':String(i+1))+'</span>'+
@@ -12426,7 +12426,7 @@ function adminLaunchWorklist(d){
           return items.length?'<p><strong>'+esc(label)+':</strong> '+esc(items.map(item=>item.label).join(' • '))+'</p>':'';
         }).join('')+'</details>':'';
   const nextAction=next&&canAccess(next.section)?
-    '<button type="button" class="primary" onclick="'+navigate(next)+'">Resolver próxima etapa →</button>':
+    '<button type="button" class="primary" aria-label="'+esc('Resolver próxima etapa: '+next.title)+'" onclick="'+navigate(next)+'">Resolver próxima etapa →</button>':
     '<button type="button" class="secondary" onclick="adminSetSection(\'system\')">Verificar sistema →</button>';
   return '<section class="section admin-launch-worklist" aria-label="Roteiro da primeira operação real">'+
     '<div class="admin-launch-worklist-head"><div><span class="section-kicker">PRIMEIRA OPERAÇÃO COMERCIAL</span>'+
