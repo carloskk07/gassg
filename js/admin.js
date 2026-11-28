@@ -10101,23 +10101,44 @@ function adminGrowthBenefitPreviewView(){
     </div></section>`;
 }
 function adminFinanceOverview(d){
-  const billing=d.merchantBilling||{};
+  if(!adminRoleCanSection('finance'))return '';
+  const billing=d?.merchantBilling||{};
   const metrics=billing.metrics||{};
   const reconciliation=billing.reconciliation||{};
-  const pendingReviews=(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
-    +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
+  const whole=value=>{
+    if(typeof value!=='number'&&!(typeof value==='string'&&/^\d+$/.test(value)))return null;
+    const n=Number(value);
+    return Number.isSafeInteger(n)&&n>=0?n:null;
+  };
+  const money=value=>whole(value)===null?'—':adminMoney(whole(value));
+  const count=value=>whole(value)===null?'não informado':String(whole(value));
+  const reviewsAvailable=Array.isArray(billing.paymentEvents)&&Array.isArray(billing.refunds);
+  const pendingReviews=reviewsAvailable?billing.paymentEvents.filter(x=>x?.status==='review_required').length
+    +billing.refunds.filter(x=>x?.status==='review_required').length:null;
+  const overdue=whole(metrics.overdueStatementCount);
+  const pending=whole(metrics.pendingPaymentCount);
+  const issues=whole(reconciliation.issueCount);
+  const critical=whole(reconciliation.criticalCount);
+  const complete=['openStatementCents','openStatementCount','overdueStatementCents','overdueStatementCount',
+    'pendingPaymentCents','pendingPaymentCount','prepaidCreditBalanceCents','prepaidAccountCount',
+    'refundRecoveryOutstandingCents'].every(k=>whole(metrics[k])!==null)
+    &&reviewsAvailable&&issues!==null&&critical!==null&&typeof reconciliation.healthy==='boolean';
+  const attention=overdue>0||whole(metrics.overdueStatementCents)>0||pending>0||
+    whole(metrics.pendingPaymentCents)>0||pendingReviews>0||issues>0||critical>0||reconciliation.healthy===false;
+  const status=attention?'EXIGE ATENÇÃO':!complete?'DADOS INCOMPLETOS':'SEM ALERTAS NA CONSULTA';
   const e2e=adminBillingE2EState(d);
   const ingress=billing.paymentIngress||{};
   const pspLabel=e2e.validated?'Integração verificada':adminRuntime.providerHealth?.ok===true?'API acessível':ingress.livePspReady?'Configurado':'Pendente';
   return `<section class="section admin-finance-overview">
-    <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
+    <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP. Não representa saldo bancário disponível nem lucro.</p></div><span class="status-pill ${attention||!complete?'risk':'online'}">${status}</span></div>
+    ${!complete?'<div class="notice"><strong>Consulta financeira incompleta.</strong> Os campos sem evidência aparecem como — ou não informado. Não interprete ausência de dados como saldo zero ou ausência de risco.</div>':''}
     <div class="admin-exec-grid finance">
-      ${adminExecutiveKpi({icon:'R$',label:'D+1 em aberto',value:adminMoney(metrics.openStatementCents),detail:Number(metrics.openStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'warning':'money'})}
-      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:adminMoney(metrics.overdueStatementCents),detail:Number(metrics.overdueStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'danger':'neutral'})}
-      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
-      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
-      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
-      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'Sem alertas na consulta atual':'Conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+      ${adminExecutiveKpi({icon:'R$',label:'D+1 em aberto',value:money(metrics.openStatementCents),detail:count(metrics.openStatementCount)+' fechamento(s)',tone:overdue>0?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:money(metrics.overdueStatementCents),detail:count(metrics.overdueStatementCount)+' fechamento(s)',tone:overdue>0?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:money(metrics.pendingPaymentCents),detail:count(metrics.pendingPaymentCount)+' pagamento(s)',tone:pending>0?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:money(metrics.prepaidCreditBalanceCents),detail:count(metrics.prepaidAccountCount)+' conta(s) • obrigação operacional',tone:'neutral'})}
+      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:pendingReviews===null?'—':String(pendingReviews),detail:money(metrics.refundRecoveryOutstandingCents)+' em recuperação • revisões nos registros carregados',tone:pendingReviews>0?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true&&issues===0&&critical===0?'Sem alertas de conciliação na consulta atual':'Conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
     </div>
   </section>`;
 }
