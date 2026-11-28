@@ -133,4 +133,42 @@ assert.match(unverified,/class="status-pill risk">Conferência necessária/);
 assert.doesNotMatch(unverified,/Conciliação fechada/,
   'empty UI sample is not proof of financial health');
 
+// Executive position: absent amounts and incomplete reconciliation never become a green zero.
+let executiveAllowed=true;
+const execCtx=vm.createContext({
+  adminRoleCanSection:section=>section==='finance'&&executiveAllowed,
+  adminMoney:dollar,esc:escape,
+  adminRuntime:{providerHealth:null},
+  adminBillingE2EState:()=>({validated:false}),
+  adminExecutiveKpi:({label,value,detail,tone})=>'<p>'+label+'|'+value+'|'+detail+'|'+tone+'</p>'
+});
+vm.runInContext(cut('adminFinanceOverview')+'\nthis.executive=adminFinanceOverview;',execCtx);
+const exec=extra=>execCtx.executive(extra);
+const unknownExecutive=exec({});
+assert.match(unknownExecutive,/DADOS INCOMPLETOS/);
+assert.match(unknownExecutive,/D\+1 em aberto\|—\|não informado/);
+assert.match(unknownExecutive,/Refunds em revisão\|—\|—/);
+assert.doesNotMatch(unknownExecutive,/SEM ALERTAS NA CONSULTA|R\$ 0,00/);
+const zeroMetrics={openStatementCents:0,openStatementCount:0,overdueStatementCents:0,overdueStatementCount:0,pendingPaymentCents:0,pendingPaymentCount:0,prepaidCreditBalanceCents:0,prepaidAccountCount:0,refundRecoveryOutstandingCents:0};
+const zeroBilling={metrics:zeroMetrics,reconciliation:{healthy:true,issueCount:0,criticalCount:0},paymentEvents:[],refunds:[]};
+const zero=exec({merchantBilling:zeroBilling});
+assert.match(zero,/SEM ALERTAS NA CONSULTA/);
+assert.match(zero,/D\+1 em aberto\|R\$ 0,00\|0/);
+assert.match(zero,/obrigação operacional/);
+assert.match(zero,/Não representa saldo bancário disponível nem lucro/);
+assert.doesNotMatch(zero,/Consulta financeira incompleta/);
+for(const invalid of [null,undefined,'',false,-1,1.5,Number.MAX_SAFE_INTEGER+1]){
+ const html=exec({merchantBilling:{...zeroBilling,metrics:{...zeroMetrics,openStatementCents:invalid}}});
+ assert.match(html,/DADOS INCOMPLETOS/);
+ assert.match(html,/D\+1 em aberto\|—/);
+}
+const attention=exec({merchantBilling:{...zeroBilling,reconciliation:{healthy:false,issueCount:1,criticalCount:0}}});
+assert.match(attention,/EXIGE ATENÇÃO/);
+assert.doesNotMatch(attention,/SEM ALERTAS NA CONSULTA/);
+assert.match(exec({merchantBilling:{...zeroBilling,metrics:{...zeroMetrics,pendingPaymentCents:100,pendingPaymentCount:1}}}),/EXIGE ATENÇÃO/);
+assert.match(exec({merchantBilling:{...zeroBilling,paymentEvents:undefined}}),/DADOS INCOMPLETOS/);
+assert.match(exec({merchantBilling:{...zeroBilling,reconciliation:{healthy:true}}}),/DADOS INCOMPLETOS/);
+executiveAllowed=false;
+assert.equal(exec({merchantBilling:zeroBilling}),'');
+
 console.log('V1.187: financial sources, dedup, null safety, sampled receipts, role isolation, and mobile CSS passed.');
